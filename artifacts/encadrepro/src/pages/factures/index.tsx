@@ -9,11 +9,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 export const factureStatutColors: Record<string, string> = {
-  brouillon: "bg-gray-500/20 text-gray-300 border-gray-500/50",
-  envoyee: "bg-blue-500/20 text-blue-300 border-blue-500/50",
-  partiellement_payee: "bg-orange-500/20 text-orange-300 border-orange-500/50",
-  soldee: "bg-green-500/20 text-green-300 border-green-500/50",
-  annulee: "bg-red-500/20 text-red-300 border-red-500/50",
+  brouillon: "bg-gray-500/15 text-gray-600 dark:text-gray-300 border-gray-500/30",
+  envoyee: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
+  partiellement_payee: "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
+  soldee: "bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30",
+  annulee: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
 };
 
 export default function FacturesList() {

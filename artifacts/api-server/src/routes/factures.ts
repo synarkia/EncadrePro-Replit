@@ -218,6 +218,91 @@ router.patch("/factures/:id/statut", async (req, res): Promise<void> => {
   res.json(UpdateFactureStatutResponse.parse(mapFacture(updated)));
 });
 
+router.put("/factures/:id/lignes", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const factureId = parseInt(raw, 10);
+  if (isNaN(factureId)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const { lignes } = req.body as {
+    lignes: Array<{
+      produit_id?: number | null; designation: string; unite_calcul: string;
+      largeur_m?: number | null; hauteur_m?: number | null;
+      quantite: number; prix_unitaire_ht: number; taux_tva: number; ordre: number;
+    }>;
+  };
+
+  if (!Array.isArray(lignes)) {
+    res.status(400).json({ error: "lignes must be an array" });
+    return;
+  }
+
+  await db.delete(lignesFactureTable).where(eq(lignesFactureTable.facture_id, factureId));
+
+  if (lignes.length > 0) {
+    const toInsert = lignes.map((l) => {
+      let qCalc = l.quantite;
+      const w = l.largeur_m ?? 0;
+      const h = l.hauteur_m ?? 0;
+      if (l.unite_calcul === "metre_lineaire") qCalc = (w + h) * 2 * l.quantite;
+      else if (l.unite_calcul === "metre_carre") qCalc = w * h * l.quantite;
+      const totalHt = qCalc * l.prix_unitaire_ht;
+      const totalTtc = totalHt * (1 + l.taux_tva / 100);
+      return {
+        facture_id: factureId,
+        produit_id: l.produit_id ?? null,
+        designation: l.designation,
+        unite_calcul: l.unite_calcul,
+        largeur_m: l.largeur_m ?? null,
+        hauteur_m: l.hauteur_m ?? null,
+        quantite: l.quantite,
+        quantite_calculee: qCalc,
+        prix_unitaire_ht: l.prix_unitaire_ht,
+        taux_tva: l.taux_tva,
+        total_ht: totalHt,
+        total_ttc: totalTtc,
+        ordre: l.ordre,
+      };
+    });
+    await db.insert(lignesFactureTable).values(toInsert);
+  }
+
+  await recalcFacture(factureId);
+
+  const factureRow = await getFactureWithClient(factureId);
+  if (!factureRow) {
+    res.status(404).json({ error: "Facture introuvable" });
+    return;
+  }
+  const newLignes = await db.select().from(lignesFactureTable)
+    .where(eq(lignesFactureTable.facture_id, factureId))
+    .orderBy(lignesFactureTable.ordre);
+  const paiements = await db.select().from(acomptesTable)
+    .where(eq(acomptesTable.facture_id, factureId))
+    .orderBy(acomptesTable.cree_le);
+
+  const data = {
+    ...mapFacture(factureRow),
+    lignes: newLignes.map((l) => ({
+      id: l.id, devis_id: l.facture_id, produit_id: l.produit_id ?? null,
+      designation: l.designation, unite_calcul: l.unite_calcul,
+      largeur_m: l.largeur_m ?? null, hauteur_m: l.hauteur_m ?? null,
+      quantite: l.quantite, quantite_calculee: l.quantite_calculee ?? null,
+      prix_unitaire_ht: l.prix_unitaire_ht, taux_tva: l.taux_tva,
+      total_ht: l.total_ht, total_ttc: l.total_ttc, ordre: l.ordre,
+    })),
+    paiements: paiements.map((p) => ({
+      id: p.id, facture_id: p.facture_id, montant: p.montant,
+      date_paiement: p.date_paiement, mode_paiement: p.mode_paiement ?? null,
+      notes: p.notes ?? null, cree_le: p.cree_le.toISOString(),
+    })),
+  };
+
+  res.json(data);
+});
+
 router.post("/factures/:id/paiements", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = AddPaiementParams.safeParse({ id: parseInt(raw, 10) });

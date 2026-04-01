@@ -20,11 +20,11 @@ import {
 } from "@/components/ui/dialog";
 
 export const statutColors: Record<string, string> = {
-  brouillon: "bg-gray-500/20 text-gray-300 border-gray-500/50",
-  envoye: "bg-blue-500/20 text-blue-300 border-blue-500/50",
-  accepte: "bg-green-500/20 text-green-300 border-green-500/50",
-  refuse: "bg-red-500/20 text-red-300 border-red-500/50",
-  converti: "bg-violet-500/20 text-violet-300 border-violet-500/50"
+  brouillon: "bg-gray-500/15 text-gray-600 dark:text-gray-300 border-gray-500/30",
+  envoye: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
+  accepte: "bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30",
+  refuse: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
+  converti: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
 };
 
 export default function DevisList() {
