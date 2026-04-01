@@ -1,22 +1,32 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.1.0
-  description: API specification
+  version: 1.0.0
+  description: EncadrePro API – gestion d'un atelier d'encadrement
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: dashboard
+    description: Dashboard statistics
+  - name: clients
+    description: Client management
+  - name: produits
+    description: Product catalog
+  - name: devis
+    description: Quote management
+  - name: factures
+    description: Invoice management
+  - name: atelier
+    description: Workshop settings
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +34,597 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ──────────────── DASHBOARD ────────────────
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard KPI stats
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/ca-mensuel:
+    get:
+      operationId: getDashboardCaMensuel
+      tags: [dashboard]
+      summary: Monthly revenue for the last 12 months
+      responses:
+        "200":
+          description: Monthly revenue array
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CaMensuel"
+
+  /dashboard/recent-devis:
+    get:
+      operationId: getDashboardRecentDevis
+      tags: [dashboard]
+      summary: Last 5 quotes
+      responses:
+        "200":
+          description: Recent quotes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecentDoc"
+
+  /dashboard/recent-factures:
+    get:
+      operationId: getDashboardRecentFactures
+      tags: [dashboard]
+      summary: Last 5 invoices
+      responses:
+        "200":
+          description: Recent invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecentDoc"
+
+  # ──────────────── CLIENTS ────────────────
+  /clients:
+    get:
+      operationId: listClients
+      tags: [clients]
+      summary: List clients
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Client"
+
+    post:
+      operationId: createClient
+      tags: [clients]
+      summary: Create a client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClientBody"
+      responses:
+        "201":
+          description: Created client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+
+  /clients/{id}:
+    get:
+      operationId: getClient
+      tags: [clients]
+      summary: Get a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+
+    put:
+      operationId: updateClient
+      tags: [clients]
+      summary: Update a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClientBody"
+      responses:
+        "200":
+          description: Updated client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+
+    delete:
+      operationId: deleteClient
+      tags: [clients]
+      summary: Delete a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /clients/{id}/stats:
+    get:
+      operationId: getClientStats
+      tags: [clients]
+      summary: Get stats for a specific client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Client stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientStats"
+
+  # ──────────────── PRODUITS ────────────────
+  /produits:
+    get:
+      operationId: listProduits
+      tags: [produits]
+      summary: List products
+      parameters:
+        - name: categorie
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Produit"
+
+    post:
+      operationId: createProduit
+      tags: [produits]
+      summary: Create a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProduitBody"
+      responses:
+        "201":
+          description: Created product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Produit"
+
+  /produits/{id}:
+    put:
+      operationId: updateProduit
+      tags: [produits]
+      summary: Update a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProduitBody"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Produit"
+
+    delete:
+      operationId: deleteProduit
+      tags: [produits]
+      summary: Delete a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /produits/{id}/toggle:
+    patch:
+      operationId: toggleProduitActif
+      tags: [produits]
+      summary: Toggle product active status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Produit"
+
+  # ──────────────── DEVIS ────────────────
+  /devis:
+    get:
+      operationId: listDevis
+      tags: [devis]
+      summary: List quotes
+      parameters:
+        - name: statut
+          in: query
+          schema:
+            type: string
+        - name: client_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of quotes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Devis"
+
+    post:
+      operationId: createDevis
+      tags: [devis]
+      summary: Create a quote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDevisBody"
+      responses:
+        "201":
+          description: Created quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Devis"
+
+  /devis/{id}:
+    get:
+      operationId: getDevis
+      tags: [devis]
+      summary: Get a quote with its lines
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Quote with lines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevisDetail"
+
+    delete:
+      operationId: deleteDevis
+      tags: [devis]
+      summary: Delete a quote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /devis/{id}/statut:
+    patch:
+      operationId: updateDevisStatut
+      tags: [devis]
+      summary: Update quote status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStatutBody"
+      responses:
+        "200":
+          description: Updated quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Devis"
+
+  /devis/{id}/lignes:
+    put:
+      operationId: saveDevisLignes
+      tags: [devis]
+      summary: Save all lines for a quote (replaces existing)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveLignesBody"
+      responses:
+        "200":
+          description: Updated quote with recalculated totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Devis"
+
+  /devis/{id}/convertir:
+    post:
+      operationId: convertDevisToFacture
+      tags: [devis]
+      summary: Convert quote to invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Created invoice from quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Facture"
+
+  # ──────────────── FACTURES ────────────────
+  /factures:
+    get:
+      operationId: listFactures
+      tags: [factures]
+      summary: List invoices
+      parameters:
+        - name: statut
+          in: query
+          schema:
+            type: string
+        - name: client_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Facture"
+
+    post:
+      operationId: createFacture
+      tags: [factures]
+      summary: Create an invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFactureBody"
+      responses:
+        "201":
+          description: Created invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Facture"
+
+  /factures/{id}:
+    get:
+      operationId: getFacture
+      tags: [factures]
+      summary: Get an invoice with lines and payments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FactureDetail"
+
+    delete:
+      operationId: deleteFacture
+      tags: [factures]
+      summary: Delete an invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /factures/{id}/statut:
+    patch:
+      operationId: updateFactureStatut
+      tags: [factures]
+      summary: Update invoice status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStatutBody"
+      responses:
+        "200":
+          description: Updated invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Facture"
+
+  /factures/{id}/paiements:
+    post:
+      operationId: addPaiement
+      tags: [factures]
+      summary: Add a payment to an invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaiementBody"
+      responses:
+        "201":
+          description: Added payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Acompte"
+
+  # ──────────────── ATELIER ────────────────
+  /atelier:
+    get:
+      operationId: getAtelier
+      tags: [atelier]
+      summary: Get workshop settings
+      responses:
+        "200":
+          description: Workshop settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Atelier"
+
+    put:
+      operationId: saveAtelier
+      tags: [atelier]
+      summary: Save workshop settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveAtelierBody"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Atelier"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +632,327 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [success]
+
+    # ── DASHBOARD ──
+    DashboardStats:
+      type: object
+      properties:
+        caMois:
+          type: number
+        devisEnAttente:
+          type: object
+          properties:
+            n: { type: integer }
+            montant: { type: number }
+          required: [n, montant]
+        facturesImpayees:
+          type: object
+          properties:
+            n: { type: integer }
+            montant: { type: number }
+          required: [n, montant]
+        nouveauxClients:
+          type: integer
+      required: [caMois, devisEnAttente, facturesImpayees, nouveauxClients]
+
+    CaMensuel:
+      type: object
+      properties:
+        mois:
+          type: string
+        total:
+          type: number
+      required: [mois, total]
+
+    RecentDoc:
+      type: object
+      properties:
+        id: { type: integer }
+        numero: { type: string }
+        client_nom: { type: string }
+        client_prenom: { type: string }
+        total_ttc: { type: number }
+        statut: { type: string }
+        cree_le: { type: string }
+      required: [id, numero, client_nom, total_ttc, statut, cree_le]
+
+    # ── CLIENTS ──
+    Client:
+      type: object
+      properties:
+        id: { type: integer }
+        nom: { type: string }
+        prenom: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        telephone: { type: string, nullable: true }
+        adresse: { type: string, nullable: true }
+        ville: { type: string, nullable: true }
+        code_postal: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        cree_le: { type: string }
+        modifie_le: { type: string }
+      required: [id, nom, cree_le, modifie_le]
+
+    CreateClientBody:
+      type: object
+      properties:
+        nom: { type: string }
+        prenom: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        telephone: { type: string, nullable: true }
+        adresse: { type: string, nullable: true }
+        ville: { type: string, nullable: true }
+        code_postal: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+      required: [nom]
+
+    ClientStats:
+      type: object
+      properties:
+        devisCount: { type: integer }
+        facturesCount: { type: integer }
+        caTotal: { type: number }
+        devis:
+          type: array
+          items:
+            $ref: "#/components/schemas/Devis"
+        factures:
+          type: array
+          items:
+            $ref: "#/components/schemas/Facture"
+      required: [devisCount, facturesCount, caTotal, devis, factures]
+
+    # ── PRODUITS ──
+    Produit:
+      type: object
+      properties:
+        id: { type: integer }
+        reference: { type: string, nullable: true }
+        designation: { type: string }
+        categorie: { type: string }
+        unite_calcul: { type: string }
+        prix_ht: { type: number }
+        taux_tva: { type: number }
+        actif: { type: integer }
+        notes: { type: string, nullable: true }
+        cree_le: { type: string }
+      required: [id, designation, categorie, unite_calcul, prix_ht, taux_tva, actif, cree_le]
+
+    CreateProduitBody:
+      type: object
+      properties:
+        reference: { type: string, nullable: true }
+        designation: { type: string }
+        categorie: { type: string }
+        unite_calcul: { type: string }
+        prix_ht: { type: number }
+        taux_tva: { type: number }
+        notes: { type: string, nullable: true }
+      required: [designation, categorie, unite_calcul, prix_ht, taux_tva]
+
+    # ── DEVIS ──
+    LigneDevis:
+      type: object
+      properties:
+        id: { type: integer }
+        devis_id: { type: integer }
+        produit_id: { type: integer, nullable: true }
+        designation: { type: string }
+        unite_calcul: { type: string }
+        largeur_m: { type: number, nullable: true }
+        hauteur_m: { type: number, nullable: true }
+        quantite: { type: number }
+        quantite_calculee: { type: number, nullable: true }
+        prix_unitaire_ht: { type: number }
+        taux_tva: { type: number }
+        total_ht: { type: number }
+        total_ttc: { type: number }
+        ordre: { type: integer }
+      required: [id, devis_id, designation, unite_calcul, quantite, prix_unitaire_ht, taux_tva, total_ht, total_ttc, ordre]
+
+    LigneInput:
+      type: object
+      properties:
+        produit_id: { type: integer, nullable: true }
+        designation: { type: string }
+        unite_calcul: { type: string }
+        largeur_m: { type: number, nullable: true }
+        hauteur_m: { type: number, nullable: true }
+        quantite: { type: number }
+        prix_unitaire_ht: { type: number }
+        taux_tva: { type: number }
+        ordre: { type: integer }
+      required: [designation, unite_calcul, quantite, prix_unitaire_ht, taux_tva]
+
+    Devis:
+      type: object
+      properties:
+        id: { type: integer }
+        numero: { type: string }
+        client_id: { type: integer }
+        client_nom: { type: string, nullable: true }
+        client_prenom: { type: string, nullable: true }
+        date_creation: { type: string }
+        date_validite: { type: string, nullable: true }
+        statut: { type: string }
+        sous_total_ht: { type: number }
+        total_tva_10: { type: number }
+        total_tva_20: { type: number }
+        total_ttc: { type: number }
+        notes: { type: string, nullable: true }
+        conditions: { type: string, nullable: true }
+        facture_id: { type: integer, nullable: true }
+        cree_le: { type: string }
+        modifie_le: { type: string }
+      required: [id, numero, client_id, date_creation, statut, sous_total_ht, total_tva_10, total_tva_20, total_ttc, cree_le, modifie_le]
+
+    DevisDetail:
+      allOf:
+        - $ref: "#/components/schemas/Devis"
+        - type: object
+          properties:
+            lignes:
+              type: array
+              items:
+                $ref: "#/components/schemas/LigneDevis"
+          required: [lignes]
+
+    CreateDevisBody:
+      type: object
+      properties:
+        client_id: { type: integer }
+        notes: { type: string, nullable: true }
+      required: [client_id]
+
+    SaveLignesBody:
+      type: object
+      properties:
+        lignes:
+          type: array
+          items:
+            $ref: "#/components/schemas/LigneInput"
+      required: [lignes]
+
+    UpdateStatutBody:
+      type: object
+      properties:
+        statut: { type: string }
+      required: [statut]
+
+    # ── FACTURES ──
+    Acompte:
+      type: object
+      properties:
+        id: { type: integer }
+        facture_id: { type: integer }
+        montant: { type: number }
+        date_paiement: { type: string }
+        mode_paiement: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        cree_le: { type: string }
+      required: [id, facture_id, montant, date_paiement, cree_le]
+
+    Facture:
+      type: object
+      properties:
+        id: { type: integer }
+        numero: { type: string }
+        devis_id: { type: integer, nullable: true }
+        client_id: { type: integer }
+        client_nom: { type: string, nullable: true }
+        client_prenom: { type: string, nullable: true }
+        date_creation: { type: string }
+        date_echeance: { type: string, nullable: true }
+        statut: { type: string }
+        sous_total_ht: { type: number }
+        total_tva_10: { type: number }
+        total_tva_20: { type: number }
+        total_ttc: { type: number }
+        total_paye: { type: number }
+        solde_restant: { type: number }
+        notes: { type: string, nullable: true }
+        conditions: { type: string, nullable: true }
+        cree_le: { type: string }
+        modifie_le: { type: string }
+      required: [id, numero, client_id, date_creation, statut, sous_total_ht, total_tva_10, total_tva_20, total_ttc, total_paye, solde_restant, cree_le, modifie_le]
+
+    FactureDetail:
+      allOf:
+        - $ref: "#/components/schemas/Facture"
+        - type: object
+          properties:
+            lignes:
+              type: array
+              items:
+                $ref: "#/components/schemas/LigneDevis"
+            paiements:
+              type: array
+              items:
+                $ref: "#/components/schemas/Acompte"
+          required: [lignes, paiements]
+
+    CreateFactureBody:
+      type: object
+      properties:
+        client_id: { type: integer }
+        notes: { type: string, nullable: true }
+      required: [client_id]
+
+    CreatePaiementBody:
+      type: object
+      properties:
+        montant: { type: number }
+        date_paiement: { type: string }
+        mode_paiement: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+      required: [montant, date_paiement]
+
+    # ── ATELIER ──
+    Atelier:
+      type: object
+      properties:
+        id: { type: integer }
+        nom: { type: string }
+        siret: { type: string, nullable: true }
+        adresse: { type: string, nullable: true }
+        telephone: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        logo_path: { type: string, nullable: true }
+        conditions_generales: { type: string, nullable: true }
+        prefixe_devis: { type: string }
+        prefixe_facture: { type: string }
+        compteur_devis: { type: integer }
+        compteur_facture: { type: integer }
+        tva_defaut: { type: number }
+        email_template: { type: string, nullable: true }
+        smtp_host: { type: string, nullable: true }
+        smtp_port: { type: integer, nullable: true }
+        smtp_user: { type: string, nullable: true }
+        smtp_pass: { type: string, nullable: true }
+      required: [id, nom, prefixe_devis, prefixe_facture, compteur_devis, compteur_facture, tva_defaut]
+
+    SaveAtelierBody:
+      type: object
+      properties:
+        nom: { type: string }
+        siret: { type: string, nullable: true }
+        adresse: { type: string, nullable: true }
+        telephone: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        conditions_generales: { type: string, nullable: true }
+        prefixe_devis: { type: string, nullable: true }
+        prefixe_facture: { type: string, nullable: true }
+        tva_defaut: { type: number, nullable: true }
+        email_template: { type: string, nullable: true }
+        smtp_host: { type: string, nullable: true }
+        smtp_port: { type: integer, nullable: true }
+        smtp_user: { type: string, nullable: true }
+        smtp_pass: { type: string, nullable: true }

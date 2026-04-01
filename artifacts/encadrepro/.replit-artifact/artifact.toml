@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "EncadrePro"
+version = "1.0.0"
+id = "artifacts/encadrepro"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24793
+
+[services.development]
+run = "pnpm --filter @workspace/encadrepro run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/encadrepro", "run", "build" ]
+publicDir = "artifacts/encadrepro/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24793"
+BASE_PATH = "/"
