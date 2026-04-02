@@ -1,17 +1,20 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { 
   useGetFacture, getGetFactureQueryKey,
   useUpdateFactureStatut, useAddPaiement,
   useListProduits,
-  useGetAtelier
+  useGetAtelier,
+  useDeleteFacture,
+  getListFacturesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle, CreditCard, Clock, FileText, Plus, Trash2, Save, Printer } from "lucide-react";
+import { ArrowLeft, CheckCircle, CreditCard, Clock, FileText, Plus, Trash2, Save, Printer, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +28,10 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /* WEB-TO-DESKTOP NOTE: For print in Electron, use BrowserWindow.webContents.print() or
@@ -45,6 +52,7 @@ async function saveFactureLignes(factureId: number, lignes: any[]) {
 export default function FactureDetail() {
   const { id } = useParams<{ id: string }>();
   const factureId = parseInt(id || "0", 10);
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -56,12 +64,19 @@ export default function FactureDetail() {
 
   const updateStatut = useUpdateFactureStatut();
   const addPaiement = useAddPaiement();
+  const deleteFacture = useDeleteFacture();
 
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [montant, setMontant] = useState<string>("");
   const [mode, setMode] = useState<string>("virement");
   const [notes, setNotes] = useState<string>("");
   const [isSavingLignes, setIsSavingLignes] = useState(false);
+
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [editNotes, setEditNotes] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Local editable lines for brouillon factures
   const [lignes, setLignes] = useState<any[]>([]);
@@ -190,6 +205,41 @@ export default function FactureDetail() {
 
   const handlePrint = useCallback(() => { window.print(); }, []);
 
+  const openEdit = () => {
+    setEditNotes(facture?.notes ?? "");
+    setEditDate(facture?.date_echeance ? facture.date_echeance.slice(0, 10) : "");
+    setIsEditOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    setIsSavingEdit(true);
+    try {
+      await fetch(`${BASE_URL}/api/factures/${factureId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: editNotes, date_echeance: editDate || null }),
+      });
+      await queryClient.invalidateQueries({ queryKey: getGetFactureQueryKey(factureId) });
+      setIsEditOpen(false);
+      toast({ title: "Facture mise à jour" });
+    } catch {
+      toast({ title: "Erreur", description: "Impossible de sauvegarder.", variant: "destructive" });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleDelete = () => {
+    deleteFacture.mutate({ id: factureId }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListFacturesQueryKey() });
+        toast({ title: "Facture supprimée" });
+        setLocation("/factures");
+      },
+      onError: () => toast({ title: "Erreur", description: "Impossible de supprimer.", variant: "destructive" }),
+    });
+  };
+
   if (isLoading) return <div className="p-8"><Skeleton className="h-8 w-64 mb-8" /><Skeleton className="h-[500px] w-full" /></div>;
   if (!facture) return <div className="p-8">Facture introuvable</div>;
 
@@ -299,6 +349,12 @@ export default function FactureDetail() {
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" className="glass-panel" onClick={handlePrint}>
               <Printer className="h-4 w-4 mr-1" /> Imprimer
+            </Button>
+            <Button variant="outline" size="sm" className="glass-panel" onClick={openEdit}>
+              <Pencil className="h-4 w-4 mr-1" /> Modifier
+            </Button>
+            <Button variant="outline" size="sm" className="glass-panel text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => setIsDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4 mr-1" /> Supprimer
             </Button>
             {facture.statut === 'brouillon' && (
               <Button variant="outline" className="glass-panel" onClick={() => handleChangeStatut('envoyee')}>
@@ -582,6 +638,59 @@ export default function FactureDetail() {
           </div>
         </div>
       </div>
+
+      {/* ── Edit header dialog ──────────────────────────────── */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="glass-panel">
+          <DialogHeader>
+            <DialogTitle>Modifier la facture</DialogTitle>
+            <DialogDescription>Modifiez la date d'échéance et les notes internes.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date d'échéance</label>
+              <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notes internes</label>
+              <Textarea
+                value={editNotes}
+                onChange={e => setEditNotes(e.target.value)}
+                placeholder="Observations, conditions particulières..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Annuler</Button>
+            <Button onClick={handleEditSave} disabled={isSavingEdit}>
+              {isSavingEdit ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete confirmation ──────────────────────────────── */}
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent className="glass-panel">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette facture ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La facture <strong>{facture.numero}</strong> et tous ses paiements seront définitivement supprimés. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteFacture.isPending}
+            >
+              {deleteFacture.isPending ? "Suppression..." : "Supprimer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

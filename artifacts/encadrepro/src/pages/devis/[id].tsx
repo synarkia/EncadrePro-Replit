@@ -5,19 +5,31 @@ import {
   useSaveDevisLignes, useUpdateDevisStatut,
   useListProduits,
   useConvertDevisToFacture,
-  useGetAtelier
+  useGetAtelier,
+  useDeleteDevis,
+  getListDevisQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Save, ArrowRightLeft, FileCheck, Printer } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, ArrowRightLeft, FileCheck, Printer, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { statutColors } from "./index";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 /* WEB-TO-DESKTOP NOTE: For print in Electron, use BrowserWindow.webContents.print() or
    generate a PDF via webContents.printToPDF() and save to disk. */
@@ -38,6 +50,13 @@ export default function DevisDetail() {
   const saveLignes = useSaveDevisLignes();
   const updateStatut = useUpdateDevisStatut();
   const convertFacture = useConvertDevisToFacture();
+  const deleteDevis = useDeleteDevis();
+
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [editNotes, setEditNotes] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const [lignes, setLignes] = useState<any[]>([]);
   const initRef = useRef<number | null>(null);
@@ -125,6 +144,41 @@ export default function DevisDetail() {
   const handlePrint = useCallback(() => {
     window.print();
   }, []);
+
+  const openEdit = () => {
+    setEditNotes(devis?.notes ?? "");
+    setEditDate(devis?.date_validite ? devis.date_validite.slice(0, 10) : "");
+    setIsEditOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    setIsSavingEdit(true);
+    try {
+      await fetch(`${BASE_URL}/api/devis/${devisId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: editNotes, date_validite: editDate || null }),
+      });
+      await queryClient.invalidateQueries({ queryKey: getGetDevisQueryKey(devisId) });
+      setIsEditOpen(false);
+      toast({ title: "Devis mis à jour" });
+    } catch {
+      toast({ title: "Erreur", description: "Impossible de sauvegarder.", variant: "destructive" });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleDelete = () => {
+    deleteDevis.mutate({ id: devisId }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListDevisQueryKey() });
+        toast({ title: "Devis supprimé" });
+        setLocation("/devis");
+      },
+      onError: () => toast({ title: "Erreur", description: "Impossible de supprimer.", variant: "destructive" }),
+    });
+  };
 
   const previewTotals = useMemo(() => {
     let ht = 0, tva10 = 0, tva20 = 0;
@@ -262,6 +316,12 @@ export default function DevisDetail() {
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" className="glass-panel" onClick={handlePrint}>
               <Printer className="h-4 w-4 mr-1" /> Imprimer
+            </Button>
+            <Button variant="outline" size="sm" className="glass-panel" onClick={openEdit}>
+              <Pencil className="h-4 w-4 mr-1" /> Modifier
+            </Button>
+            <Button variant="outline" size="sm" className="glass-panel text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => setIsDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4 mr-1" /> Supprimer
             </Button>
             {devis.statut === 'brouillon' && (
               <Button variant="outline" className="glass-panel" onClick={() => handleChangeStatut('envoye')}>
@@ -457,6 +517,59 @@ export default function DevisDetail() {
           </CardFooter>
         </Card>
       </div>
+
+      {/* ── Edit header dialog ──────────────────────────────── */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="glass-panel">
+          <DialogHeader>
+            <DialogTitle>Modifier le devis</DialogTitle>
+            <DialogDescription>Modifiez la date de validité et les notes internes.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date de validité</label>
+              <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notes internes</label>
+              <Textarea
+                value={editNotes}
+                onChange={e => setEditNotes(e.target.value)}
+                placeholder="Observations, conditions particulières..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Annuler</Button>
+            <Button onClick={handleEditSave} disabled={isSavingEdit}>
+              {isSavingEdit ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete confirmation ──────────────────────────────── */}
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent className="glass-panel">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce devis ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le devis <strong>{devis.numero}</strong> et toutes ses lignes seront définitivement supprimés. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteDevis.isPending}
+            >
+              {deleteDevis.isPending ? "Suppression..." : "Supprimer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

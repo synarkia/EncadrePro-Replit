@@ -175,6 +175,25 @@ router.get("/devis/:id", async (req, res): Promise<void> => {
   res.json(GetDevisResponse.parse(data));
 });
 
+router.put("/devis/:id", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { notes, date_validite } = req.body as { notes?: string; date_validite?: string };
+  await db.update(devisTable)
+    .set({
+      ...(notes !== undefined && { notes }),
+      ...(date_validite !== undefined && { date_validite: date_validite ? new Date(date_validite) : null }),
+      modifie_le: new Date(),
+    })
+    .where(eq(devisTable.id, id));
+
+  const updated = await getDevisWithClient(id);
+  if (!updated) { res.status(404).json({ error: "Introuvable" }); return; }
+  res.json(mapDevis(updated));
+});
+
 router.delete("/devis/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = DeleteDevisParams.safeParse({ id: parseInt(raw, 10) });

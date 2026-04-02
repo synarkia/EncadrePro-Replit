@@ -179,6 +179,25 @@ router.get("/factures/:id", async (req, res): Promise<void> => {
   res.json(GetFactureResponse.parse(data));
 });
 
+router.put("/factures/:id", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { notes, date_echeance } = req.body as { notes?: string; date_echeance?: string };
+  await db.update(facturesTable)
+    .set({
+      ...(notes !== undefined && { notes }),
+      ...(date_echeance !== undefined && { date_echeance: date_echeance ? new Date(date_echeance) : null }),
+      modifie_le: new Date(),
+    })
+    .where(eq(facturesTable.id, id));
+
+  const updated = await getFactureWithClient(id);
+  if (!updated) { res.status(404).json({ error: "Introuvable" }); return; }
+  res.json(mapFacture(updated));
+});
+
 router.delete("/factures/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = DeleteFactureParams.safeParse({ id: parseInt(raw, 10) });
