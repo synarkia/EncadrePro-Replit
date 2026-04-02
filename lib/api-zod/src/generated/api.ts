@@ -247,6 +247,7 @@ export const ListProduitsResponseItem = zod.object({
   taux_tva: zod.number(),
   actif: zod.number(),
   notes: zod.string().nullish(),
+  image_url: zod.string().nullish(),
   cree_le: zod.string(),
 });
 export const ListProduitsResponse = zod.array(ListProduitsResponseItem);
@@ -291,6 +292,7 @@ export const UpdateProduitResponse = zod.object({
   taux_tva: zod.number(),
   actif: zod.number(),
   notes: zod.string().nullish(),
+  image_url: zod.string().nullish(),
   cree_le: zod.string(),
 });
 

@@ -78,6 +78,25 @@ router.delete("/produits/:id", async (req, res): Promise<void> => {
   res.json(DeleteProduitResponse.parse({ success: true }));
 });
 
+router.patch("/produits/:id/image", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { objectPath } = req.body as { objectPath?: string };
+  if (!objectPath && objectPath !== null) {
+    res.status(400).json({ error: "objectPath requis" }); return;
+  }
+
+  const [produit] = await db.update(produitsTable)
+    .set({ image_url: objectPath ?? null })
+    .where(eq(produitsTable.id, id))
+    .returning();
+
+  if (!produit) { res.status(404).json({ error: "Produit introuvable" }); return; }
+  res.json(UpdateProduitResponse.parse(serializeDates(produit)));
+});
+
 router.patch("/produits/:id/toggle", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = ToggleProduitActifParams.safeParse({ id: parseInt(raw, 10) });

@@ -14,7 +14,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **TypeScript version**: 5.9
 - **API framework**: Express 5
 - **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
+- **Validation**: Zod v3, `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec at `lib/api-spec/openapi.yaml`)
 - **Frontend**: React + Vite + TanStack Query + React Hook Form
 - **Design**: Dark glass-morphism, primary violet `#7C6BFF`, gold accent `#D4A853`, dark bg `hsl(240 15% 6%)`

@@ -6,6 +6,7 @@ import produitsRouter from "./produits";
 import devisRouter from "./devis";
 import facturesRouter from "./factures";
 import atelierRouter from "./atelier";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(produitsRouter);
 router.use(devisRouter);
 router.use(facturesRouter);
 router.use(atelierRouter);
+router.use(storageRouter);
 
 export default router;

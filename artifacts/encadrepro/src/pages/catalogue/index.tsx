@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { 
   useListProduits, getListProduitsQueryKey,
   useCreateProduit, useUpdateProduit, useDeleteProduit, useToggleProduitActif 
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Box, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Camera, ImageOff, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -103,6 +103,104 @@ function ProduitForm({ formData, setFormData }: {
           </Select>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* WEB-TO-DESKTOP NOTE: Image upload uses presigned GCS URLs via REST.
+   In Electron, replace this with IPC + fs.writeFile to a local images/ folder. */
+function useImageUpload(produitId: number, onSuccess: () => void) {
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+
+  const upload = async (file: File) => {
+    setUploading(true);
+    try {
+      const urlRes = await fetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!urlRes.ok) throw new Error("Impossible d'obtenir l'URL d'upload");
+      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
+
+      const putRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error("Échec de l'upload vers le stockage");
+
+      const patchRes = await fetch(`/api/produits/${produitId}/image`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ objectPath }),
+      });
+      if (!patchRes.ok) throw new Error("Impossible de lier l'image au produit");
+
+      onSuccess();
+      toast({ title: "Image mise à jour" });
+    } catch (err) {
+      toast({ title: "Erreur", description: String(err), variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return { upload, uploading };
+}
+
+function ProductImageArea({ produit, onRefresh }: {
+  produit: { id: number; image_url?: string | null };
+  onRefresh: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { upload, uploading } = useImageUpload(produit.id, onRefresh);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) upload(file);
+    e.target.value = "";
+  };
+
+  const imageUrl = produit.image_url ? `/api/storage/objects/${produit.image_url.replace(/^\/objects\//, "")}` : null;
+
+  return (
+    <div
+      className="relative w-full h-28 rounded-lg mb-3 overflow-hidden cursor-pointer group shrink-0"
+      onClick={() => !uploading && inputRef.current?.click()}
+      title="Cliquer pour changer l'image"
+    >
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+
+      {imageUrl ? (
+        <>
+          <img
+            src={imageUrl}
+            alt="photo produit"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+            {uploading ? (
+              <Loader2 className="h-6 w-6 text-white animate-spin" />
+            ) : (
+              <Camera className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-border/40 rounded-lg bg-muted/20 group-hover:border-primary/50 group-hover:bg-primary/5 transition-colors">
+          {uploading ? (
+            <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+          ) : (
+            <>
+              <Camera className="h-6 w-6 text-muted-foreground/50 group-hover:text-primary/70 transition-colors mb-1" />
+              <span className="text-[10px] text-muted-foreground/50 group-hover:text-primary/70 transition-colors">Ajouter une photo</span>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -235,7 +333,7 @@ export default function Catalogue() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? (
-          [...Array(6)].map((_, i) => <Skeleton key={i} className="h-36 w-full rounded-xl" />)
+          [...Array(6)].map((_, i) => <Skeleton key={i} className="h-52 w-full rounded-xl" />)
         ) : filteredProduits?.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground border border-dashed rounded-lg bg-card/30">
             Aucun produit dans cette catégorie.
@@ -244,17 +342,17 @@ export default function Catalogue() {
           filteredProduits?.map(produit => (
             <Card key={produit.id} className={`glass-panel border-border/50 transition-opacity ${!produit.actif ? "opacity-50 grayscale hover:grayscale-0" : ""}`}>
               <CardContent className="p-5">
+
+                {/* ── Photo area ──────────────────────────── */}
+                <ProductImageArea produit={produit} onRefresh={invalidate} />
+
+                {/* ── Header: name + toggle ────────────────── */}
                 <div className="flex justify-between items-start mb-3">
-                  <div className="flex gap-3 min-w-0">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Box className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="min-w-0">
-                      {produit.reference && <Badge variant="secondary" className="mb-1 text-[10px]">{produit.reference}</Badge>}
-                      <h3 className="font-semibold text-foreground leading-tight line-clamp-2">{produit.designation}</h3>
-                    </div>
+                  <div className="min-w-0 flex-1 mr-2">
+                    {produit.reference && <Badge variant="secondary" className="mb-1 text-[10px]">{produit.reference}</Badge>}
+                    <h3 className="font-semibold text-foreground leading-tight line-clamp-2">{produit.designation}</h3>
                   </div>
-                  <Switch checked={produit.actif === 1} onCheckedChange={() => handleToggle(produit.id)} className="ml-2 shrink-0" />
+                  <Switch checked={produit.actif === 1} onCheckedChange={() => handleToggle(produit.id)} className="shrink-0" />
                 </div>
 
                 <div className="flex justify-between items-end mt-4 pt-4 border-t border-border/30">

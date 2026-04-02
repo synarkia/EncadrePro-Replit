@@ -12,6 +12,7 @@ export const produitsTable = pgTable("produits", {
   taux_tva: real("taux_tva").notNull().default(20.0),
   actif: integer("actif").notNull().default(1),
   notes: text("notes"),
+  image_url: text("image_url"),
   cree_le: timestamp("cree_le", { withTimezone: true }).notNull().defaultNow(),
 });
 
