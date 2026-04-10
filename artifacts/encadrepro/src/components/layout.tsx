@@ -3,6 +3,7 @@ import { LayoutDashboard, Users, FileText, FileSpreadsheet, Box, Settings, Moon,
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
+import { EncadreProLogo } from "@/components/EncadreProLogo";
 
 /* WEB-TO-DESKTOP NOTE: For Electron, the window chrome (title bar, close/min/max) replaces the web header.
    Add `electron-specific-titlebar` or custom drag region here for desktop build. */
@@ -24,7 +25,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen bg-background text-foreground print:block">
       <aside className="w-64 glass-panel border-r border-border flex flex-col hidden md:flex print:hidden">
         <div className="h-16 flex items-center justify-between px-6 border-b border-border bg-card/50">
-          <span className="text-xl font-bold text-primary tracking-tight">EncadrePro</span>
+          <div className="flex items-center gap-2.5">
+            <EncadreProLogo size={30} />
+            <span className="text-xl font-bold text-primary tracking-tight">EncadrePro</span>
+          </div>
           <Button
             variant="ghost"
             size="icon"
