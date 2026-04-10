@@ -10,58 +10,21 @@ export function EncadreProLogo({ size = 32 }: { size?: number }) {
     >
       <defs>
         <linearGradient id="ep-bg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#9F93FF" />
-          <stop offset="100%" stopColor="#5C4EE5" />
-        </linearGradient>
-        <linearGradient id="ep-bg-inner" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#8B7CFF" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#4A3FCC" stopOpacity="0" />
+          <stop offset="0%" stopColor="#9B8EFF" />
+          <stop offset="100%" stopColor="#5849E0" />
         </linearGradient>
       </defs>
 
       {/* Rounded square background */}
       <rect width="40" height="40" rx="10" fill="url(#ep-bg)" />
 
-      {/* Inner highlight overlay */}
-      <rect width="40" height="40" rx="10" fill="url(#ep-bg-inner)" />
+      {/* Two vertical lines */}
+      <line x1="14" y1="8"  x2="14" y2="32" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="26" y1="8"  x2="26" y2="32" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
 
-      {/* Frame / crop-corner icon — 4 L-shaped corner marks */}
-
-      {/* Top-left */}
-      <path
-        d="M10 17 L10 10 L17 10"
-        stroke="white"
-        strokeWidth="2.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Top-right */}
-      <path
-        d="M23 10 L30 10 L30 17"
-        stroke="white"
-        strokeWidth="2.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Bottom-right */}
-      <path
-        d="M30 23 L30 30 L23 30"
-        stroke="white"
-        strokeWidth="2.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Bottom-left */}
-      <path
-        d="M17 30 L10 30 L10 23"
-        stroke="white"
-        strokeWidth="2.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {/* Two horizontal lines */}
+      <line x1="8"  y1="14" x2="32" y2="14" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="8"  y1="26" x2="32" y2="26" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
   );
 }
