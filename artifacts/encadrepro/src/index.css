@@ -144,42 +144,42 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
-  --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --button-outline: rgba(255,255,255, .08);
+  --badge-outline: rgba(255,255,255, .04);
+  --opaque-button-border-intensity: 8;
+  --elevate-1: rgba(255,255,255, .035);
+  --elevate-2: rgba(255,255,255, .07);
 
-  /* Dark background: hsl(240 15% 6%) */
-  --background: 240 15% 6%;
-  --foreground: 240 5% 95%;
-  --border: 240 15% 15%;
+  /* Dark background: cosmic grey — deep blue-charcoal, not pure black */
+  --background: 228 20% 10%;
+  --foreground: 228 10% 93%;
+  --border: 228 18% 20%;
   
   /* Semi-transparent dark panels for glass-morphism */
-  --card: 240 15% 9%;
-  --card-foreground: 240 5% 95%;
-  --card-border: 240 15% 15%;
+  --card: 228 20% 13%;
+  --card-foreground: 228 10% 93%;
+  --card-border: 228 18% 20%;
   
-  --sidebar: 240 15% 8%;
-  --sidebar-foreground: 240 5% 95%;
-  --sidebar-border: 240 15% 15%;
+  --sidebar: 228 20% 12%;
+  --sidebar-foreground: 228 10% 93%;
+  --sidebar-border: 228 18% 20%;
   --sidebar-primary: 249 100% 71%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 240 15% 15%;
-  --sidebar-accent-foreground: 240 5% 95%;
+  --sidebar-accent: 228 18% 20%;
+  --sidebar-accent-foreground: 228 10% 93%;
   --sidebar-ring: 249 100% 71%;
   
-  --popover: 240 15% 9%;
-  --popover-foreground: 240 5% 95%;
-  --popover-border: 240 15% 15%;
+  --popover: 228 20% 13%;
+  --popover-foreground: 228 10% 93%;
+  --popover-border: 228 18% 20%;
   
   --primary: 249 100% 71%;
   --primary-foreground: 0 0% 100%;
   --secondary: 39 68% 58%;
   --secondary-foreground: 0 0% 100%;
   
-  --muted: 240 15% 15%;
-  --muted-foreground: 240 5% 65%;
+  --muted: 228 18% 19%;
+  --muted-foreground: 228 10% 62%;
   
   --accent: 39 68% 58%;
   --accent-foreground: 0 0% 100%;
@@ -187,7 +187,7 @@
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
   
-  --input: 240 15% 15%;
+  --input: 228 18% 19%;
   --ring: 249 100% 71%;
   
   --chart-1: 249 100% 71%;
