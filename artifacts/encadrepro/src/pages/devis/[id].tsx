@@ -9,7 +9,7 @@ import {
   getListDevisQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Save, ArrowRightLeft, FileCheck, Printer, Pencil, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Save, ArrowRightLeft, FileCheck, Printer, Pencil, Trash2, Loader2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,9 @@ import { statutColors } from "./index";
 import { QuoteLineCard, type QuoteLine } from "@/components/QuoteLineCard";
 import { QuickAddProductModal } from "@/components/QuickAddProductModal";
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import {
@@ -29,6 +32,13 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+
+const STATUT_OPTIONS: { value: string; label: string }[] = [
+  { value: "brouillon", label: "Brouillon" },
+  { value: "envoye", label: "Envoyé" },
+  { value: "accepte", label: "Accepté" },
+  { value: "refuse", label: "Refusé" },
+];
 
 /* WEB-TO-DESKTOP NOTE: For print in Electron, use BrowserWindow.webContents.print() or
    generate a PDF via webContents.printToPDF() and save to disk. */
@@ -399,9 +409,37 @@ export default function DevisDetail() {
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold">Devis {devis.numero}</h1>
-                <Badge className={statutColors[devis.statut] || ""}>
-                  {devis.statut.toUpperCase()}
-                </Badge>
+                {devis.statut === "converti" ? (
+                  <Badge className={statutColors[devis.statut] || ""}>CONVERTI</Badge>
+                ) : (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-opacity hover:opacity-80 focus:outline-none ${statutColors[devis.statut] || ""}`}>
+                        {STATUT_OPTIONS.find(o => o.value === devis.statut)?.label?.toUpperCase() ?? devis.statut.toUpperCase()}
+                        <ChevronDown className="h-3 w-3" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="glass-panel">
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">Changer le statut</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {STATUT_OPTIONS.filter(o => o.value !== devis.statut).map(opt => (
+                        <DropdownMenuItem
+                          key={opt.value}
+                          onClick={() => handleChangeStatut(opt.value)}
+                          className="cursor-pointer"
+                        >
+                          <span className={`mr-2 h-2 w-2 rounded-full inline-block ${
+                            opt.value === "brouillon" ? "bg-gray-400" :
+                            opt.value === "envoye" ? "bg-blue-400" :
+                            opt.value === "accepte" ? "bg-green-400" :
+                            opt.value === "refuse" ? "bg-red-400" : "bg-violet-400"
+                          }`} />
+                          {opt.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
               <p className="text-muted-foreground mt-0.5 text-sm">
                 <Link href={`/clients/${devis.client_id}`} className="hover:text-primary hover:underline transition-colors font-medium">
@@ -423,21 +461,6 @@ export default function DevisDetail() {
             <Button variant="outline" size="sm" className="glass-panel text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => setIsDeleteOpen(true)}>
               <Trash2 className="h-4 w-4 mr-1" /> Supprimer
             </Button>
-            {devis.statut === "brouillon" && (
-              <Button variant="outline" className="glass-panel" onClick={() => handleChangeStatut("envoye")}>
-                Marquer envoyé
-              </Button>
-            )}
-            {devis.statut === "envoye" && (
-              <>
-                <Button variant="outline" className="glass-panel text-green-600 dark:text-green-400 hover:text-green-500" onClick={() => handleChangeStatut("accepte")}>
-                  Marquer accepté
-                </Button>
-                <Button variant="outline" className="glass-panel text-red-600 dark:text-red-400 hover:text-red-500" onClick={() => handleChangeStatut("refuse")}>
-                  Marquer refusé
-                </Button>
-              </>
-            )}
             {devis.statut === "accepte" && (
               <Button className="shadow-lg shadow-violet-500/20 bg-violet-600 hover:bg-violet-500 text-white" onClick={handleConvert} disabled={convertFacture.isPending}>
                 <ArrowRightLeft className="mr-2 h-4 w-4" /> Convertir en facture
