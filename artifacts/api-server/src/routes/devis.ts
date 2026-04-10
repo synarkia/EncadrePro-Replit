@@ -1,6 +1,15 @@
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
-import { db, devisTable, lignesDevisTable, atelierTable, facturesTable, lignesFactureTable } from "@workspace/db";
+import { eq, sql, inArray } from "drizzle-orm";
+import {
+  db,
+  devisTable,
+  lignesDevisTable,
+  lignesDevisFaconnageTable,
+  lignesDevisServiceTable,
+  atelierTable,
+  facturesTable,
+  lignesFactureTable,
+} from "@workspace/db";
 import { execRows, serializeDates } from "../lib/db-utils";
 import {
   ListDevisResponse,
@@ -23,12 +32,14 @@ const router: IRouter = Router();
 const parseNum = (v: unknown) => parseFloat(String(v ?? "0"));
 
 // ─── Helper: calculate line quantity ──────────────────────────────────────────
-function calcLigne(unite: string, largeur: number | null, hauteur: number | null, quantite: number) {
-  if (unite === "metre_lineaire") {
-    return ((largeur ?? 0) + (hauteur ?? 0)) * 2 * quantite;
+function calcLigne(unite: string, widthCm: number | null, heightCm: number | null, quantite: number) {
+  const wM = (widthCm ?? 0) / 100;
+  const hM = (heightCm ?? 0) / 100;
+  if (unite === "ml" || unite === "metre_lineaire") {
+    return (wM + hM) * 2 * quantite;
   }
-  if (unite === "metre_carre") {
-    return (largeur ?? 0) * (hauteur ?? 0) * quantite;
+  if (unite === "m²" || unite === "metre_carre") {
+    return wM * hM * quantite;
   }
   return quantite;
 }
@@ -51,7 +62,7 @@ async function getNextNumero(type: "devis" | "facture"): Promise<string> {
   }
 }
 
-// ─── Helper: recalculate devis totals ─────────────────────────────────────────
+// ─── Helper: recalculate devis totals including faconnage/service ──────────────
 async function recalcDevis(devisId: number): Promise<void> {
   const lignes = await db.select().from(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devisId));
 
@@ -60,6 +71,24 @@ async function recalcDevis(devisId: number): Promise<void> {
     ht += l.total_ht;
     if (l.taux_tva === 10) tva10 += l.total_ht * 0.1;
     else tva20 += l.total_ht * 0.2;
+  }
+
+  // Add faconnage/service totals
+  if (lignes.length > 0) {
+    const ligneIds = lignes.map(l => l.id);
+    const faconnages = await db.select().from(lignesDevisFaconnageTable).where(inArray(lignesDevisFaconnageTable.ligne_devis_id, ligneIds));
+    const services = await db.select().from(lignesDevisServiceTable).where(inArray(lignesDevisServiceTable.ligne_devis_id, ligneIds));
+
+    for (const f of faconnages) {
+      ht += f.total_ht;
+      if (f.taux_tva === 10) tva10 += f.total_ht * 0.1;
+      else tva20 += f.total_ht * 0.2;
+    }
+    for (const s of services) {
+      ht += s.total_ht;
+      if (s.taux_tva === 10) tva10 += s.total_ht * 0.1;
+      else tva20 += s.total_ht * 0.2;
+    }
   }
 
   await db.update(devisTable)
@@ -120,7 +149,6 @@ router.post("/devis", async (req, res): Promise<void> => {
     return;
   }
 
-  // Ensure atelier exists
   const [existingAtelier] = await db.select().from(atelierTable).where(eq(atelierTable.id, 1));
   if (!existingAtelier) {
     await db.insert(atelierTable).values({ id: 1, nom: "Mon Atelier" });
@@ -142,33 +170,80 @@ router.post("/devis", async (req, res): Promise<void> => {
   res.status(201).json(SaveDevisLignesResponse.parse(mapDevis(withClient!)));
 });
 
+// ─── GET /devis/:id — returns lines with nested faconnage/service ─────────────
 router.get("/devis/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetDevisParams.safeParse({ id: parseInt(raw, 10) });
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid id" });
-    return;
-  }
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const devisRow = await getDevisWithClient(params.data.id);
-  if (!devisRow) {
-    res.status(404).json({ error: "Devis introuvable" });
-    return;
-  }
+  if (!devisRow) { res.status(404).json({ error: "Devis introuvable" }); return; }
 
   const lignes = await db.select().from(lignesDevisTable)
     .where(eq(lignesDevisTable.devis_id, params.data.id))
     .orderBy(lignesDevisTable.ordre);
 
+  // Load all faconnage and service for all lines in one query each
+  let faconnageAll: typeof lignesDevisFaconnageTable.$inferSelect[] = [];
+  let serviceAll: typeof lignesDevisServiceTable.$inferSelect[] = [];
+
+  if (lignes.length > 0) {
+    const ids = lignes.map(l => l.id);
+    faconnageAll = await db.select().from(lignesDevisFaconnageTable)
+      .where(inArray(lignesDevisFaconnageTable.ligne_devis_id, ids))
+      .orderBy(lignesDevisFaconnageTable.ordre);
+    serviceAll = await db.select().from(lignesDevisServiceTable)
+      .where(inArray(lignesDevisServiceTable.ligne_devis_id, ids))
+      .orderBy(lignesDevisServiceTable.ordre);
+  }
+
   const data = {
     ...mapDevis(devisRow),
     lignes: lignes.map((l) => ({
-      id: l.id, devis_id: l.devis_id, produit_id: l.produit_id ?? null,
-      designation: l.designation, unite_calcul: l.unite_calcul,
-      largeur_m: l.largeur_m ?? null, hauteur_m: l.hauteur_m ?? null,
-      quantite: l.quantite, quantite_calculee: l.quantite_calculee ?? null,
-      prix_unitaire_ht: l.prix_unitaire_ht, taux_tva: l.taux_tva,
-      total_ht: l.total_ht, total_ttc: l.total_ttc, ordre: l.ordre,
+      id: l.id,
+      devis_id: l.devis_id,
+      produit_id: l.produit_id ?? null,
+      designation: l.designation,
+      unite_calcul: l.unite_calcul,
+      largeur_m: l.largeur_m ?? null,
+      hauteur_m: l.hauteur_m ?? null,
+      width_cm: l.width_cm ?? null,
+      height_cm: l.height_cm ?? null,
+      quantite: l.quantite,
+      quantite_calculee: l.quantite_calculee ?? null,
+      prix_unitaire_ht: l.prix_unitaire_ht,
+      taux_tva: l.taux_tva,
+      total_ht: l.total_ht,
+      total_ttc: l.total_ttc,
+      ordre: l.ordre,
+      faconnage: faconnageAll
+        .filter(f => f.ligne_devis_id === l.id)
+        .map(f => ({
+          id: f.id,
+          ligne_devis_id: f.ligne_devis_id,
+          produit_id: f.produit_id ?? null,
+          designation: f.designation,
+          quantite: f.quantite,
+          prix_unitaire_ht: f.prix_unitaire_ht,
+          taux_tva: f.taux_tva,
+          total_ht: f.total_ht,
+          parametres_json: f.parametres_json ?? null,
+          ordre: f.ordre,
+        })),
+      service: serviceAll
+        .filter(s => s.ligne_devis_id === l.id)
+        .map(s => ({
+          id: s.id,
+          ligne_devis_id: s.ligne_devis_id,
+          produit_id: s.produit_id ?? null,
+          designation: s.designation,
+          quantite: s.quantite,
+          heures: s.heures ?? null,
+          prix_unitaire_ht: s.prix_unitaire_ht,
+          taux_tva: s.taux_tva,
+          total_ht: s.total_ht,
+          ordre: s.ordre,
+        })),
     })),
   };
 
@@ -197,10 +272,7 @@ router.put("/devis/:id", async (req, res): Promise<void> => {
 router.delete("/devis/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = DeleteDevisParams.safeParse({ id: parseInt(raw, 10) });
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid id" });
-    return;
-  }
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
   await db.delete(devisTable).where(eq(devisTable.id, params.data.id));
   res.json(DeleteDevisResponse.parse({ success: true }));
@@ -209,62 +281,56 @@ router.delete("/devis/:id", async (req, res): Promise<void> => {
 router.patch("/devis/:id/statut", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = UpdateDevisStatutParams.safeParse({ id: parseInt(raw, 10) });
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid id" });
-    return;
-  }
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const parsed = UpdateDevisStatutBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   await db.update(devisTable)
     .set({ statut: parsed.data.statut, modifie_le: new Date() })
     .where(eq(devisTable.id, params.data.id));
 
   const updated = await getDevisWithClient(params.data.id);
-  if (!updated) {
-    res.status(404).json({ error: "Devis introuvable" });
-    return;
-  }
-
+  if (!updated) { res.status(404).json({ error: "Devis introuvable" }); return; }
   res.json(UpdateDevisStatutResponse.parse(mapDevis(updated)));
 });
 
+// ─── PUT /devis/:id/lignes — save all lines with faconnage/service ────────────
 router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = SaveDevisLignesParams.safeParse({ id: parseInt(raw, 10) });
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid id" });
-    return;
-  }
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const parsed = SaveDevisLignesBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const devisId = params.data.id;
 
-  // Delete all existing lines then re-insert
+  // Cascade deletes via FK constraints (faconnage/service tables have onDelete: cascade)
   await db.delete(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devisId));
 
   for (let i = 0; i < parsed.data.lignes.length; i++) {
     const l = parsed.data.lignes[i];
-    const qCalc = calcLigne(l.unite_calcul, l.largeur_m ?? null, l.hauteur_m ?? null, l.quantite);
+
+    // Use cm dimensions if provided, else fall back to meter values
+    const widthCm = l.width_cm ?? (l.largeur_m != null ? l.largeur_m * 100 : null);
+    const heightCm = l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : null);
+    const largeurM = widthCm != null ? widthCm / 100 : (l.largeur_m ?? null);
+    const hauteurM = heightCm != null ? heightCm / 100 : (l.hauteur_m ?? null);
+
+    const qCalc = calcLigne(l.unite_calcul, widthCm, heightCm, l.quantite);
     const totalHT = qCalc * l.prix_unitaire_ht;
     const totalTTC = totalHT * (1 + l.taux_tva / 100);
 
-    await db.insert(lignesDevisTable).values({
+    const [inserted] = await db.insert(lignesDevisTable).values({
       devis_id: devisId,
       produit_id: l.produit_id ?? null,
       designation: l.designation,
       unite_calcul: l.unite_calcul,
-      largeur_m: l.largeur_m ?? null,
-      hauteur_m: l.hauteur_m ?? null,
+      largeur_m: largeurM,
+      hauteur_m: hauteurM,
+      width_cm: widthCm,
+      height_cm: heightCm,
       quantite: l.quantite,
       quantite_calculee: qCalc,
       prix_unitaire_ht: l.prix_unitaire_ht,
@@ -272,33 +338,59 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
       total_ht: totalHT,
       total_ttc: totalTTC,
       ordre: l.ordre ?? i,
-    });
+    }).returning();
+
+    // Insert faconnage sub-items
+    const faconnageItems = l.faconnage ?? [];
+    for (let fi = 0; fi < faconnageItems.length; fi++) {
+      const f = faconnageItems[fi];
+      const fTotalHT = f.quantite * f.prix_unitaire_ht;
+      await db.insert(lignesDevisFaconnageTable).values({
+        ligne_devis_id: inserted.id,
+        produit_id: f.produit_id ?? null,
+        designation: f.designation,
+        quantite: f.quantite,
+        prix_unitaire_ht: f.prix_unitaire_ht,
+        taux_tva: f.taux_tva,
+        total_ht: fTotalHT,
+        parametres_json: f.parametres_json ?? null,
+        ordre: f.ordre ?? fi,
+      });
+    }
+
+    // Insert service sub-items
+    const serviceItems = l.service ?? [];
+    for (let si = 0; si < serviceItems.length; si++) {
+      const s = serviceItems[si];
+      const sTotalHT = s.quantite * s.prix_unitaire_ht;
+      await db.insert(lignesDevisServiceTable).values({
+        ligne_devis_id: inserted.id,
+        produit_id: s.produit_id ?? null,
+        designation: s.designation,
+        quantite: s.quantite,
+        heures: s.heures ?? null,
+        prix_unitaire_ht: s.prix_unitaire_ht,
+        taux_tva: s.taux_tva,
+        total_ht: sTotalHT,
+        ordre: s.ordre ?? si,
+      });
+    }
   }
 
   await recalcDevis(devisId);
 
   const updated = await getDevisWithClient(devisId);
-  if (!updated) {
-    res.status(404).json({ error: "Devis introuvable" });
-    return;
-  }
-
+  if (!updated) { res.status(404).json({ error: "Devis introuvable" }); return; }
   res.json(SaveDevisLignesResponse.parse(mapDevis(updated)));
 });
 
 router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = ConvertDevisToFactureParams.safeParse({ id: parseInt(raw, 10) });
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid id" });
-    return;
-  }
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [devis] = await db.select().from(devisTable).where(eq(devisTable.id, params.data.id));
-  if (!devis) {
-    res.status(404).json({ error: "Devis introuvable" });
-    return;
-  }
+  if (!devis) { res.status(404).json({ error: "Devis introuvable" }); return; }
 
   const numero = await getNextNumero("facture");
   const echeance = new Date();
@@ -320,7 +412,6 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
     date_echeance: echeance.toISOString().slice(0, 10),
   }).returning();
 
-  // Copy lines from devis to facture
   const lignes = await db.select().from(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devis.id));
   for (const l of lignes) {
     await db.insert(lignesFactureTable).values({
@@ -340,7 +431,6 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
     });
   }
 
-  // Mark devis as converted
   await db.update(devisTable)
     .set({ statut: "converti", facture_id: facture.id, modifie_le: new Date() })
     .where(eq(devisTable.id, devis.id));

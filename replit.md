@@ -39,12 +39,17 @@ artifacts-monorepo/
 
 ## Business Logic
 
-### Product unit types
-- `metre_lineaire` — `(L+H)*2*Q`
-- `metre_carre` — `L*H*Q`
-- `unitaire` / `heure` — `Q`
+### Product types (modular pricing — new in v2)
+- **Matière** — raw material (baguette, glass, passepartout, hardware)
+- **Façonnage** — finishing operation (polishing, welding, cutting)
+- **Service** — service item (delivery, installation, framing time)
 
-### Product categories
+### Product unit types
+- `ml` / `metre_lineaire` — `(L+H)*2*Q` (dimensions in cm, stored and converted to meters)
+- `m²` / `metre_carre` — `L*H*Q`
+- `pièce` / `unitaire` / `heure` / `forfait` — `Q`
+
+### Legacy product categories (backward compat)
 `baguettes`, `verres`, `passe_partout`, `quincaillerie`, `main_oeuvre`
 
 ### Statuses
@@ -59,27 +64,32 @@ Single-row config (id=1). Always upsert, never insert a second row.
 ### Database Schema (`lib/db/src/schema/`)
 - `atelier.ts` — Workshop settings singleton
 - `clients.ts` — Customer records
-- `produits.ts` — Product catalogue
-- `devis.ts` — Quotes + `lignes_devis` table
+- `produits.ts` — Product catalogue (new: `type_produit`, `fournisseur`, `sous_categorie`, `unite`)
+- `devis.ts` — Quotes + `lignes_devis` (new: `width_cm`, `height_cm`) + `lignes_devis_faconnage` + `lignes_devis_service`
 - `factures.ts` — Invoices + `lignes_facture` + `acomptes` tables
 
 ### API Routes (`artifacts/api-server/src/routes/`)
 - `dashboard.ts` — Stats, CA mensuel, recent devis/factures
 - `clients.ts` — CRUD + stats
-- `produits.ts` — CRUD + active toggle
-- `devis.ts` — CRUD + save lignes + convert to facture
+- `produits.ts` — CRUD + `GET /produits/search?q=&type=` + `GET /produits/fournisseurs`
+- `devis.ts` — CRUD + save lignes (with nested faconnage/service) + convert to facture
 - `factures.ts` — CRUD + paiements (auto-recalculates statut)
 - `atelier.ts` — GET/PUT settings
+
+### Frontend Components (`artifacts/encadrepro/src/components/`)
+- `ProductSearchCombobox.tsx` — Autocomplete with 2+ char trigger, type filter, supplier pill
+- `QuickAddProductModal.tsx` — Quick product creation modal (type/fournisseur/unite form)
+- `QuoteLineCard.tsx` — Card-based line editor with façonnage + service sub-items
 
 ### Frontend Pages (`artifacts/encadrepro/src/pages/`)
 - `dashboard.tsx` — KPI cards + monthly CA chart
 - `clients/index.tsx` — Client list with search
 - `clients/[id].tsx` — Client details + history
 - `devis/index.tsx` — Quotes list
-- `devis/[id].tsx` — Quote editor with line items
+- `devis/[id].tsx` — Quote editor with QuoteLineCard layout + totals panel
 - `factures/index.tsx` — Invoices list
 - `factures/[id].tsx` — Invoice details + payment tracking
-- `catalogue/index.tsx` — Product catalogue with category tabs
+- `catalogue/index.tsx` — Product catalogue with type tabs (Matière/Façonnage/Service)
 - `parametres/index.tsx` — Workshop settings form
 
 ## Important Notes

@@ -1,26 +1,25 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { 
   useGetDevis, getGetDevisQueryKey,
   useSaveDevisLignes, useUpdateDevisStatut,
-  useListProduits,
   useConvertDevisToFacture,
   useGetAtelier,
   useDeleteDevis,
   getListDevisQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Save, ArrowRightLeft, FileCheck, Printer, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, Save, ArrowRightLeft, FileCheck, Printer, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { statutColors } from "./index";
+import { QuoteLineCard, type QuoteLine } from "@/components/QuoteLineCard";
+import { QuickAddProductModal } from "@/components/QuickAddProductModal";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -34,6 +33,37 @@ const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 /* WEB-TO-DESKTOP NOTE: For print in Electron, use BrowserWindow.webContents.print() or
    generate a PDF via webContents.printToPDF() and save to disk. */
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function calcQ(unite: string, widthCm: number, heightCm: number, qte: number): number {
+  const wM = widthCm / 100;
+  const hM = heightCm / 100;
+  if (unite === "ml" || unite === "metre_lineaire") return (wM + hM) * 2 * qte;
+  if (unite === "m²" || unite === "metre_carre") return wM * hM * qte;
+  return qte;
+}
+
+function newEmptyLine(ordre: number): QuoteLine {
+  return {
+    id: `temp-${Date.now()}`,
+    produit_id: null,
+    designation: "",
+    unite_calcul: "pièce",
+    width_cm: null,
+    height_cm: null,
+    largeur_m: null,
+    hauteur_m: null,
+    quantite: 1,
+    prix_unitaire_ht: 0,
+    taux_tva: 20,
+    faconnage: [],
+    service: [],
+  };
+  void ordre;
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
 export default function DevisDetail() {
   const { id } = useParams<{ id: string }>();
   const devisId = parseInt(id || "0", 10);
@@ -44,7 +74,6 @@ export default function DevisDetail() {
   const { data: devis, isLoading } = useGetDevis(devisId, {
     query: { enabled: !!devisId, queryKey: getGetDevisQueryKey(devisId) }
   });
-  const { data: produits } = useListProduits();
   const { data: atelier } = useGetAtelier();
 
   const saveLignes = useSaveDevisLignes();
@@ -57,68 +86,99 @@ export default function DevisDetail() {
   const [editNotes, setEditNotes] = useState("");
   const [editDate, setEditDate] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
-  const [lignes, setLignes] = useState<any[]>([]);
+  const [lignes, setLignes] = useState<QuoteLine[]>([]);
   const initRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (devis && initRef.current !== devisId) {
       initRef.current = devisId;
-      setLignes(devis.lignes || []);
+      setLignes((devis.lignes ?? []).map(l => ({
+        id: l.id,
+        produit_id: l.produit_id ?? null,
+        designation: l.designation,
+        unite_calcul: l.unite_calcul,
+        width_cm: l.width_cm ?? (l.largeur_m != null ? l.largeur_m * 100 : null),
+        height_cm: l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : null),
+        largeur_m: l.largeur_m ?? null,
+        hauteur_m: l.hauteur_m ?? null,
+        quantite: l.quantite,
+        prix_unitaire_ht: l.prix_unitaire_ht,
+        taux_tva: l.taux_tva,
+        faconnage: (l.faconnage ?? []).map(f => ({
+          id: f.id,
+          produit_id: f.produit_id ?? null,
+          designation: f.designation,
+          quantite: f.quantite,
+          prix_unitaire_ht: f.prix_unitaire_ht,
+          taux_tva: f.taux_tva,
+          total_ht: f.total_ht,
+          parametres_json: f.parametres_json ?? null,
+          ordre: f.ordre,
+        })),
+        service: (l.service ?? []).map(s => ({
+          id: s.id,
+          produit_id: s.produit_id ?? null,
+          designation: s.designation,
+          quantite: s.quantite,
+          heures: s.heures ?? null,
+          prix_unitaire_ht: s.prix_unitaire_ht,
+          taux_tva: s.taux_tva,
+          total_ht: s.total_ht,
+          ordre: s.ordre,
+        })),
+      })));
     }
   }, [devis, devisId]);
 
-  const addLine = () => {
-    setLignes([...lignes, {
-      id: `temp-${Date.now()}`,
-      produit_id: null,
-      designation: "",
-      unite_calcul: "unitaire",
-      largeur_m: null,
-      hauteur_m: null,
-      quantite: 1,
-      prix_unitaire_ht: 0,
-      taux_tva: 20,
-      ordre: lignes.length
-    }]);
-  };
+  const addLine = () => setLignes(prev => [...prev, newEmptyLine(prev.length)]);
 
-  const updateLine = (index: number, field: string, value: any) => {
-    const newLignes = [...lignes];
-    newLignes[index] = { ...newLignes[index], [field]: value };
-    if (field === 'produit_id' && value) {
-      const prod = produits?.find(p => p.id.toString() === value);
-      if (prod) {
-        newLignes[index].designation = prod.designation;
-        newLignes[index].unite_calcul = prod.unite_calcul;
-        newLignes[index].prix_unitaire_ht = prod.prix_ht;
-        newLignes[index].taux_tva = prod.taux_tva;
-      }
-    }
-    setLignes(newLignes);
+  const updateLine = (index: number, line: QuoteLine) => {
+    setLignes(prev => prev.map((l, i) => i === index ? line : l));
   };
 
   const removeLine = (index: number) => {
-    setLignes(lignes.filter((_, i) => i !== index));
+    setLignes(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSave = () => {
     const payload = lignes.map((l, i) => ({
-      produit_id: l.produit_id ? parseInt(l.produit_id) : null,
-      designation: l.designation,
+      produit_id: l.produit_id ?? null,
+      designation: l.designation || "—",
       unite_calcul: l.unite_calcul,
-      largeur_m: l.largeur_m ? parseFloat(l.largeur_m) : null,
-      hauteur_m: l.hauteur_m ? parseFloat(l.hauteur_m) : null,
-      quantite: parseFloat(l.quantite),
-      prix_unitaire_ht: parseFloat(l.prix_unitaire_ht),
-      taux_tva: parseFloat(l.taux_tva),
-      ordre: i
+      largeur_m: l.width_cm != null ? l.width_cm / 100 : (l.largeur_m ?? null),
+      hauteur_m: l.height_cm != null ? l.height_cm / 100 : (l.hauteur_m ?? null),
+      width_cm: l.width_cm ?? null,
+      height_cm: l.height_cm ?? null,
+      quantite: l.quantite || 1,
+      prix_unitaire_ht: l.prix_unitaire_ht,
+      taux_tva: l.taux_tva,
+      ordre: i,
+      faconnage: (l.faconnage ?? []).map((f, fi) => ({
+        produit_id: f.produit_id ?? null,
+        designation: f.designation || "—",
+        quantite: f.quantite,
+        prix_unitaire_ht: f.prix_unitaire_ht,
+        taux_tva: f.taux_tva,
+        parametres_json: f.parametres_json ?? null,
+        ordre: fi,
+      })),
+      service: (l.service ?? []).map((s, si) => ({
+        produit_id: s.produit_id ?? null,
+        designation: s.designation || "—",
+        quantite: s.quantite,
+        heures: s.heures ?? null,
+        prix_unitaire_ht: s.prix_unitaire_ht,
+        taux_tva: s.taux_tva,
+        ordre: si,
+      })),
     }));
 
     saveLignes.mutate({ id: devisId, data: { lignes: payload } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetDevisQueryKey(devisId) });
-        toast({ title: "Lignes enregistrées", description: "Le devis a été mis à jour." });
+        toast({ title: "Devis enregistré", description: "Les lignes ont été sauvegardées." });
       }
     });
   };
@@ -141,9 +201,7 @@ export default function DevisDetail() {
     });
   };
 
-  const handlePrint = useCallback(() => {
-    window.print();
-  }, []);
+  const handlePrint = useCallback(() => window.print(), []);
 
   const openEdit = () => {
     setEditNotes(devis?.notes ?? "");
@@ -180,35 +238,48 @@ export default function DevisDetail() {
     });
   };
 
+  // ── Preview totals (live calculation from UI state) ───────────────────────
   const previewTotals = useMemo(() => {
     let ht = 0, tva10 = 0, tva20 = 0;
     lignes.forEach(l => {
-      let q = Number(l.quantite) || 0;
-      if (l.unite_calcul === 'metre_lineaire') {
-        const w = Number(l.largeur_m) || 0;
-        const h = Number(l.hauteur_m) || 0;
-        q = (w + h) * 2 * q;
-      } else if (l.unite_calcul === 'metre_carre') {
-        const w = Number(l.largeur_m) || 0;
-        const h = Number(l.hauteur_m) || 0;
-        q = w * h * q;
-      }
-      const lineHt = q * (Number(l.prix_unitaire_ht) || 0);
-      ht += lineHt;
-      if (Number(l.taux_tva) === 10) tva10 += lineHt * 0.1;
-      else if (Number(l.taux_tva) === 20) tva20 += lineHt * 0.2;
+      const wCm = l.width_cm ?? 0;
+      const hCm = l.height_cm ?? 0;
+      const qCalc = calcQ(l.unite_calcul, wCm, hCm, l.quantite);
+      const lineHT = qCalc * l.prix_unitaire_ht;
+      const faconnageHT = (l.faconnage ?? []).reduce((s, f) => s + f.quantite * f.prix_unitaire_ht, 0);
+      const serviceHT = (l.service ?? []).reduce((s, sv) => s + sv.quantite * sv.prix_unitaire_ht, 0);
+      const totalLineHT = lineHT + faconnageHT + serviceHT;
+
+      ht += totalLineHT;
+      if (l.taux_tva === 10) tva10 += lineHT * 0.1;
+      else if (l.taux_tva === 20) tva20 += lineHT * 0.2;
+
+      // Also add TVA for sub-items
+      [...(l.faconnage ?? []), ...(l.service ?? [])].forEach(sub => {
+        const subHT = sub.quantite * sub.prix_unitaire_ht;
+        if (sub.taux_tva === 10) tva10 += subHT * 0.1;
+        else if (sub.taux_tva === 20) tva20 += subHT * 0.2;
+      });
     });
     return { ht, tva10, tva20, ttc: ht + tva10 + tva20 };
   }, [lignes]);
 
-  if (isLoading) return <div className="p-8"><Skeleton className="h-8 w-64 mb-8" /><Skeleton className="h-[500px] w-full" /></div>;
-  if (!devis) return <div className="p-8">Devis introuvable</div>;
+  if (isLoading) return (
+    <div className="p-8 space-y-4">
+      <Skeleton className="h-8 w-64" />
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-64 w-full" />
+    </div>
+  );
+  if (!devis) return <div className="p-8 text-muted-foreground">Devis introuvable</div>;
 
-  const isEditable = ['brouillon', 'envoye'].includes(devis.statut);
+  const isEditable = ["brouillon", "envoye"].includes(devis.statut);
 
   return (
     <>
-      {/* ── Print-only document ───────────────────────────────── */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          PRINT LAYOUT (hidden on screen)
+      ════════════════════════════════════════════════════════════════════ */}
       <div className="print-document hidden print:block">
         <div className="print-header">
           <div>
@@ -238,28 +309,52 @@ export default function DevisDetail() {
               <th style={{ width: "40%" }}>Désignation</th>
               <th>Unité</th>
               <th>Dimensions</th>
-              <th className="text-right">Qté</th>
+              <th className="text-right">Qté calc.</th>
               <th className="text-right">PU HT</th>
               <th className="text-right">TVA</th>
               <th className="text-right">Total HT</th>
             </tr>
           </thead>
           <tbody>
-            {(devis.lignes || []).map((l: any, i: number) => {
-              let q = Number(l.quantite) || 0;
-              if (l.unite_calcul === 'metre_lineaire') q = ((Number(l.largeur_m)||0) + (Number(l.hauteur_m)||0)) * 2 * q;
-              else if (l.unite_calcul === 'metre_carre') q = (Number(l.largeur_m)||0) * (Number(l.hauteur_m)||0) * q;
-              const totalHt = q * (Number(l.prix_unitaire_ht)||0);
+            {(devis.lignes ?? []).map((l, i) => {
+              const wCm = l.width_cm ?? (l.largeur_m != null ? l.largeur_m * 100 : 0);
+              const hCm = l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : 0);
+              const q = calcQ(l.unite_calcul, wCm, hCm, l.quantite);
+              const totalHt = q * l.prix_unitaire_ht;
               return (
-                <tr key={i}>
-                  <td>{l.designation}</td>
-                  <td>{l.unite_calcul?.replace('_', ' ')}</td>
-                  <td>{l.largeur_m || l.hauteur_m ? `${l.largeur_m||0}m × ${l.hauteur_m||0}m` : '-'}</td>
-                  <td className="text-right">{q.toFixed(2)}</td>
-                  <td className="text-right">{formatCurrency(l.prix_unitaire_ht)}</td>
-                  <td className="text-right">{l.taux_tva}%</td>
-                  <td className="text-right font-semibold">{formatCurrency(totalHt)}</td>
-                </tr>
+                <React.Fragment key={i}>
+                  <tr>
+                    <td>{l.designation}</td>
+                    <td>{l.unite_calcul}</td>
+                    <td>{wCm > 0 || hCm > 0 ? `${wCm}×${hCm} cm` : "-"}</td>
+                    <td className="text-right">{q.toFixed(3)}</td>
+                    <td className="text-right">{formatCurrency(l.prix_unitaire_ht)}</td>
+                    <td className="text-right">{l.taux_tva}%</td>
+                    <td className="text-right font-semibold">{formatCurrency(totalHt)}</td>
+                  </tr>
+                  {(l.faconnage ?? []).map((f, fi) => (
+                    <tr key={`f-${fi}`} className="text-gray-500 text-xs">
+                      <td className="pl-4 italic">↳ {f.designation}</td>
+                      <td>unité</td>
+                      <td>-</td>
+                      <td className="text-right">{f.quantite}</td>
+                      <td className="text-right">{formatCurrency(f.prix_unitaire_ht)}</td>
+                      <td className="text-right">{f.taux_tva}%</td>
+                      <td className="text-right">{formatCurrency(f.quantite * f.prix_unitaire_ht)}</td>
+                    </tr>
+                  ))}
+                  {(l.service ?? []).map((s, si) => (
+                    <tr key={`s-${si}`} className="text-gray-500 text-xs">
+                      <td className="pl-4 italic">↳ {s.designation}</td>
+                      <td>{s.heures ? "heure" : "unité"}</td>
+                      <td>-</td>
+                      <td className="text-right">{s.quantite}</td>
+                      <td className="text-right">{formatCurrency(s.prix_unitaire_ht)}</td>
+                      <td className="text-right">{s.taux_tva}%</td>
+                      <td className="text-right">{formatCurrency(s.quantite * s.prix_unitaire_ht)}</td>
+                    </tr>
+                  ))}
+                </React.Fragment>
               );
             })}
           </tbody>
@@ -268,10 +363,10 @@ export default function DevisDetail() {
         <div className="print-totals">
           <table>
             <tbody>
-              <tr><td>Sous-total HT</td><td>{formatCurrency(devis.total_ht ?? previewTotals.ht)}</td></tr>
+              <tr><td>Sous-total HT</td><td>{formatCurrency(devis.sous_total_ht)}</td></tr>
               {(devis.total_tva_10 ?? 0) > 0 && <tr><td>TVA 10%</td><td>{formatCurrency(devis.total_tva_10)}</td></tr>}
               {(devis.total_tva_20 ?? 0) > 0 && <tr><td>TVA 20%</td><td>{formatCurrency(devis.total_tva_20)}</td></tr>}
-              <tr className="print-total-row"><td>Total TTC</td><td>{formatCurrency(devis.total_ttc ?? previewTotals.ttc)}</td></tr>
+              <tr className="print-total-row"><td>Total TTC</td><td>{formatCurrency(devis.total_ttc)}</td></tr>
             </tbody>
           </table>
         </div>
@@ -288,8 +383,12 @@ export default function DevisDetail() {
         </div>
       </div>
 
-      {/* ── Screen view ───────────────────────────────────────── */}
-      <div className="space-y-6 pb-20 animate-in fade-in duration-300 print:hidden">
+      {/* ═══════════════════════════════════════════════════════════════════
+          SCREEN LAYOUT
+      ════════════════════════════════════════════════════════════════════ */}
+      <div className="space-y-6 pb-24 animate-in fade-in duration-300 print:hidden">
+
+        {/* ── Header ──────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4">
             <Link href="/devis">
@@ -304,11 +403,12 @@ export default function DevisDetail() {
                   {devis.statut.toUpperCase()}
                 </Badge>
               </div>
-              <p className="text-muted-foreground mt-1 text-sm">
+              <p className="text-muted-foreground mt-0.5 text-sm">
                 <Link href={`/clients/${devis.client_id}`} className="hover:text-primary hover:underline transition-colors font-medium">
                   {devis.client_prenom} {devis.client_nom}
                 </Link>
-                {" • "}Créé le {formatDate(devis.date_creation)}
+                {" · "}Créé le {formatDate(devis.date_creation)}
+                {devis.date_validite && ` · Valide jusqu'au ${formatDate(devis.date_validite)}`}
               </p>
             </div>
           </div>
@@ -323,22 +423,22 @@ export default function DevisDetail() {
             <Button variant="outline" size="sm" className="glass-panel text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => setIsDeleteOpen(true)}>
               <Trash2 className="h-4 w-4 mr-1" /> Supprimer
             </Button>
-            {devis.statut === 'brouillon' && (
-              <Button variant="outline" className="glass-panel" onClick={() => handleChangeStatut('envoye')}>
+            {devis.statut === "brouillon" && (
+              <Button variant="outline" className="glass-panel" onClick={() => handleChangeStatut("envoye")}>
                 Marquer envoyé
               </Button>
             )}
-            {devis.statut === 'envoye' && (
+            {devis.statut === "envoye" && (
               <>
-                <Button variant="outline" className="glass-panel text-green-600 dark:text-green-400 hover:text-green-500" onClick={() => handleChangeStatut('accepte')}>
+                <Button variant="outline" className="glass-panel text-green-600 dark:text-green-400 hover:text-green-500" onClick={() => handleChangeStatut("accepte")}>
                   Marquer accepté
                 </Button>
-                <Button variant="outline" className="glass-panel text-red-600 dark:text-red-400 hover:text-red-500" onClick={() => handleChangeStatut('refuse')}>
+                <Button variant="outline" className="glass-panel text-red-600 dark:text-red-400 hover:text-red-500" onClick={() => handleChangeStatut("refuse")}>
                   Marquer refusé
                 </Button>
               </>
             )}
-            {devis.statut === 'accepte' && (
+            {devis.statut === "accepte" && (
               <Button className="shadow-lg shadow-violet-500/20 bg-violet-600 hover:bg-violet-500 text-white" onClick={handleConvert} disabled={convertFacture.isPending}>
                 <ArrowRightLeft className="mr-2 h-4 w-4" /> Convertir en facture
               </Button>
@@ -353,177 +453,129 @@ export default function DevisDetail() {
           </div>
         </div>
 
-        <Card className="glass-panel border-border/50">
-          <CardHeader className="border-b border-border/50 bg-card/30 flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Lignes du devis</CardTitle>
+        {/* ── Lines section ────────────────────────────────────────────── */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">
+              Lignes du devis
+              {lignes.length > 0 && <span className="ml-2 text-sm font-normal text-muted-foreground">({lignes.length})</span>}
+            </h2>
             {isEditable && (
               <div className="flex gap-2">
-                <Button size="sm" variant="secondary" onClick={addLine} className="bg-secondary/20 text-secondary hover:bg-secondary/30">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="glass-panel text-primary border-primary/30 hover:bg-primary/10"
+                  onClick={addLine}
+                >
                   <Plus className="h-4 w-4 mr-1" /> Ajouter
                 </Button>
                 <Button size="sm" onClick={handleSave} disabled={saveLignes.isPending}>
-                  <Save className="h-4 w-4 mr-1" /> {saveLignes.isPending ? "..." : "Sauvegarder"}
+                  {saveLignes.isPending ? (
+                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Enregistrement...</>
+                  ) : (
+                    <><Save className="h-4 w-4 mr-1" />Enregistrer</>
+                  )}
                 </Button>
               </div>
             )}
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/30 text-muted-foreground">
-                  <tr>
-                    <th className="p-3 text-left font-medium w-1/4">Désignation</th>
-                    <th className="p-3 text-left font-medium">Unité</th>
-                    <th className="p-3 text-center font-medium">Dim (L × H)</th>
-                    <th className="p-3 text-center font-medium">Qté</th>
-                    <th className="p-3 text-right font-medium">PU HT</th>
-                    <th className="p-3 text-right font-medium">TVA</th>
-                    <th className="p-3 text-right font-medium">Total HT</th>
-                    {isEditable && <th className="p-3 w-10"></th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/30">
-                  {lignes.length === 0 ? (
-                    <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">Aucune ligne. Cliquez sur "Ajouter" pour commencer.</td></tr>
-                  ) : (
-                    lignes.map((ligne, index) => {
-                      let dispQ = Number(ligne.quantite) || 0;
-                      if (ligne.unite_calcul === 'metre_lineaire') {
-                        dispQ = ((Number(ligne.largeur_m)||0) + (Number(ligne.hauteur_m)||0)) * 2 * dispQ;
-                      } else if (ligne.unite_calcul === 'metre_carre') {
-                        dispQ = (Number(ligne.largeur_m)||0) * (Number(ligne.hauteur_m)||0) * dispQ;
-                      }
-                      const totalHt = dispQ * (Number(ligne.prix_unitaire_ht)||0);
+          </div>
 
-                      return (
-                        <tr key={ligne.id || index} className="hover:bg-muted/10 transition-colors">
-                          <td className="p-2">
-                            {isEditable ? (
-                              <div className="space-y-2">
-                                <Select value={ligne.produit_id?.toString() || ""} onValueChange={(v) => updateLine(index, 'produit_id', v)}>
-                                  <SelectTrigger className="h-8 text-xs bg-background/50 border-border/50"><SelectValue placeholder="Produit..." /></SelectTrigger>
-                                  <SelectContent>
-                                    {produits?.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.reference ? `[${p.reference}] ` : ''}{p.designation}</SelectItem>)}
-                                  </SelectContent>
-                                </Select>
-                                <Input 
-                                  value={ligne.designation} 
-                                  onChange={e => updateLine(index, 'designation', e.target.value)}
-                                  className="h-8 text-xs bg-background/50 border-border/50" placeholder="Description libre..."
-                                />
-                              </div>
-                            ) : (
-                              <span className="font-medium">{ligne.designation}</span>
-                            )}
-                          </td>
-                          <td className="p-2">
-                            {isEditable ? (
-                              <Select value={ligne.unite_calcul} onValueChange={(v) => updateLine(index, 'unite_calcul', v)}>
-                                <SelectTrigger className="h-8 text-xs bg-background/50 border-border/50"><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="unitaire">Unité</SelectItem>
-                                  <SelectItem value="metre_lineaire">Mètre linéaire</SelectItem>
-                                  <SelectItem value="metre_carre">Mètre carré</SelectItem>
-                                  <SelectItem value="heure">Heure</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <Badge variant="outline" className="text-[10px]">{ligne.unite_calcul.replace('_', ' ')}</Badge>
-                            )}
-                          </td>
-                          <td className="p-2 text-center">
-                            {isEditable && (ligne.unite_calcul === 'metre_lineaire' || ligne.unite_calcul === 'metre_carre') ? (
-                              <div className="flex items-center gap-1 justify-center">
-                                <Input type="number" step="0.01" value={ligne.largeur_m || ''} onChange={e => updateLine(index, 'largeur_m', e.target.value)} className="h-8 w-16 text-xs text-center p-1 bg-background/50 border-border/50" placeholder="L" />
-                                <span className="text-muted-foreground text-xs">×</span>
-                                <Input type="number" step="0.01" value={ligne.hauteur_m || ''} onChange={e => updateLine(index, 'hauteur_m', e.target.value)} className="h-8 w-16 text-xs text-center p-1 bg-background/50 border-border/50" placeholder="H" />
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">
-                                {ligne.largeur_m || ligne.hauteur_m ? `${ligne.largeur_m || 0}m × ${ligne.hauteur_m || 0}m` : '-'}
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-2 text-center">
-                            {isEditable ? (
-                              <Input type="number" min="1" value={ligne.quantite} onChange={e => updateLine(index, 'quantite', e.target.value)} className="h-8 w-16 mx-auto text-center bg-background/50 border-border/50" />
-                            ) : (
-                              <span>{ligne.quantite}</span>
-                            )}
-                          </td>
-                          <td className="p-2 text-right">
-                            {isEditable ? (
-                              <Input type="number" step="0.01" value={ligne.prix_unitaire_ht} onChange={e => updateLine(index, 'prix_unitaire_ht', e.target.value)} className="h-8 w-20 ml-auto text-right bg-background/50 border-border/50" />
-                            ) : (
-                              <span>{formatCurrency(ligne.prix_unitaire_ht)}</span>
-                            )}
-                          </td>
-                          <td className="p-2 text-right">
-                            {isEditable ? (
-                              <Select value={ligne.taux_tva.toString()} onValueChange={(v) => updateLine(index, 'taux_tva', v)}>
-                                <SelectTrigger className="h-8 w-16 ml-auto text-xs bg-background/50 border-border/50"><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="20">20%</SelectItem>
-                                  <SelectItem value="10">10%</SelectItem>
-                                  <SelectItem value="5.5">5.5%</SelectItem>
-                                  <SelectItem value="0">0%</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <span>{ligne.taux_tva}%</span>
-                            )}
-                          </td>
-                          <td className="p-2 text-right font-medium text-accent">
-                            {formatCurrency(totalHt)}
-                          </td>
-                          {isEditable && (
-                            <td className="p-2 text-center">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => removeLine(index)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+          {/* Empty state */}
+          {lignes.length === 0 && (
+            <div
+              className="text-center py-16 text-muted-foreground border-2 border-dashed border-border/40 rounded-xl bg-card/20 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors"
+              onClick={() => isEditable && addLine()}
+            >
+              {isEditable ? (
+                <>
+                  <Plus className="h-8 w-8 mx-auto mb-3 text-muted-foreground/40" />
+                  <p className="font-medium">Aucune ligne</p>
+                  <p className="text-sm text-muted-foreground/60 mt-1">Cliquez pour ajouter la première ligne</p>
+                </>
+              ) : (
+                <p>Aucune ligne dans ce devis.</p>
+              )}
             </div>
-          </CardContent>
-          <CardFooter className="bg-muted/10 p-6 border-t border-border/50">
-            <div className="ml-auto w-full max-w-sm space-y-3">
+          )}
+
+          {/* Line cards */}
+          <div className="space-y-3">
+            {lignes.map((line, index) => (
+              <QuoteLineCard
+                key={line.id}
+                line={line}
+                index={index}
+                isEditable={isEditable}
+                onChange={updated => updateLine(index, updated)}
+                onRemove={() => removeLine(index)}
+              />
+            ))}
+          </div>
+
+          {/* Save bar (sticky when editing + lines exist) */}
+          {isEditable && lignes.length > 0 && (
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="glass-panel text-primary border-primary/30 hover:bg-primary/10"
+                onClick={addLine}
+              >
+                <Plus className="h-4 w-4 mr-1" /> Ajouter une ligne
+              </Button>
+              <Button onClick={handleSave} disabled={saveLignes.isPending}>
+                {saveLignes.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Enregistrement...</>
+                ) : (
+                  <><Save className="h-4 w-4 mr-1" />Enregistrer</>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* ── Totals card ──────────────────────────────────────────────── */}
+        <div className="glass-panel rounded-xl border border-border/50 p-6 ml-auto max-w-sm">
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Sous-total HT</span>
+              <span className="font-semibold tabular-nums">{formatCurrency(previewTotals.ht)}</span>
+            </div>
+            {previewTotals.tva10 > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Sous-total HT</span>
-                <span className="font-medium">{formatCurrency(previewTotals.ht)}</span>
+                <span className="text-muted-foreground">TVA 10%</span>
+                <span className="tabular-nums">{formatCurrency(previewTotals.tva10)}</span>
               </div>
-              {previewTotals.tva10 > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">TVA 10%</span>
-                  <span>{formatCurrency(previewTotals.tva10)}</span>
-                </div>
-              )}
-              {previewTotals.tva20 > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">TVA 20%</span>
-                  <span>{formatCurrency(previewTotals.tva20)}</span>
-                </div>
-              )}
-              <div className="pt-3 border-t border-border/50 flex justify-between items-center">
-                <span className="font-bold text-lg">Total TTC</span>
-                <span className="font-bold text-2xl text-primary">{formatCurrency(previewTotals.ttc)}</span>
+            )}
+            {previewTotals.tva20 > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">TVA 20%</span>
+                <span className="tabular-nums">{formatCurrency(previewTotals.tva20)}</span>
               </div>
+            )}
+            <div className="pt-3 border-t border-border/50 flex justify-between items-baseline">
+              <span className="font-bold text-lg">Total TTC</span>
+              <span className="font-bold text-2xl text-primary tabular-nums">{formatCurrency(previewTotals.ttc)}</span>
             </div>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
+
+        {/* Notes display */}
+        {devis.notes && (
+          <div className="glass-panel rounded-xl border border-border/40 p-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Notes</p>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{devis.notes}</p>
+          </div>
+        )}
       </div>
 
-      {/* ── Edit header dialog ──────────────────────────────── */}
+      {/* ── Edit header dialog ───────────────────────────────────────── */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="glass-panel">
           <DialogHeader>
             <DialogTitle>Modifier le devis</DialogTitle>
-            <DialogDescription>Modifiez la date de validité et les notes internes.</DialogDescription>
+            <DialogDescription>Date de validité et notes internes.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -549,7 +601,7 @@ export default function DevisDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete confirmation ──────────────────────────────── */}
+      {/* ── Delete confirmation ──────────────────────────────────────── */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent className="glass-panel">
           <AlertDialogHeader>
@@ -570,6 +622,13 @@ export default function DevisDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Global quick-add modal (from header) */}
+      <QuickAddProductModal
+        open={quickAddOpen}
+        onClose={() => setQuickAddOpen(false)}
+        onCreated={() => setQuickAddOpen(false)}
+      />
     </>
   );
 }

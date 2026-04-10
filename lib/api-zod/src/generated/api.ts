@@ -235,10 +235,15 @@ export const GetClientStatsResponse = zod.object({
  */
 export const ListProduitsQueryParams = zod.object({
   categorie: zod.coerce.string().optional(),
+  type: zod.coerce.string().optional(),
 });
 
 export const ListProduitsResponseItem = zod.object({
   id: zod.number(),
+  type_produit: zod.string().nullish(),
+  fournisseur: zod.string().nullish(),
+  sous_categorie: zod.string().nullish(),
+  unite: zod.string().nullish(),
   reference: zod.string().nullish(),
   designation: zod.string(),
   categorie: zod.string(),
@@ -252,16 +257,28 @@ export const ListProduitsResponseItem = zod.object({
 });
 export const ListProduitsResponse = zod.array(ListProduitsResponseItem);
 
+export const SearchProduitsQueryParams = zod.object({
+  q: zod.string(),
+  type: zod.string().optional(),
+});
+export const SearchProduitsResponse = zod.array(ListProduitsResponseItem);
+
+export const ListFournisseursResponse = zod.array(zod.string());
+
 /**
  * @summary Create a product
  */
 export const CreateProduitBody = zod.object({
+  type_produit: zod.string().nullish(),
+  fournisseur: zod.string().nullish(),
+  sous_categorie: zod.string().nullish(),
+  unite: zod.string().nullish(),
   reference: zod.string().nullish(),
   designation: zod.string(),
-  categorie: zod.string(),
-  unite_calcul: zod.string(),
+  categorie: zod.string().default("baguettes"),
+  unite_calcul: zod.string().default("unitaire"),
   prix_ht: zod.number(),
-  taux_tva: zod.number(),
+  taux_tva: zod.number().default(20),
   notes: zod.string().nullish(),
 });
 
@@ -273,17 +290,25 @@ export const UpdateProduitParams = zod.object({
 });
 
 export const UpdateProduitBody = zod.object({
+  type_produit: zod.string().nullish(),
+  fournisseur: zod.string().nullish(),
+  sous_categorie: zod.string().nullish(),
+  unite: zod.string().nullish(),
   reference: zod.string().nullish(),
   designation: zod.string(),
-  categorie: zod.string(),
-  unite_calcul: zod.string(),
+  categorie: zod.string().default("baguettes"),
+  unite_calcul: zod.string().default("unitaire"),
   prix_ht: zod.number(),
-  taux_tva: zod.number(),
+  taux_tva: zod.number().default(20),
   notes: zod.string().nullish(),
 });
 
 export const UpdateProduitResponse = zod.object({
   id: zod.number(),
+  type_produit: zod.string().nullish(),
+  fournisseur: zod.string().nullish(),
+  sous_categorie: zod.string().nullish(),
+  unite: zod.string().nullish(),
   reference: zod.string().nullish(),
   designation: zod.string(),
   categorie: zod.string(),
@@ -316,6 +341,10 @@ export const ToggleProduitActifParams = zod.object({
 
 export const ToggleProduitActifResponse = zod.object({
   id: zod.number(),
+  type_produit: zod.string().nullish(),
+  fournisseur: zod.string().nullish(),
+  sous_categorie: zod.string().nullish(),
+  unite: zod.string().nullish(),
   reference: zod.string().nullish(),
   designation: zod.string(),
   categorie: zod.string(),
@@ -324,6 +353,7 @@ export const ToggleProduitActifResponse = zod.object({
   taux_tva: zod.number(),
   actif: zod.number(),
   notes: zod.string().nullish(),
+  image_url: zod.string().nullish(),
   cree_le: zod.string(),
 });
 
@@ -402,6 +432,8 @@ export const GetDevisResponse = zod
           unite_calcul: zod.string(),
           largeur_m: zod.number().nullish(),
           hauteur_m: zod.number().nullish(),
+          width_cm: zod.number().nullish(),
+          height_cm: zod.number().nullish(),
           quantite: zod.number(),
           quantite_calculee: zod.number().nullish(),
           prix_unitaire_ht: zod.number(),
@@ -409,6 +441,34 @@ export const GetDevisResponse = zod
           total_ht: zod.number(),
           total_ttc: zod.number(),
           ordre: zod.number(),
+          faconnage: zod.array(
+            zod.object({
+              id: zod.number(),
+              ligne_devis_id: zod.number(),
+              produit_id: zod.number().nullish(),
+              designation: zod.string(),
+              quantite: zod.number(),
+              prix_unitaire_ht: zod.number(),
+              taux_tva: zod.number(),
+              total_ht: zod.number(),
+              parametres_json: zod.string().nullish(),
+              ordre: zod.number(),
+            }),
+          ).default([]),
+          service: zod.array(
+            zod.object({
+              id: zod.number(),
+              ligne_devis_id: zod.number(),
+              produit_id: zod.number().nullish(),
+              designation: zod.string(),
+              quantite: zod.number(),
+              heures: zod.number().nullish(),
+              prix_unitaire_ht: zod.number(),
+              taux_tva: zod.number(),
+              total_ht: zod.number(),
+              ordre: zod.number(),
+            }),
+          ).default([]),
         }),
       ),
     }),
@@ -471,10 +531,34 @@ export const SaveDevisLignesBody = zod.object({
       unite_calcul: zod.string(),
       largeur_m: zod.number().nullish(),
       hauteur_m: zod.number().nullish(),
+      width_cm: zod.number().nullish(),
+      height_cm: zod.number().nullish(),
       quantite: zod.number(),
       prix_unitaire_ht: zod.number(),
       taux_tva: zod.number(),
       ordre: zod.number().optional(),
+      faconnage: zod.array(
+        zod.object({
+          produit_id: zod.number().nullish(),
+          designation: zod.string(),
+          quantite: zod.number().default(1),
+          prix_unitaire_ht: zod.number().default(0),
+          taux_tva: zod.number().default(20),
+          parametres_json: zod.string().nullish(),
+          ordre: zod.number().optional(),
+        }),
+      ).optional().default([]),
+      service: zod.array(
+        zod.object({
+          produit_id: zod.number().nullish(),
+          designation: zod.string(),
+          quantite: zod.number().default(1),
+          heures: zod.number().nullish(),
+          prix_unitaire_ht: zod.number().default(0),
+          taux_tva: zod.number().default(20),
+          ordre: zod.number().optional(),
+        }),
+      ).optional().default([]),
     }),
   ),
 });
