@@ -167,8 +167,17 @@ router.delete("/clients/:id", async (req, res): Promise<void> => {
   const params = DeleteClientParams.safeParse({ id: parseInt(raw, 10) });
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  await db.delete(clientsTable).where(eq(clientsTable.id, params.data.id));
-  res.json(DeleteClientResponse.parse({ success: true }));
+  try {
+    await db.delete(clientsTable).where(eq(clientsTable.id, params.data.id));
+    res.json(DeleteClientResponse.parse({ success: true }));
+  } catch (err: unknown) {
+    const pg = err as { code?: string };
+    if (pg.code === "23503") {
+      res.status(409).json({ error: "Ce client a des devis ou factures associés. Supprimez-les d'abord avant de supprimer le client." });
+      return;
+    }
+    throw err;
+  }
 });
 
 // ── GET /clients/:id/stats ───────────────────────────────────────────────────

@@ -118,6 +118,11 @@ export default function ClientDetail() {
         toast({ title: "Client supprimé" });
         queryClient.invalidateQueries({ queryKey: getListClientsQueryKey() });
         setLocation("/clients");
+      },
+      onError: (err: unknown) => {
+        const apiErr = err as { data?: { error?: string } };
+        const msg = apiErr?.data?.error ?? "Impossible de supprimer ce client.";
+        toast({ title: "Suppression impossible", description: msg, variant: "destructive" });
       }
     });
   };
