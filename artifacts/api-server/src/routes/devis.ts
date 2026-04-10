@@ -255,11 +255,12 @@ router.put("/devis/:id", async (req, res): Promise<void> => {
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { notes, date_validite } = req.body as { notes?: string; date_validite?: string };
+  const { notes, date_validite, date_creation } = req.body as { notes?: string; date_validite?: string; date_creation?: string };
   await db.update(devisTable)
     .set({
       ...(notes !== undefined && { notes }),
       ...(date_validite !== undefined && { date_validite: date_validite ? new Date(date_validite) : null }),
+      ...(date_creation !== undefined && date_creation && { date_creation: new Date(date_creation) }),
       modifie_le: new Date(),
     })
     .where(eq(devisTable.id, id));

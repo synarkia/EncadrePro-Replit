@@ -95,6 +95,7 @@ export default function DevisDetail() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [editNotes, setEditNotes] = useState("");
   const [editDate, setEditDate] = useState("");
+  const [editDateCreation, setEditDateCreation] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
@@ -216,6 +217,7 @@ export default function DevisDetail() {
   const openEdit = () => {
     setEditNotes(devis?.notes ?? "");
     setEditDate(devis?.date_validite ? devis.date_validite.slice(0, 10) : "");
+    setEditDateCreation(devis?.date_creation ? devis.date_creation.slice(0, 10) : "");
     setIsEditOpen(true);
   };
 
@@ -225,7 +227,11 @@ export default function DevisDetail() {
       await fetch(`${BASE_URL}/api/devis/${devisId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: editNotes, date_validite: editDate || null }),
+        body: JSON.stringify({
+          notes: editNotes,
+          date_validite: editDate || null,
+          date_creation: editDateCreation || null,
+        }),
       });
       await queryClient.invalidateQueries({ queryKey: getGetDevisQueryKey(devisId) });
       setIsEditOpen(false);
@@ -598,12 +604,18 @@ export default function DevisDetail() {
         <DialogContent className="glass-panel">
           <DialogHeader>
             <DialogTitle>Modifier le devis</DialogTitle>
-            <DialogDescription>Date de validité et notes internes.</DialogDescription>
+            <DialogDescription>Dates, statut et notes du devis.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date de validité</label>
-              <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Date de création</label>
+                <Input type="date" value={editDateCreation} onChange={e => setEditDateCreation(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Date de validité</label>
+                <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} />
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Notes internes</label>
