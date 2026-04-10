@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useListFactures, useUpdateFactureStatut, getListFacturesQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { Filter, ChevronDown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,7 +29,9 @@ const FACTURE_STATUT_OPTIONS: { value: string; label: string; dot: string }[] = 
 ];
 
 export default function FacturesList() {
-  const [statut, setStatut] = useState<string>("tous");
+  const search = useSearch();
+  const initialStatut = new URLSearchParams(search).get("statut") || "tous";
+  const [statut, setStatut] = useState<string>(initialStatut);
   const { data: facturesList, isLoading } = useListFactures(statut !== "tous" ? { statut } : {});
   const queryClient = useQueryClient();
   const updateStatut = useUpdateFactureStatut();

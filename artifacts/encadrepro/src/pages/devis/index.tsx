@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useListDevis, useCreateDevis, useListClients, useUpdateDevisStatut, getListDevisQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Plus, Filter, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -38,7 +38,9 @@ const STATUT_OPTIONS: { value: string; label: string; dot: string }[] = [
 ];
 
 export default function DevisList() {
-  const [statut, setStatut] = useState<string>("tous");
+  const search = useSearch();
+  const initialStatut = new URLSearchParams(search).get("statut") || "tous";
+  const [statut, setStatut] = useState<string>(initialStatut);
   const { data: devisList, isLoading } = useListDevis(statut !== "tous" ? { statut } : {});
   const { data: clients } = useListClients();
   const [isCreateOpen, setIsCreateOpen] = useState(false);

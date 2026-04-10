@@ -6,7 +6,7 @@ import {
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { FileText, FileSpreadsheet, Users, TrendingUp } from "lucide-react";
+import { FileText, FileSpreadsheet, Users, TrendingUp, ArrowRight } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
@@ -32,49 +32,69 @@ export default function Dashboard() {
         </div>
       ) : stats ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="glass-panel">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">CA du mois</CardTitle>
-              <TrendingUp className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-accent">{formatCurrency(stats.caMois)}</div>
-            </CardContent>
-          </Card>
-          <Card className="glass-panel">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Devis en attente</CardTitle>
-              <FileText className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.devisEnAttente.n}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Total: <span className="text-accent">{formatCurrency(stats.devisEnAttente.montant)}</span>
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="glass-panel">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Factures impayées</CardTitle>
-              <FileSpreadsheet className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.facturesImpayees.n}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Restant: <span className="text-accent">{formatCurrency(stats.facturesImpayees.montant)}</span>
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="glass-panel">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Nouveaux clients</CardTitle>
-              <Users className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.nouveauxClients}</div>
-              <p className="text-xs text-muted-foreground mt-1">Ce mois-ci</p>
-            </CardContent>
-          </Card>
+          <Link href="/factures">
+            <Card className="glass-panel cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all group">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">CA du mois</CardTitle>
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-accent">{formatCurrency(stats.caMois)}</div>
+                <p className="text-xs text-primary/60 mt-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Voir les factures <ArrowRight className="h-3 w-3" />
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/devis?statut=envoye">
+            <Card className="glass-panel cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all group">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Devis en attente</CardTitle>
+                <FileText className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.devisEnAttente.n}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Total: <span className="text-accent">{formatCurrency(stats.devisEnAttente.montant)}</span>
+                </p>
+                <p className="text-xs text-primary/60 mt-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Voir les devis envoyés <ArrowRight className="h-3 w-3" />
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/factures?statut=envoyee">
+            <Card className="glass-panel cursor-pointer hover:bg-white/5 hover:border-destructive/30 transition-all group">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Factures impayées</CardTitle>
+                <FileSpreadsheet className="h-4 w-4 text-destructive" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.facturesImpayees.n}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Restant: <span className="text-accent">{formatCurrency(stats.facturesImpayees.montant)}</span>
+                </p>
+                <p className="text-xs text-primary/60 mt-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Voir les factures envoyées <ArrowRight className="h-3 w-3" />
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/clients">
+            <Card className="glass-panel cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all group">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Nouveaux clients</CardTitle>
+                <Users className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.nouveauxClients}</div>
+                <p className="text-xs text-muted-foreground mt-1">Ce mois-ci</p>
+                <p className="text-xs text-primary/60 mt-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Voir les clients <ArrowRight className="h-3 w-3" />
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       ) : null}
 
