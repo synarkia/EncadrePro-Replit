@@ -200,6 +200,7 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
                   placeholder="Chercher matière... (2+ car.)"
                   onSelect={handleMatiereSelect}
                   onCreateNew={() => { setQuickAddType("matière"); setQuickAddOpen(true); }}
+                  showSupplierPills
                 />
               </div>
             ) : null}

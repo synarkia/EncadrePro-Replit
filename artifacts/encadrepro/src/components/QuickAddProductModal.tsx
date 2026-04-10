@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { useCreateProduit, getListProduitsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,6 +19,18 @@ const UNITE_OPTIONS = [
   { value: "forfait", label: "Forfait" },
 ];
 
+const SOUS_CATEGORIES: Record<string, string[]> = {
+  matière: ["Verre", "Encadrement", "Bois", "Plexi", "Métal", "Passe-partout", "Autre"],
+  façonnage: ["Polissage", "Biseautage", "Perçage", "Découpe", "Collage", "Soudure", "Autre"],
+  service: ["Montage", "Livraison", "Main d'œuvre", "Nettoyage", "Conseil", "Autre"],
+};
+
+const DEFAULT_UNITE: Record<string, string> = {
+  matière: "ml",
+  façonnage: "pièce",
+  service: "heure",
+};
+
 function uniteToUniteCalcul(unite: string): string {
   const map: Record<string, string> = { "ml": "metre_lineaire", "m²": "metre_carre", "pièce": "unitaire", "heure": "heure", "forfait": "unitaire" };
   return map[unite] ?? "unitaire";
@@ -31,42 +43,63 @@ interface QuickAddProductModalProps {
   onCreated: (produit: ProduitSearchResult) => void;
 }
 
+type FormState = {
+  type_produit: string;
+  reference: string;
+  designation: string;
+  fournisseur: string;
+  sous_categorie: string;
+  unite: string;
+  prix_ht: string;
+  taux_tva: string;
+  tarif_type: "forfait" | "heure";
+};
+
 export function QuickAddProductModal({ open, defaultType = "matière", onClose, onCreated }: QuickAddProductModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createProduit = useCreateProduit();
 
-  const [form, setForm] = useState({
-    type_produit: defaultType,
+  const makeDefault = (type: string): FormState => ({
+    type_produit: type,
     reference: "",
     designation: "",
     fournisseur: "",
     sous_categorie: "",
-    unite: "pièce",
+    unite: DEFAULT_UNITE[type] ?? "pièce",
     prix_ht: "",
     taux_tva: "20",
+    tarif_type: type === "service" ? "heure" : "forfait",
   });
 
-  const reset = () => setForm({
-    type_produit: defaultType,
-    reference: "", designation: "", fournisseur: "", sous_categorie: "",
-    unite: "pièce", prix_ht: "", taux_tva: "20",
-  });
+  const [form, setForm] = useState<FormState>(makeDefault(defaultType));
+
+  useEffect(() => {
+    if (open) setForm(makeDefault(defaultType));
+  }, [open, defaultType]);
+
+  const set = (patch: Partial<FormState>) => setForm(prev => ({ ...prev, ...patch }));
+
+  const handleTypeChange = (type: string) => {
+    set({ type_produit: type, sous_categorie: "", unite: DEFAULT_UNITE[type] ?? "pièce", tarif_type: type === "service" ? "heure" : "forfait" });
+  };
 
   const handleSubmit = () => {
     const prix = parseFloat(form.prix_ht);
     if (!form.designation || isNaN(prix)) return;
+
+    const unite = form.type_produit === "service" ? (form.tarif_type === "heure" ? "heure" : "forfait") : form.unite;
 
     createProduit.mutate({
       data: {
         type_produit: form.type_produit,
         fournisseur: form.fournisseur || null,
         sous_categorie: form.sous_categorie || null,
-        unite: form.unite,
+        unite,
         reference: form.reference || null,
         designation: form.designation,
         categorie: "baguettes",
-        unite_calcul: uniteToUniteCalcul(form.unite),
+        unite_calcul: uniteToUniteCalcul(unite),
         prix_ht: prix,
         taux_tva: parseFloat(form.taux_tva),
         notes: null,
@@ -87,14 +120,15 @@ export function QuickAddProductModal({ open, defaultType = "matière", onClose, 
           prix_ht: created.prix_ht,
           taux_tva: created.taux_tva,
         });
-        reset();
         onClose();
       },
     });
   };
 
+  const subCats = SOUS_CATEGORIES[form.type_produit] ?? [];
+
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v) { reset(); onClose(); } }}>
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="glass-panel max-w-md">
         <DialogHeader>
           <DialogTitle>Créer un produit</DialogTitle>
@@ -102,7 +136,7 @@ export function QuickAddProductModal({ open, defaultType = "matière", onClose, 
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Type selector */}
+          {/* ── Type selector ───────────────────────────────── */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Type</label>
             <div className="flex gap-2">
@@ -110,7 +144,7 @@ export function QuickAddProductModal({ open, defaultType = "matière", onClose, 
                 <button
                   key={t}
                   type="button"
-                  onClick={() => setForm({ ...form, type_produit: t })}
+                  onClick={() => handleTypeChange(t)}
                   className={`flex-1 py-1.5 px-2 rounded-lg border text-xs font-medium transition-all capitalize ${
                     form.type_produit === t
                       ? "bg-primary text-primary-foreground border-primary"
@@ -123,45 +157,95 @@ export function QuickAddProductModal({ open, defaultType = "matière", onClose, 
             </div>
           </div>
 
+          {/* ── Sub-category pills ──────────────────────────── */}
+          {subCats.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Sous-catégorie</label>
+              <div className="flex flex-wrap gap-1.5">
+                {subCats.map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => set({ sous_categorie: form.sous_categorie === cat ? "" : cat })}
+                    className={`px-2.5 py-1 rounded-full border text-[11px] font-medium transition-all ${
+                      form.sous_categorie === cat
+                        ? "bg-primary/20 text-primary border-primary/50"
+                        : "bg-card border-border/40 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Ref + Designation ───────────────────────────── */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Référence</label>
-              <Input className="h-8 text-sm" value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} placeholder="REF-001" />
+              <Input className="h-8 text-sm" value={form.reference} onChange={e => set({ reference: e.target.value })} placeholder="REF-001" />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Désignation *</label>
-              <Input className="h-8 text-sm" value={form.designation} onChange={e => setForm({ ...form, designation: e.target.value })} placeholder="Nom du produit..." />
+              <Input className="h-8 text-sm" value={form.designation} onChange={e => set({ designation: e.target.value })} placeholder="Nom du produit..." />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* ── Supplier (Matière only) ─────────────────────── */}
+          {form.type_produit === "matière" && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Fournisseur</label>
-              <Input className="h-8 text-sm" value={form.fournisseur} onChange={e => setForm({ ...form, fournisseur: e.target.value })} placeholder="Nom fournisseur..." />
+              <Input className="h-8 text-sm" value={form.fournisseur} onChange={e => set({ fournisseur: e.target.value })} placeholder="Nom du fournisseur..." />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Sous-catégorie</label>
-              <Input className="h-8 text-sm" value={form.sous_categorie} onChange={e => setForm({ ...form, sous_categorie: e.target.value })} placeholder="Ex: Verre, Polissage..." />
-            </div>
-          </div>
+          )}
 
-          <div className="grid grid-cols-3 gap-3">
+          {/* ── Service: rate type toggle ───────────────────── */}
+          {form.type_produit === "service" && (
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Unité</label>
-              <Select value={form.unite} onValueChange={v => setForm({ ...form, unite: v })}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {UNITE_OPTIONS.map(u => <SelectItem key={u.value} value={u.value}>{u.value}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <label className="text-xs font-medium text-muted-foreground">Type de tarif</label>
+              <div className="flex gap-2">
+                {([["heure", "Taux horaire"], ["forfait", "Forfait"]] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => set({ tarif_type: val })}
+                    className={`flex-1 py-1.5 px-2 rounded-lg border text-xs font-medium transition-all ${
+                      form.tarif_type === val
+                        ? "bg-green-500/20 text-green-400 border-green-500/50"
+                        : "bg-card border-border/50 text-muted-foreground hover:border-green-500/30"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Prix HT *</label>
-              <Input className="h-8 text-sm" type="number" step="0.01" min="0" value={form.prix_ht} onChange={e => setForm({ ...form, prix_ht: e.target.value })} placeholder="0.00" />
+          )}
+
+          {/* ── Pricing row ─────────────────────────────────── */}
+          <div className="grid grid-cols-3 gap-3">
+            {/* Unit: hidden for service (derived from tarif_type) */}
+            {form.type_produit !== "service" && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Unité</label>
+                <Select value={form.unite} onValueChange={v => set({ unite: v })}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {UNITE_OPTIONS.map(u => <SelectItem key={u.value} value={u.value}>{u.value}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className={`space-y-1.5 ${form.type_produit === "service" ? "col-span-2" : ""}`}>
+              <label className="text-xs font-medium text-muted-foreground">
+                {form.type_produit === "service" && form.tarif_type === "heure" ? "Taux / heure HT *" : "Prix HT *"}
+              </label>
+              <Input className="h-8 text-sm" type="number" step="0.01" min="0" value={form.prix_ht} onChange={e => set({ prix_ht: e.target.value })} placeholder="0.00" />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">TVA</label>
-              <Select value={form.taux_tva} onValueChange={v => setForm({ ...form, taux_tva: v })}>
+              <Select value={form.taux_tva} onValueChange={v => set({ taux_tva: v })}>
                 <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="20">20%</SelectItem>
@@ -175,7 +259,7 @@ export function QuickAddProductModal({ open, defaultType = "matière", onClose, 
         </div>
 
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => { reset(); onClose(); }}>Annuler</Button>
+          <Button variant="outline" size="sm" onClick={onClose}>Annuler</Button>
           <Button size="sm" onClick={handleSubmit} disabled={createProduit.isPending || !form.designation || !form.prix_ht}>
             {createProduit.isPending ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Création...</> : "Créer et ajouter"}
           </Button>

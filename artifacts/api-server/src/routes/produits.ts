@@ -48,6 +48,7 @@ router.get("/produits", async (req, res): Promise<void> => {
 router.get("/produits/search", async (req, res): Promise<void> => {
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
   const type = typeof req.query.type === "string" ? req.query.type : undefined;
+  const fournisseur = typeof req.query.fournisseur === "string" && req.query.fournisseur ? req.query.fournisseur : undefined;
 
   if (q.length < 2) {
     res.json([]);
@@ -61,9 +62,9 @@ router.get("/produits/search", async (req, res): Promise<void> => {
     ilike(produitsTable.fournisseur, pattern),
   );
 
-  const whereClause = type
-    ? sql`${searchCond} AND ${produitsTable.type_produit} = ${type}`
-    : searchCond;
+  let whereClause = searchCond;
+  if (type) whereClause = sql`${whereClause} AND ${produitsTable.type_produit} = ${type}`;
+  if (fournisseur) whereClause = sql`${whereClause} AND ${produitsTable.fournisseur} = ${fournisseur}`;
 
   const rows = await db.select().from(produitsTable)
     .where(whereClause!)

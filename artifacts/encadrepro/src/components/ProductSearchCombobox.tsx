@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Plus, Building2, Loader2 } from "lucide-react";
+import { Search, Plus, Building2, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/format";
 
@@ -24,6 +24,7 @@ interface ProductSearchComboboxProps {
   onSelect: (produit: ProduitSearchResult) => void;
   onCreateNew?: () => void;
   autoFocus?: boolean;
+  showSupplierPills?: boolean;
 }
 
 export function ProductSearchCombobox({
@@ -32,12 +33,15 @@ export function ProductSearchCombobox({
   onSelect,
   onCreateNew,
   autoFocus = false,
+  showSupplierPills = false,
 }: ProductSearchComboboxProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ProduitSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [suppliers, setSuppliers] = useState<string[]>([]);
+  const [activeSupplier, setActiveSupplier] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,6 +49,14 @@ export function ProductSearchCombobox({
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus();
   }, [autoFocus]);
+
+  useEffect(() => {
+    if (!showSupplierPills) return;
+    fetch(`${BASE_URL}/api/produits/fournisseurs`)
+      .then(r => r.json())
+      .then((data: string[]) => setSuppliers(data))
+      .catch(() => {});
+  }, [showSupplierPills]);
 
   useEffect(() => {
     if (query.length < 2) {
@@ -59,6 +71,7 @@ export function ProductSearchCombobox({
       try {
         const params = new URLSearchParams({ q: query });
         if (typeFilter) params.set("type", typeFilter);
+        if (activeSupplier) params.set("fournisseur", activeSupplier);
         const res = await fetch(`${BASE_URL}/api/produits/search?${params}`);
         const data = await res.json() as ProduitSearchResult[];
         setResults(data);
@@ -70,9 +83,8 @@ export function ProductSearchCombobox({
         setLoading(false);
       }
     }, 220);
-  }, [query, typeFilter]);
+  }, [query, typeFilter, activeSupplier]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -117,7 +129,30 @@ export function ProductSearchCombobox({
   }
 
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className="relative w-full space-y-1.5">
+      {/* Supplier pills */}
+      {showSupplierPills && suppliers.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {suppliers.map(s => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setActiveSupplier(activeSupplier === s ? null : s)}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium transition-all ${
+                activeSupplier === s
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card border-border/50 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              }`}
+            >
+              <Building2 className="h-2.5 w-2.5" />
+              {s}
+              {activeSupplier === s && <X className="h-2.5 w-2.5" />}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Search input */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground animate-spin" />}
@@ -127,11 +162,12 @@ export function ProductSearchCombobox({
           onChange={e => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => results.length > 0 && setOpen(true)}
-          placeholder={placeholder}
+          placeholder={activeSupplier ? `Chercher chez ${activeSupplier}...` : placeholder}
           className="pl-9 pr-9 h-9 text-sm bg-background/60 border-border/60"
         />
       </div>
 
+      {/* Dropdown */}
       {open && (results.length > 0 || onCreateNew) && (
         <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-xl border border-border/50 bg-popover shadow-xl shadow-black/30 overflow-hidden">
           <ul className="py-1 max-h-64 overflow-y-auto">
