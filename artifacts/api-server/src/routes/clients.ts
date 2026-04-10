@@ -20,26 +20,100 @@ const router: IRouter = Router();
 
 const parseNum = (v: unknown) => parseFloat(String(v ?? "0"));
 
+// ── GET /clients — list with CA/devis stats ─────────────────────────────────
+
 router.get("/clients", async (req, res): Promise<void> => {
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
+  const actifsOnly = req.query.actifs_seulement === "1";
+  const sortBy = typeof req.query.sort === "string" ? req.query.sort : "nom";
 
-  const rows = search
-    ? await db
-        .select()
-        .from(clientsTable)
-        .where(
-          or(
-            ilike(clientsTable.nom, `%${search}%`),
-            ilike(clientsTable.prenom, `%${search}%`),
-            ilike(clientsTable.email, `%${search}%`),
-            ilike(clientsTable.telephone, `%${search}%`)
-          )
-        )
-        .orderBy(clientsTable.nom)
-    : await db.select().from(clientsTable).orderBy(clientsTable.nom);
+  type ClientRow = {
+    id: number; nom: string; prenom: string | null; email: string | null;
+    telephone: string | null; adresse: string | null; ville: string | null;
+    code_postal: string | null; notes: string | null; cree_le: string; modifie_le: string;
+    ca_total: string; devis_count: string; derniere_activite: string | null;
+  };
 
-  res.json(ListClientsResponse.parse(rows.map(serializeDates)));
+  const orderExpr: Record<string, string> = {
+    nom: "c.nom ASC",
+    ca: "ca_total DESC, c.nom ASC",
+    activite: "derniere_activite DESC NULLS LAST, c.nom ASC",
+    devis: "devis_count DESC, c.nom ASC",
+  };
+  const orderClause = orderExpr[sortBy] ?? "c.nom ASC";
+
+  const searchConds: string[] = [];
+  if (search) {
+    const esc = search.replace(/'/g, "''");
+    searchConds.push(`(c.nom ILIKE '%${esc}%' OR c.prenom ILIKE '%${esc}%' OR c.email ILIKE '%${esc}%' OR c.telephone ILIKE '%${esc}%')`);
+  }
+  if (actifsOnly) searchConds.push("COALESCE(ca.ca_total, 0) > 0");
+  const whereClause = searchConds.length > 0 ? `WHERE ${searchConds.join(" AND ")}` : "";
+
+  const rawQuery = `
+    WITH client_ca AS (
+      SELECT client_id, COALESCE(SUM(total_ttc), 0) AS ca_total, MAX(cree_le) AS derniere_facture
+      FROM factures
+      WHERE statut IN ('envoyee', 'partiellement_payee', 'soldee')
+      GROUP BY client_id
+    ),
+    client_devis AS (
+      SELECT client_id, COUNT(*) AS devis_count, MAX(cree_le) AS dernier_devis
+      FROM devis
+      GROUP BY client_id
+    )
+    SELECT
+      c.id, c.nom, c.prenom, c.email, c.telephone, c.adresse, c.ville, c.code_postal,
+      c.notes, c.cree_le, c.modifie_le,
+      COALESCE(ca.ca_total, 0) AS ca_total,
+      COALESCE(d.devis_count, 0) AS devis_count,
+      GREATEST(ca.derniere_facture, d.dernier_devis) AS derniere_activite
+    FROM clients c
+    LEFT JOIN client_ca ca ON ca.client_id = c.id
+    LEFT JOIN client_devis d ON d.client_id = c.id
+    ${whereClause}
+    ORDER BY ${orderClause}
+  `;
+
+  const rows = await execRows<ClientRow>(sql.raw(rawQuery));
+  const mapped = rows.map(r => ({
+    ...serializeDates(r),
+    ca_total: parseNum(r.ca_total),
+    devis_count: parseInt(r.devis_count, 10),
+    derniere_activite: r.derniere_activite ?? null,
+  }));
+
+  res.json(ListClientsResponse.parse(mapped));
 });
+
+// ── GET /clients/search?q= — autocomplete ───────────────────────────────────
+
+router.get("/clients/search", async (req, res): Promise<void> => {
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  if (q.length < 2) { res.json([]); return; }
+
+  const escaped = q.replace(/'/g, "''");
+  type SearchRow = { id: number; nom: string; prenom: string | null; telephone: string | null; email: string | null; ca_total: string; };
+  const rows = await execRows<SearchRow>(sql.raw(`
+    SELECT c.id, c.nom, c.prenom, c.telephone, c.email,
+      COALESCE((SELECT SUM(total_ttc) FROM factures WHERE client_id = c.id AND statut IN ('envoyee','partiellement_payee','soldee')), 0) AS ca_total
+    FROM clients c
+    WHERE c.nom ILIKE '%${escaped}%' OR c.prenom ILIKE '%${escaped}%' OR c.email ILIKE '%${escaped}%' OR c.telephone ILIKE '%${escaped}%'
+    ORDER BY c.nom
+    LIMIT 10
+  `));
+
+  res.json(rows.map(r => ({
+    id: r.id,
+    nom: r.nom,
+    prenom: r.prenom ?? null,
+    telephone: r.telephone ?? null,
+    email: r.email ?? null,
+    ca_total: parseNum(r.ca_total),
+  })));
+});
+
+// ── POST /clients ────────────────────────────────────────────────────────────
 
 router.post("/clients", async (req, res): Promise<void> => {
   const parsed = CreateClientBody.safeParse(req.body);
@@ -52,36 +126,28 @@ router.post("/clients", async (req, res): Promise<void> => {
   res.status(201).json(GetClientResponse.parse(serializeDates(client)));
 });
 
+// ── GET /clients/:id ─────────────────────────────────────────────────────────
+
 router.get("/clients/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetClientParams.safeParse({ id: parseInt(raw, 10) });
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid id" });
-    return;
-  }
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, params.data.id));
-  if (!client) {
-    res.status(404).json({ error: "Client introuvable" });
-    return;
-  }
+  if (!client) { res.status(404).json({ error: "Client introuvable" }); return; }
 
   res.json(GetClientResponse.parse(serializeDates(client)));
 });
 
+// ── PUT /clients/:id ─────────────────────────────────────────────────────────
+
 router.put("/clients/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = UpdateClientParams.safeParse({ id: parseInt(raw, 10) });
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid id" });
-    return;
-  }
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const parsed = UpdateClientBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const [client] = await db
     .update(clientsTable)
@@ -89,33 +155,28 @@ router.put("/clients/:id", async (req, res): Promise<void> => {
     .where(eq(clientsTable.id, params.data.id))
     .returning();
 
-  if (!client) {
-    res.status(404).json({ error: "Client introuvable" });
-    return;
-  }
+  if (!client) { res.status(404).json({ error: "Client introuvable" }); return; }
 
   res.json(UpdateClientResponse.parse(serializeDates(client)));
 });
 
+// ── DELETE /clients/:id ──────────────────────────────────────────────────────
+
 router.delete("/clients/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = DeleteClientParams.safeParse({ id: parseInt(raw, 10) });
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid id" });
-    return;
-  }
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
   await db.delete(clientsTable).where(eq(clientsTable.id, params.data.id));
   res.json(DeleteClientResponse.parse({ success: true }));
 });
 
+// ── GET /clients/:id/stats ───────────────────────────────────────────────────
+
 router.get("/clients/:id/stats", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetClientStatsParams.safeParse({ id: parseInt(raw, 10) });
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid id" });
-    return;
-  }
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const clientId = params.data.id;
 

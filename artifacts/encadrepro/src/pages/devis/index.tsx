@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListDevis, useCreateDevis, useListClients, useUpdateDevisStatut, getListDevisQueryKey } from "@workspace/api-client-react";
+import { useListDevis, useCreateDevis, useUpdateDevisStatut, getListDevisQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useSearch } from "wouter";
 import { Plus, Filter, ChevronDown } from "lucide-react";
@@ -12,14 +12,10 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { ClientSearchCombobox, type ClientSearchResult } from "@/components/ClientSearchCombobox";
 
 export const statutColors: Record<string, string> = {
   brouillon: "bg-gray-500/15 text-gray-600 dark:text-gray-300 border-gray-500/30",
@@ -42,10 +38,9 @@ export default function DevisList() {
   const initialStatut = new URLSearchParams(search).get("statut") || "tous";
   const [statut, setStatut] = useState<string>(initialStatut);
   const { data: devisList, isLoading } = useListDevis(statut !== "tous" ? { statut } : {});
-  const { data: clients } = useListClients();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [selectedClientId, setSelectedClientId] = useState<string>("");
-  
+  const [selectedClient, setSelectedClient] = useState<ClientSearchResult | null>(null);
+
   const queryClient = useQueryClient();
   const createDevis = useCreateDevis();
   const updateStatut = useUpdateDevisStatut();
@@ -53,13 +48,15 @@ export default function DevisList() {
   const { toast } = useToast();
 
   const handleCreate = () => {
-    if (!selectedClientId) return;
-    createDevis.mutate({ data: { client_id: parseInt(selectedClientId) } }, {
+    if (!selectedClient) return;
+    createDevis.mutate({ data: { client_id: selectedClient.id } }, {
       onSuccess: (newDevis) => {
         queryClient.invalidateQueries({ queryKey: getListDevisQueryKey() });
         setIsCreateOpen(false);
+        setSelectedClient(null);
         setLocation(`/devis/${newDevis.id}`);
-      }
+      },
+      onError: () => toast({ title: "Erreur", description: "Impossible de créer le devis.", variant: "destructive" }),
     });
   };
 
@@ -79,37 +76,29 @@ export default function DevisList() {
           <h1 className="text-3xl font-bold tracking-tight">Devis</h1>
           <p className="text-muted-foreground mt-1">Gérez vos propositions commerciales.</p>
         </div>
-        
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+
+        <Dialog open={isCreateOpen} onOpenChange={v => { setIsCreateOpen(v); if (!v) setSelectedClient(null); }}>
           <DialogTrigger asChild>
             <Button className="shadow-lg shadow-primary/20">
               <Plus className="mr-2 h-4 w-4" /> Nouveau devis
             </Button>
           </DialogTrigger>
-          <DialogContent className="glass-panel sm:max-w-[425px]">
+          <DialogContent className="glass-panel sm:max-w-[480px]">
             <DialogHeader>
               <DialogTitle>Créer un devis</DialogTitle>
             </DialogHeader>
-            <div className="py-4 space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sélectionner un client *</label>
-                <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choisir un client..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients?.map(client => (
-                      <SelectItem key={client.id} value={client.id.toString()}>
-                        {client.prenom} {client.nom}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="py-4 space-y-3">
+              <label className="text-sm font-medium">Client *</label>
+              <ClientSearchCombobox
+                selectedClient={selectedClient}
+                onSelect={setSelectedClient}
+                onClear={() => setSelectedClient(null)}
+                autoFocus
+              />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Annuler</Button>
-              <Button onClick={handleCreate} disabled={!selectedClientId || createDevis.isPending}>
+              <Button variant="outline" onClick={() => { setIsCreateOpen(false); setSelectedClient(null); }}>Annuler</Button>
+              <Button onClick={handleCreate} disabled={!selectedClient || createDevis.isPending}>
                 {createDevis.isPending ? "Création..." : "Créer le devis"}
               </Button>
             </DialogFooter>
@@ -157,11 +146,11 @@ export default function DevisList() {
                       </h3>
                       <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
                         <span>Créé le {formatDate(devis.date_creation)}</span>
-                        {devis.date_validite && <span>• Valide j. {formatDate(devis.date_validite)}</span>}
+                        {devis.date_validite && <span>· Valide j. {formatDate(devis.date_validite)}</span>}
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-6 sm:justify-end">
                     <div onClick={e => e.preventDefault()}>
                       <DropdownMenu>

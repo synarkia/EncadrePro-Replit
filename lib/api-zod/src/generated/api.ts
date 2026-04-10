@@ -92,6 +92,9 @@ export const ListClientsResponseItem = zod.object({
   notes: zod.string().nullish(),
   cree_le: zod.string(),
   modifie_le: zod.string(),
+  ca_total: zod.number().optional(),
+  devis_count: zod.number().optional(),
+  derniere_activite: zod.string().nullish(),
 });
 export const ListClientsResponse = zod.array(ListClientsResponseItem);
 
