@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { 
   useGetFacture, getGetFactureQueryKey,
@@ -9,7 +9,7 @@ import {
   getListFacturesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle, CreditCard, Clock, FileText, Plus, Trash2, Save, Printer, Pencil } from "lucide-react";
+import { ArrowLeft, CheckCircle, CreditCard, Clock, FileText, Plus, Trash2, Save, Printer, Pencil, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { factureStatutColors } from "./index";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +41,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
    generate a PDF via webContents.printToPDF() and save to disk. */
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+
+const FACTURE_STATUT_OPTIONS: { value: string; label: string; dot: string }[] = [
+  { value: "brouillon", label: "Brouillon", dot: "bg-gray-400" },
+  { value: "envoyee", label: "Envoyée", dot: "bg-blue-400" },
+  { value: "partiellement_payee", label: "Part. payée", dot: "bg-orange-400" },
+  { value: "soldee", label: "Soldée", dot: "bg-green-400" },
+  { value: "annulee", label: "Annulée", dot: "bg-red-400" },
+];
 
 async function saveFactureLignes(factureId: number, lignes: any[]) {
   const res = await fetch(`${BASE_URL}/api/factures/${factureId}/lignes`, {
@@ -333,9 +344,28 @@ export default function FactureDetail() {
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold">Facture {facture.numero}</h1>
-                <Badge className={factureStatutColors[facture.statut] || ""}>
-                  {facture.statut.replace('_', ' ').toUpperCase()}
-                </Badge>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-opacity hover:opacity-80 focus:outline-none ${factureStatutColors[facture.statut] || ""}`}>
+                      {FACTURE_STATUT_OPTIONS.find(o => o.value === facture.statut)?.label?.toUpperCase() ?? facture.statut.replace('_', ' ').toUpperCase()}
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="glass-panel">
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">Changer le statut</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {FACTURE_STATUT_OPTIONS.filter(o => o.value !== facture.statut).map(opt => (
+                      <DropdownMenuItem
+                        key={opt.value}
+                        onClick={() => handleChangeStatut(opt.value)}
+                        className="cursor-pointer"
+                      >
+                        <span className={`mr-2 h-2 w-2 rounded-full inline-block ${opt.dot}`} />
+                        {opt.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <p className="text-muted-foreground mt-1 text-sm">
                 <Link href={`/clients/${facture.client_id}`} className="hover:text-primary hover:underline transition-colors font-medium">
@@ -356,11 +386,6 @@ export default function FactureDetail() {
             <Button variant="outline" size="sm" className="glass-panel text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => setIsDeleteOpen(true)}>
               <Trash2 className="h-4 w-4 mr-1" /> Supprimer
             </Button>
-            {facture.statut === 'brouillon' && (
-              <Button variant="outline" className="glass-panel" onClick={() => handleChangeStatut('envoyee')}>
-                Marquer envoyée
-              </Button>
-            )}
             {facture.devis_id && (
               <Link href={`/devis/${facture.devis_id}`}>
                 <Button variant="outline" className="glass-panel border-muted-foreground/30 text-muted-foreground hover:text-foreground">
