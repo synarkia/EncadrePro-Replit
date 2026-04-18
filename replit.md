@@ -103,6 +103,14 @@ Use `execRows<T>()` helper (in `db-utils.ts`) for raw SQL queries — it unwraps
 ### WEB-TO-DESKTOP Notes
 Look for `/* WEB-TO-DESKTOP NOTE */` comments throughout the codebase for hints on adapting to Electron/better-sqlite3.
 
+## GitHub Repository
+
+The workspace is mirrored to GitHub at: **https://github.com/synarkia/EncadrePro-Replit**
+
+- Integration: Replit GitHub connector (`conn_github_01KKYKF67V2Y35YT14TFB90VN2`) is wired to this project
+- All commits are pushed to the `main` branch on the remote
+- A write-enabled SSH deploy key is registered on the GitHub repo for push access
+
 ## Database Commands
 
 ```bash
