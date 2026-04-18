@@ -14,29 +14,44 @@ import {
   ToggleProduitActifResponse,
 } from "@workspace/api-zod";
 
+/* WEB-TO-DESKTOP NOTE: route handlers are HTTP-only; an Electron build will reuse them via a thin IPC shim. */
+
 const router: IRouter = Router();
 
 // ─── Helper: normalize a produit row ─────────────────────────────────────────
 function mapProduit(p: typeof produitsTable.$inferSelect) {
   return {
     ...serializeDates(p as unknown as Record<string, unknown>),
+    type_code: p.type_code,
+    pricing_mode: p.pricing_mode,
     type_produit: p.type_produit ?? null,
     fournisseur: p.fournisseur ?? null,
+    fournisseur_id: p.fournisseur_id ?? null,
     sous_categorie: p.sous_categorie ?? null,
     unite: p.unite ?? null,
+    prix_achat_ht: p.prix_achat_ht ?? null,
+    coefficient_marge: p.coefficient_marge ?? null,
+    largeur_mm: p.largeur_mm ?? null,
+    epaisseur_mm: p.epaisseur_mm ?? null,
+    longueur_barre_m: p.longueur_barre_m ?? null,
+    stock_alerte: p.stock_alerte ?? null,
+    ref_legacy_v1: p.ref_legacy_v1 ?? null,
   };
 }
 
-// ─── GET /produits — list (optional ?categorie or ?type= filter) ─────────────
+// ─── GET /produits — list (optional ?type_code, ?type=, ?fournisseur_id) ─────
 router.get("/produits", async (req, res): Promise<void> => {
-  const categorie = typeof req.query.categorie === "string" ? req.query.categorie : undefined;
-  const type = typeof req.query.type === "string" ? req.query.type : undefined;
+  const typeCode = typeof req.query.type_code === "string" ? req.query.type_code : undefined;
+  const type = typeof req.query.type === "string" ? req.query.type : undefined; // legacy alias
+  const fournisseurId = typeof req.query.fournisseur_id === "string" ? parseInt(req.query.fournisseur_id, 10) : undefined;
 
   let rows;
-  if (categorie) {
-    rows = await db.select().from(produitsTable).where(eq(produitsTable.categorie, categorie)).orderBy(produitsTable.designation);
+  if (typeCode) {
+    rows = await db.select().from(produitsTable).where(eq(produitsTable.type_code, typeCode)).orderBy(produitsTable.designation);
   } else if (type) {
     rows = await db.select().from(produitsTable).where(eq(produitsTable.type_produit, type)).orderBy(produitsTable.designation);
+  } else if (fournisseurId) {
+    rows = await db.select().from(produitsTable).where(eq(produitsTable.fournisseur_id, fournisseurId)).orderBy(produitsTable.designation);
   } else {
     rows = await db.select().from(produitsTable).orderBy(produitsTable.designation);
   }
@@ -44,16 +59,14 @@ router.get("/produits", async (req, res): Promise<void> => {
   res.json(ListProduitsResponse.parse(rows.map(mapProduit)));
 });
 
-// ─── GET /produits/search?q=&type= — autocomplete search ────────────────────
+// ─── GET /produits/search?q=&type_code= — autocomplete search ────────────────
 router.get("/produits/search", async (req, res): Promise<void> => {
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  const typeCode = typeof req.query.type_code === "string" ? req.query.type_code : undefined;
   const type = typeof req.query.type === "string" ? req.query.type : undefined;
   const fournisseur = typeof req.query.fournisseur === "string" && req.query.fournisseur ? req.query.fournisseur : undefined;
 
-  if (q.length < 2) {
-    res.json([]);
-    return;
-  }
+  if (q.length < 2) { res.json([]); return; }
 
   const pattern = `%${q}%`;
   const searchCond = or(
@@ -63,6 +76,7 @@ router.get("/produits/search", async (req, res): Promise<void> => {
   );
 
   let whereClause = searchCond;
+  if (typeCode) whereClause = sql`${whereClause} AND ${produitsTable.type_code} = ${typeCode}`;
   if (type) whereClause = sql`${whereClause} AND ${produitsTable.type_produit} = ${type}`;
   if (fournisseur) whereClause = sql`${whereClause} AND ${produitsTable.fournisseur} = ${fournisseur}`;
 
@@ -74,7 +88,7 @@ router.get("/produits/search", async (req, res): Promise<void> => {
   res.json(rows.map(mapProduit));
 });
 
-// ─── GET /produits/fournisseurs — list unique suppliers ─────────────────────
+// ─── GET /produits/fournisseurs — distinct legacy free-form supplier names ───
 router.get("/produits/fournisseurs", async (req, res): Promise<void> => {
   const rows = await db
     .selectDistinct({ fournisseur: produitsTable.fournisseur })

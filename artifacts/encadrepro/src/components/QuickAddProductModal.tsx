@@ -90,15 +90,23 @@ export function QuickAddProductModal({ open, defaultType = "matière", onClose, 
 
     const unite = form.type_produit === "service" ? (form.tarif_type === "heure" ? "heure" : "forfait") : form.unite;
 
+    /* WEB-TO-DESKTOP NOTE: map legacy 3-type UI to the new 5-code typology. */
+    const typeCodeMap: Record<string, "VR" | "FA" | "AU" | "SD" | "EN"> = {
+      "matière": "EN", "façonnage": "FA", "service": "SD",
+    };
+    const pricingModeMap: Record<string, "unit" | "linear_meter" | "square_meter"> = {
+      "ml": "linear_meter", "m²": "square_meter",
+    };
     createProduit.mutate({
       data: {
+        type_code: typeCodeMap[form.type_produit] ?? "EN",
+        pricing_mode: pricingModeMap[unite] ?? "unit",
         type_produit: form.type_produit,
         fournisseur: form.fournisseur || null,
         sous_categorie: form.sous_categorie || null,
         unite,
         reference: form.reference || null,
         designation: form.designation,
-        categorie: "baguettes",
         unite_calcul: uniteToUniteCalcul(unite),
         prix_ht: prix,
         taux_tva: parseFloat(form.taux_tva),

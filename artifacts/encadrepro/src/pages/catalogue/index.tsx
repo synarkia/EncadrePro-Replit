@@ -334,19 +334,29 @@ export default function Catalogue() {
     toggleActif.mutate({ id }, { onSuccess: () => { invalidate(); toast({ title: "Statut mis à jour" }); } });
   };
 
-  const buildPayload = (form: typeof EMPTY_FORM) => ({
-    type_produit: form.type_produit || "matière",
-    fournisseur: form.fournisseur || null,
-    sous_categorie: form.sous_categorie || null,
-    unite: form.unite,
-    reference: form.reference || null,
-    designation: form.designation,
-    categorie: "baguettes",
-    unite_calcul: uniteToUniteCalcul(form.unite),
-    prix_ht: parseFloat(form.prix_ht),
-    taux_tva: parseFloat(form.taux_tva),
-    notes: form.notes || null,
-  });
+  /* WEB-TO-DESKTOP NOTE: legacy 3-type UI maps to new 5-code typology + pricing_mode. */
+  const buildPayload = (form: typeof EMPTY_FORM) => {
+    const typeCodeMap: Record<string, "VR" | "FA" | "AU" | "SD" | "EN"> = {
+      "matière": "EN", "façonnage": "FA", "service": "SD",
+    };
+    const pricingModeMap: Record<string, "unit" | "linear_meter" | "square_meter"> = {
+      "ml": "linear_meter", "m²": "square_meter",
+    };
+    return {
+      type_code: typeCodeMap[form.type_produit] ?? "EN",
+      pricing_mode: pricingModeMap[form.unite] ?? "unit",
+      type_produit: form.type_produit || "matière",
+      fournisseur: form.fournisseur || null,
+      sous_categorie: form.sous_categorie || null,
+      unite: form.unite,
+      reference: form.reference || null,
+      designation: form.designation,
+      unite_calcul: uniteToUniteCalcul(form.unite),
+      prix_ht: parseFloat(form.prix_ht),
+      taux_tva: parseFloat(form.taux_tva),
+      notes: form.notes || null,
+    };
+  };
 
   const handleCreate = () => {
     const prix = parseFloat(createForm.prix_ht);

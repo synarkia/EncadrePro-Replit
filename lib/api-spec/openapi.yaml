@@ -220,10 +220,19 @@ paths:
       tags: [produits]
       summary: List products
       parameters:
-        - name: categorie
+        - name: type_code
           in: query
           schema:
             type: string
+            enum: [VR, FA, AU, SD, EN]
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: fournisseur_id
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: List of products
@@ -313,6 +322,98 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Produit"
+
+  # ──────────────── FOURNISSEURS ────────────────
+  /fournisseurs:
+    get:
+      operationId: listFournisseurs
+      tags: [fournisseurs]
+      summary: List suppliers
+      responses:
+        "200":
+          description: List of suppliers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Fournisseur"
+    post:
+      operationId: createFournisseur
+      tags: [fournisseurs]
+      summary: Create a supplier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFournisseurBody"
+      responses:
+        "201":
+          description: Created supplier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fournisseur"
+
+  /fournisseurs/{id}:
+    get:
+      operationId: getFournisseur
+      tags: [fournisseurs]
+      summary: Get a supplier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Supplier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fournisseur"
+    put:
+      operationId: updateFournisseur
+      tags: [fournisseurs]
+      summary: Update a supplier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFournisseurBody"
+      responses:
+        "200":
+          description: Updated supplier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fournisseur"
+    delete:
+      operationId: deleteFournisseur
+      tags: [fournisseurs]
+      summary: Delete a supplier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
 
   # ──────────────── DEVIS ────────────────
   /devis:
@@ -737,26 +838,88 @@ components:
         id: { type: integer }
         reference: { type: string, nullable: true }
         designation: { type: string }
-        categorie: { type: string }
+        type_code: { type: string, enum: [VR, FA, AU, SD, EN] }
+        pricing_mode: { type: string, enum: [unit, linear_meter, square_meter] }
+        type_produit: { type: string, nullable: true }
+        fournisseur: { type: string, nullable: true }
+        fournisseur_id: { type: integer, nullable: true }
+        sous_categorie: { type: string, nullable: true }
+        unite: { type: string, nullable: true }
         unite_calcul: { type: string }
+        prix_achat_ht: { type: number, nullable: true }
+        coefficient_marge: { type: number, nullable: true }
         prix_ht: { type: number }
         taux_tva: { type: number }
+        largeur_mm: { type: number, nullable: true }
+        epaisseur_mm: { type: number, nullable: true }
+        longueur_barre_m: { type: number, nullable: true }
+        stock_alerte: { type: integer, nullable: true }
+        ref_legacy_v1: { type: string, nullable: true }
         actif: { type: integer }
         notes: { type: string, nullable: true }
+        image_url: { type: string, nullable: true }
         cree_le: { type: string }
-      required: [id, designation, categorie, unite_calcul, prix_ht, taux_tva, actif, cree_le]
+        modifie_le: { type: string }
+      required: [id, designation, type_code, pricing_mode, unite_calcul, prix_ht, taux_tva, actif, cree_le, modifie_le]
 
     CreateProduitBody:
       type: object
       properties:
         reference: { type: string, nullable: true }
         designation: { type: string }
-        categorie: { type: string }
+        type_code: { type: string, enum: [VR, FA, AU, SD, EN] }
+        pricing_mode: { type: string, enum: [unit, linear_meter, square_meter] }
+        type_produit: { type: string, nullable: true }
+        fournisseur: { type: string, nullable: true }
+        fournisseur_id: { type: integer, nullable: true }
+        sous_categorie: { type: string, nullable: true }
+        unite: { type: string, nullable: true }
         unite_calcul: { type: string }
+        prix_achat_ht: { type: number, nullable: true }
+        coefficient_marge: { type: number, nullable: true }
         prix_ht: { type: number }
         taux_tva: { type: number }
+        largeur_mm: { type: number, nullable: true }
+        epaisseur_mm: { type: number, nullable: true }
+        longueur_barre_m: { type: number, nullable: true }
+        stock_alerte: { type: integer, nullable: true }
+        ref_legacy_v1: { type: string, nullable: true }
         notes: { type: string, nullable: true }
-      required: [designation, categorie, unite_calcul, prix_ht, taux_tva]
+        image_url: { type: string, nullable: true }
+      required: [designation, unite_calcul, prix_ht, taux_tva]
+
+    Fournisseur:
+      type: object
+      properties:
+        id: { type: integer }
+        nom: { type: string }
+        contact: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        telephone: { type: string, nullable: true }
+        adresse: { type: string, nullable: true }
+        ville: { type: string, nullable: true }
+        code_postal: { type: string, nullable: true }
+        pays: { type: string, nullable: true }
+        siret: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        cree_le: { type: string }
+        modifie_le: { type: string }
+      required: [id, nom, cree_le, modifie_le]
+
+    CreateFournisseurBody:
+      type: object
+      properties:
+        nom: { type: string }
+        contact: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        telephone: { type: string, nullable: true }
+        adresse: { type: string, nullable: true }
+        ville: { type: string, nullable: true }
+        code_postal: { type: string, nullable: true }
+        pays: { type: string, nullable: true }
+        siret: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+      required: [nom]
 
     # ── DEVIS ──
     LigneDevis:

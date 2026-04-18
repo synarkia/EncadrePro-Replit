@@ -92,9 +92,6 @@ export const ListClientsResponseItem = zod.object({
   notes: zod.string().nullish(),
   cree_le: zod.string(),
   modifie_le: zod.string(),
-  ca_total: zod.number().optional(),
-  devis_count: zod.number().optional(),
-  derniere_activite: zod.string().nullish(),
 });
 export const ListClientsResponse = zod.array(ListClientsResponseItem);
 
@@ -237,52 +234,65 @@ export const GetClientStatsResponse = zod.object({
  * @summary List products
  */
 export const ListProduitsQueryParams = zod.object({
-  categorie: zod.coerce.string().optional(),
+  type_code: zod.enum(["VR", "FA", "AU", "SD", "EN"]).optional(),
   type: zod.coerce.string().optional(),
+  fournisseur_id: zod.coerce.number().optional(),
 });
 
 export const ListProduitsResponseItem = zod.object({
   id: zod.number(),
-  type_produit: zod.string().nullish(),
-  fournisseur: zod.string().nullish(),
-  sous_categorie: zod.string().nullish(),
-  unite: zod.string().nullish(),
   reference: zod.string().nullish(),
   designation: zod.string(),
-  categorie: zod.string(),
+  type_code: zod.enum(["VR", "FA", "AU", "SD", "EN"]),
+  pricing_mode: zod.enum(["unit", "linear_meter", "square_meter"]),
+  type_produit: zod.string().nullish(),
+  fournisseur: zod.string().nullish(),
+  fournisseur_id: zod.number().nullish(),
+  sous_categorie: zod.string().nullish(),
+  unite: zod.string().nullish(),
   unite_calcul: zod.string(),
+  prix_achat_ht: zod.number().nullish(),
+  coefficient_marge: zod.number().nullish(),
   prix_ht: zod.number(),
   taux_tva: zod.number(),
+  largeur_mm: zod.number().nullish(),
+  epaisseur_mm: zod.number().nullish(),
+  longueur_barre_m: zod.number().nullish(),
+  stock_alerte: zod.number().nullish(),
+  ref_legacy_v1: zod.string().nullish(),
   actif: zod.number(),
   notes: zod.string().nullish(),
   image_url: zod.string().nullish(),
   cree_le: zod.string(),
+  modifie_le: zod.string(),
 });
 export const ListProduitsResponse = zod.array(ListProduitsResponseItem);
-
-export const SearchProduitsQueryParams = zod.object({
-  q: zod.string(),
-  type: zod.string().optional(),
-});
-export const SearchProduitsResponse = zod.array(ListProduitsResponseItem);
-
-export const ListFournisseursResponse = zod.array(zod.string());
 
 /**
  * @summary Create a product
  */
 export const CreateProduitBody = zod.object({
-  type_produit: zod.string().nullish(),
-  fournisseur: zod.string().nullish(),
-  sous_categorie: zod.string().nullish(),
-  unite: zod.string().nullish(),
   reference: zod.string().nullish(),
   designation: zod.string(),
-  categorie: zod.string().default("baguettes"),
-  unite_calcul: zod.string().default("unitaire"),
+  type_code: zod.enum(["VR", "FA", "AU", "SD", "EN"]).optional(),
+  pricing_mode: zod.enum(["unit", "linear_meter", "square_meter"]).optional(),
+  type_produit: zod.string().nullish(),
+  fournisseur: zod.string().nullish(),
+  fournisseur_id: zod.number().nullish(),
+  sous_categorie: zod.string().nullish(),
+  unite: zod.string().nullish(),
+  unite_calcul: zod.string(),
+  prix_achat_ht: zod.number().nullish(),
+  coefficient_marge: zod.number().nullish(),
   prix_ht: zod.number(),
-  taux_tva: zod.number().default(20),
+  taux_tva: zod.number(),
+  largeur_mm: zod.number().nullish(),
+  epaisseur_mm: zod.number().nullish(),
+  longueur_barre_m: zod.number().nullish(),
+  stock_alerte: zod.number().nullish(),
+  ref_legacy_v1: zod.string().nullish(),
   notes: zod.string().nullish(),
+  image_url: zod.string().nullish(),
 });
 
 /**
@@ -293,35 +303,55 @@ export const UpdateProduitParams = zod.object({
 });
 
 export const UpdateProduitBody = zod.object({
-  type_produit: zod.string().nullish(),
-  fournisseur: zod.string().nullish(),
-  sous_categorie: zod.string().nullish(),
-  unite: zod.string().nullish(),
   reference: zod.string().nullish(),
   designation: zod.string(),
-  categorie: zod.string().default("baguettes"),
-  unite_calcul: zod.string().default("unitaire"),
+  type_code: zod.enum(["VR", "FA", "AU", "SD", "EN"]).optional(),
+  pricing_mode: zod.enum(["unit", "linear_meter", "square_meter"]).optional(),
+  type_produit: zod.string().nullish(),
+  fournisseur: zod.string().nullish(),
+  fournisseur_id: zod.number().nullish(),
+  sous_categorie: zod.string().nullish(),
+  unite: zod.string().nullish(),
+  unite_calcul: zod.string(),
+  prix_achat_ht: zod.number().nullish(),
+  coefficient_marge: zod.number().nullish(),
   prix_ht: zod.number(),
-  taux_tva: zod.number().default(20),
+  taux_tva: zod.number(),
+  largeur_mm: zod.number().nullish(),
+  epaisseur_mm: zod.number().nullish(),
+  longueur_barre_m: zod.number().nullish(),
+  stock_alerte: zod.number().nullish(),
+  ref_legacy_v1: zod.string().nullish(),
   notes: zod.string().nullish(),
+  image_url: zod.string().nullish(),
 });
 
 export const UpdateProduitResponse = zod.object({
   id: zod.number(),
-  type_produit: zod.string().nullish(),
-  fournisseur: zod.string().nullish(),
-  sous_categorie: zod.string().nullish(),
-  unite: zod.string().nullish(),
   reference: zod.string().nullish(),
   designation: zod.string(),
-  categorie: zod.string(),
+  type_code: zod.enum(["VR", "FA", "AU", "SD", "EN"]),
+  pricing_mode: zod.enum(["unit", "linear_meter", "square_meter"]),
+  type_produit: zod.string().nullish(),
+  fournisseur: zod.string().nullish(),
+  fournisseur_id: zod.number().nullish(),
+  sous_categorie: zod.string().nullish(),
+  unite: zod.string().nullish(),
   unite_calcul: zod.string(),
+  prix_achat_ht: zod.number().nullish(),
+  coefficient_marge: zod.number().nullish(),
   prix_ht: zod.number(),
   taux_tva: zod.number(),
+  largeur_mm: zod.number().nullish(),
+  epaisseur_mm: zod.number().nullish(),
+  longueur_barre_m: zod.number().nullish(),
+  stock_alerte: zod.number().nullish(),
+  ref_legacy_v1: zod.string().nullish(),
   actif: zod.number(),
   notes: zod.string().nullish(),
   image_url: zod.string().nullish(),
   cree_le: zod.string(),
+  modifie_le: zod.string(),
 });
 
 /**
@@ -344,20 +374,136 @@ export const ToggleProduitActifParams = zod.object({
 
 export const ToggleProduitActifResponse = zod.object({
   id: zod.number(),
-  type_produit: zod.string().nullish(),
-  fournisseur: zod.string().nullish(),
-  sous_categorie: zod.string().nullish(),
-  unite: zod.string().nullish(),
   reference: zod.string().nullish(),
   designation: zod.string(),
-  categorie: zod.string(),
+  type_code: zod.enum(["VR", "FA", "AU", "SD", "EN"]),
+  pricing_mode: zod.enum(["unit", "linear_meter", "square_meter"]),
+  type_produit: zod.string().nullish(),
+  fournisseur: zod.string().nullish(),
+  fournisseur_id: zod.number().nullish(),
+  sous_categorie: zod.string().nullish(),
+  unite: zod.string().nullish(),
   unite_calcul: zod.string(),
+  prix_achat_ht: zod.number().nullish(),
+  coefficient_marge: zod.number().nullish(),
   prix_ht: zod.number(),
   taux_tva: zod.number(),
+  largeur_mm: zod.number().nullish(),
+  epaisseur_mm: zod.number().nullish(),
+  longueur_barre_m: zod.number().nullish(),
+  stock_alerte: zod.number().nullish(),
+  ref_legacy_v1: zod.string().nullish(),
   actif: zod.number(),
   notes: zod.string().nullish(),
   image_url: zod.string().nullish(),
   cree_le: zod.string(),
+  modifie_le: zod.string(),
+});
+
+/**
+ * @summary List suppliers
+ */
+export const ListFournisseursResponseItem = zod.object({
+  id: zod.number(),
+  nom: zod.string(),
+  contact: zod.string().nullish(),
+  email: zod.string().nullish(),
+  telephone: zod.string().nullish(),
+  adresse: zod.string().nullish(),
+  ville: zod.string().nullish(),
+  code_postal: zod.string().nullish(),
+  pays: zod.string().nullish(),
+  siret: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  cree_le: zod.string(),
+  modifie_le: zod.string(),
+});
+export const ListFournisseursResponse = zod.array(ListFournisseursResponseItem);
+
+/**
+ * @summary Create a supplier
+ */
+export const CreateFournisseurBody = zod.object({
+  nom: zod.string(),
+  contact: zod.string().nullish(),
+  email: zod.string().nullish(),
+  telephone: zod.string().nullish(),
+  adresse: zod.string().nullish(),
+  ville: zod.string().nullish(),
+  code_postal: zod.string().nullish(),
+  pays: zod.string().nullish(),
+  siret: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a supplier
+ */
+export const GetFournisseurParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetFournisseurResponse = zod.object({
+  id: zod.number(),
+  nom: zod.string(),
+  contact: zod.string().nullish(),
+  email: zod.string().nullish(),
+  telephone: zod.string().nullish(),
+  adresse: zod.string().nullish(),
+  ville: zod.string().nullish(),
+  code_postal: zod.string().nullish(),
+  pays: zod.string().nullish(),
+  siret: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  cree_le: zod.string(),
+  modifie_le: zod.string(),
+});
+
+/**
+ * @summary Update a supplier
+ */
+export const UpdateFournisseurParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateFournisseurBody = zod.object({
+  nom: zod.string(),
+  contact: zod.string().nullish(),
+  email: zod.string().nullish(),
+  telephone: zod.string().nullish(),
+  adresse: zod.string().nullish(),
+  ville: zod.string().nullish(),
+  code_postal: zod.string().nullish(),
+  pays: zod.string().nullish(),
+  siret: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateFournisseurResponse = zod.object({
+  id: zod.number(),
+  nom: zod.string(),
+  contact: zod.string().nullish(),
+  email: zod.string().nullish(),
+  telephone: zod.string().nullish(),
+  adresse: zod.string().nullish(),
+  ville: zod.string().nullish(),
+  code_postal: zod.string().nullish(),
+  pays: zod.string().nullish(),
+  siret: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  cree_le: zod.string(),
+  modifie_le: zod.string(),
+});
+
+/**
+ * @summary Delete a supplier
+ */
+export const DeleteFournisseurParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteFournisseurResponse = zod.object({
+  success: zod.boolean(),
 });
 
 /**
@@ -435,8 +581,6 @@ export const GetDevisResponse = zod
           unite_calcul: zod.string(),
           largeur_m: zod.number().nullish(),
           hauteur_m: zod.number().nullish(),
-          width_cm: zod.number().nullish(),
-          height_cm: zod.number().nullish(),
           quantite: zod.number(),
           quantite_calculee: zod.number().nullish(),
           prix_unitaire_ht: zod.number(),
@@ -444,34 +588,6 @@ export const GetDevisResponse = zod
           total_ht: zod.number(),
           total_ttc: zod.number(),
           ordre: zod.number(),
-          faconnage: zod.array(
-            zod.object({
-              id: zod.number(),
-              ligne_devis_id: zod.number(),
-              produit_id: zod.number().nullish(),
-              designation: zod.string(),
-              quantite: zod.number(),
-              prix_unitaire_ht: zod.number(),
-              taux_tva: zod.number(),
-              total_ht: zod.number(),
-              parametres_json: zod.string().nullish(),
-              ordre: zod.number(),
-            }),
-          ).default([]),
-          service: zod.array(
-            zod.object({
-              id: zod.number(),
-              ligne_devis_id: zod.number(),
-              produit_id: zod.number().nullish(),
-              designation: zod.string(),
-              quantite: zod.number(),
-              heures: zod.number().nullish(),
-              prix_unitaire_ht: zod.number(),
-              taux_tva: zod.number(),
-              total_ht: zod.number(),
-              ordre: zod.number(),
-            }),
-          ).default([]),
         }),
       ),
     }),
@@ -534,34 +650,10 @@ export const SaveDevisLignesBody = zod.object({
       unite_calcul: zod.string(),
       largeur_m: zod.number().nullish(),
       hauteur_m: zod.number().nullish(),
-      width_cm: zod.number().nullish(),
-      height_cm: zod.number().nullish(),
       quantite: zod.number(),
       prix_unitaire_ht: zod.number(),
       taux_tva: zod.number(),
       ordre: zod.number().optional(),
-      faconnage: zod.array(
-        zod.object({
-          produit_id: zod.number().nullish(),
-          designation: zod.string(),
-          quantite: zod.number().default(1),
-          prix_unitaire_ht: zod.number().default(0),
-          taux_tva: zod.number().default(20),
-          parametres_json: zod.string().nullish(),
-          ordre: zod.number().optional(),
-        }),
-      ).optional().default([]),
-      service: zod.array(
-        zod.object({
-          produit_id: zod.number().nullish(),
-          designation: zod.string(),
-          quantite: zod.number().default(1),
-          heures: zod.number().nullish(),
-          prix_unitaire_ht: zod.number().default(0),
-          taux_tva: zod.number().default(20),
-          ordre: zod.number().optional(),
-        }),
-      ).optional().default([]),
     }),
   ),
 });

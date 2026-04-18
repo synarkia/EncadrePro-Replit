@@ -5,13 +5,29 @@
  * EncadrePro API – gestion d'un atelier d'encadrement
  * OpenAPI spec version: 1.0.0
  */
+import type { CreateProduitBodyPricingMode } from "./createProduitBodyPricingMode";
+import type { CreateProduitBodyTypeCode } from "./createProduitBodyTypeCode";
 
 export interface CreateProduitBody {
   reference?: string | null;
   designation: string;
-  categorie: string;
+  type_code?: CreateProduitBodyTypeCode;
+  pricing_mode?: CreateProduitBodyPricingMode;
+  type_produit?: string | null;
+  fournisseur?: string | null;
+  fournisseur_id?: number | null;
+  sous_categorie?: string | null;
+  unite?: string | null;
   unite_calcul: string;
+  prix_achat_ht?: number | null;
+  coefficient_marge?: number | null;
   prix_ht: number;
   taux_tva: number;
+  largeur_mm?: number | null;
+  epaisseur_mm?: number | null;
+  longueur_barre_m?: number | null;
+  stock_alerte?: number | null;
+  ref_legacy_v1?: string | null;
   notes?: string | null;
+  image_url?: string | null;
 }

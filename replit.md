@@ -39,15 +39,32 @@ artifacts-monorepo/
 
 ## Business Logic
 
-### Product types (modular pricing — new in v2)
-- **Matière** — raw material (baguette, glass, passepartout, hardware)
-- **Façonnage** — finishing operation (polishing, welding, cutting)
-- **Service** — service item (delivery, installation, framing time)
+### Product types (5-code typology — new in v2 foundation)
+- **VR** — Verre / Plexi
+- **FA** — Façonnage (finishing operation)
+- **AU** — Autres composants (passe-partout, hardware…)
+- **SD** — Service direct (livraison, déplacement, manutention…)
+- **EN** — Encadrement (moulures, baguettes — métier de base)
 
-### Product unit types
+Legacy 3-type UI (`matière`/`façonnage`/`service`) maps automatically to type_code `EN`/`FA`/`SD`.
+
+### Product pricing modes (per-product formula)
+- **`unit`** — Q
+- **`linear_meter`** — `(L+H)*2*Q`
+- **`square_meter`** — `L*H*Q`
+
+### Line-item unit types (devis lines, independent from product `pricing_mode`)
 - `ml` / `metre_lineaire` — `(L+H)*2*Q` (dimensions in cm, stored and converted to meters)
 - `m²` / `metre_carre` — `L*H*Q`
 - `pièce` / `unitaire` / `heure` / `forfait` — `Q`
+
+### Foundation schema (April 2026)
+- All money columns use `numeric(12,2, mode:"number")` for precision
+- Timestamps use `mode:"string"` → return ISO strings directly (no more Date object juggling)
+- `produits` extended: `type_code`, `pricing_mode`, `prix_achat_ht`, `coefficient_marge`, `largeur_mm`, `epaisseur_mm`, `longueur_barre_m`, `stock_alerte`, `ref_legacy_v1`, `fournisseur_id`
+- New `fournisseurs` table with full CRUD
+- `atelier` extended: `tva_intracom`, `rcs`, `forme_juridique`, `capital_social`, `code_ape`, `mentions_legales`, `iban`, `bic`, `modifie_le`
+- Legacy `produits.categorie` column dropped
 
 ### Legacy product categories (backward compat)
 `baguettes`, `verres`, `passe_partout`, `quincaillerie`, `main_oeuvre`

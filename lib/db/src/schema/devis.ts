@@ -1,25 +1,27 @@
-import { pgTable, serial, text, real, integer, timestamp, date, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, real, integer, numeric, timestamp, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { clientsTable } from "./clients";
 import { produitsTable } from "./produits";
 
+/* WEB-TO-DESKTOP NOTE: shared schema, used by future Electron build. */
+
 export const devisTable = pgTable("devis", {
   id: serial("id").primaryKey(),
   numero: text("numero").notNull().unique(),
   client_id: integer("client_id").notNull().references(() => clientsTable.id),
-  date_creation: date("date_creation").notNull().defaultNow(),
-  date_validite: date("date_validite"),
+  date_creation: date("date_creation", { mode: "string" }).notNull().defaultNow(),
+  date_validite: date("date_validite", { mode: "string" }),
   statut: text("statut").notNull().default("brouillon"),
-  sous_total_ht: real("sous_total_ht").notNull().default(0),
-  total_tva_10: real("total_tva_10").notNull().default(0),
-  total_tva_20: real("total_tva_20").notNull().default(0),
-  total_ttc: real("total_ttc").notNull().default(0),
+  sous_total_ht: numeric("sous_total_ht", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+  total_tva_10: numeric("total_tva_10", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+  total_tva_20: numeric("total_tva_20", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+  total_ttc: numeric("total_ttc", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
   notes: text("notes"),
   conditions: text("conditions"),
   facture_id: integer("facture_id"),
-  cree_le: timestamp("cree_le", { withTimezone: true }).notNull().defaultNow(),
-  modifie_le: timestamp("modifie_le", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  cree_le: timestamp("cree_le", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+  modifie_le: timestamp("modifie_le", { withTimezone: true, mode: "string" }).notNull().defaultNow().$onUpdate(() => new Date().toISOString()),
 });
 
 export const lignesDevisTable = pgTable("lignes_devis", {
@@ -37,28 +39,26 @@ export const lignesDevisTable = pgTable("lignes_devis", {
   // ── quantities & pricing ────────────────────────────────────────────────
   quantite: real("quantite").notNull().default(1),
   quantite_calculee: real("quantite_calculee"),
-  prix_unitaire_ht: real("prix_unitaire_ht").notNull(),
-  taux_tva: real("taux_tva").notNull(),
-  total_ht: real("total_ht").notNull(),
-  total_ttc: real("total_ttc").notNull(),
+  prix_unitaire_ht: numeric("prix_unitaire_ht", { precision: 12, scale: 2, mode: "number" }).notNull(),
+  taux_tva: numeric("taux_tva", { precision: 5, scale: 2, mode: "number" }).notNull(),
+  total_ht: numeric("total_ht", { precision: 12, scale: 2, mode: "number" }).notNull(),
+  total_ttc: numeric("total_ttc", { precision: 12, scale: 2, mode: "number" }).notNull(),
   ordre: integer("ordre").notNull().default(0),
 });
 
-// ── Finishing operations (façonnage) linked to a material line ─────────────
 export const lignesDevisFaconnageTable = pgTable("lignes_devis_faconnage", {
   id: serial("id").primaryKey(),
   ligne_devis_id: integer("ligne_devis_id").notNull().references(() => lignesDevisTable.id, { onDelete: "cascade" }),
   produit_id: integer("produit_id").references(() => produitsTable.id),
   designation: text("designation").notNull(),
   quantite: real("quantite").notNull().default(1),
-  prix_unitaire_ht: real("prix_unitaire_ht").notNull().default(0),
-  taux_tva: real("taux_tva").notNull().default(20),
-  total_ht: real("total_ht").notNull().default(0),
-  parametres_json: text("parametres_json"),  // e.g. {"hole_diameter_mm": 6}
+  prix_unitaire_ht: numeric("prix_unitaire_ht", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+  taux_tva: numeric("taux_tva", { precision: 5, scale: 2, mode: "number" }).notNull().default(20),
+  total_ht: numeric("total_ht", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+  parametres_json: text("parametres_json"),
   ordre: integer("ordre").notNull().default(0),
 });
 
-// ── Service items linked to a material line ────────────────────────────────
 export const lignesDevisServiceTable = pgTable("lignes_devis_service", {
   id: serial("id").primaryKey(),
   ligne_devis_id: integer("ligne_devis_id").notNull().references(() => lignesDevisTable.id, { onDelete: "cascade" }),
@@ -66,9 +66,9 @@ export const lignesDevisServiceTable = pgTable("lignes_devis_service", {
   designation: text("designation").notNull(),
   quantite: real("quantite").notNull().default(1),
   heures: real("heures"),
-  prix_unitaire_ht: real("prix_unitaire_ht").notNull().default(0),
-  taux_tva: real("taux_tva").notNull().default(20),
-  total_ht: real("total_ht").notNull().default(0),
+  prix_unitaire_ht: numeric("prix_unitaire_ht", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+  taux_tva: numeric("taux_tva", { precision: 5, scale: 2, mode: "number" }).notNull().default(20),
+  total_ht: numeric("total_ht", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
   ordre: integer("ordre").notNull().default(0),
 });
 

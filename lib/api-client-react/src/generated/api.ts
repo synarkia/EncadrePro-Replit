@@ -25,6 +25,7 @@ import type {
   CreateClientBody,
   CreateDevisBody,
   CreateFactureBody,
+  CreateFournisseurBody,
   CreatePaiementBody,
   CreateProduitBody,
   DashboardStats,
@@ -32,6 +33,7 @@ import type {
   DevisDetail,
   Facture,
   FactureDetail,
+  Fournisseur,
   HealthStatus,
   ListClientsParams,
   ListDevisParams,
@@ -1387,6 +1389,425 @@ export const useToggleProduitActif = <
   TContext
 > => {
   return useMutation(getToggleProduitActifMutationOptions(options));
+};
+
+/**
+ * @summary List suppliers
+ */
+export const getListFournisseursUrl = () => {
+  return `/api/fournisseurs`;
+};
+
+export const listFournisseurs = async (
+  options?: RequestInit,
+): Promise<Fournisseur[]> => {
+  return customFetch<Fournisseur[]>(getListFournisseursUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListFournisseursQueryKey = () => {
+  return [`/api/fournisseurs`] as const;
+};
+
+export const getListFournisseursQueryOptions = <
+  TData = Awaited<ReturnType<typeof listFournisseurs>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listFournisseurs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListFournisseursQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listFournisseurs>>
+  > = ({ signal }) => listFournisseurs({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listFournisseurs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListFournisseursQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listFournisseurs>>
+>;
+export type ListFournisseursQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List suppliers
+ */
+
+export function useListFournisseurs<
+  TData = Awaited<ReturnType<typeof listFournisseurs>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listFournisseurs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListFournisseursQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a supplier
+ */
+export const getCreateFournisseurUrl = () => {
+  return `/api/fournisseurs`;
+};
+
+export const createFournisseur = async (
+  createFournisseurBody: CreateFournisseurBody,
+  options?: RequestInit,
+): Promise<Fournisseur> => {
+  return customFetch<Fournisseur>(getCreateFournisseurUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createFournisseurBody),
+  });
+};
+
+export const getCreateFournisseurMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFournisseur>>,
+    TError,
+    { data: BodyType<CreateFournisseurBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createFournisseur>>,
+  TError,
+  { data: BodyType<CreateFournisseurBody> },
+  TContext
+> => {
+  const mutationKey = ["createFournisseur"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createFournisseur>>,
+    { data: BodyType<CreateFournisseurBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createFournisseur(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateFournisseurMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createFournisseur>>
+>;
+export type CreateFournisseurMutationBody = BodyType<CreateFournisseurBody>;
+export type CreateFournisseurMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a supplier
+ */
+export const useCreateFournisseur = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFournisseur>>,
+    TError,
+    { data: BodyType<CreateFournisseurBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createFournisseur>>,
+  TError,
+  { data: BodyType<CreateFournisseurBody> },
+  TContext
+> => {
+  return useMutation(getCreateFournisseurMutationOptions(options));
+};
+
+/**
+ * @summary Get a supplier
+ */
+export const getGetFournisseurUrl = (id: number) => {
+  return `/api/fournisseurs/${id}`;
+};
+
+export const getFournisseur = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Fournisseur> => {
+  return customFetch<Fournisseur>(getGetFournisseurUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFournisseurQueryKey = (id: number) => {
+  return [`/api/fournisseurs/${id}`] as const;
+};
+
+export const getGetFournisseurQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFournisseur>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFournisseur>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetFournisseurQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getFournisseur>>> = ({
+    signal,
+  }) => getFournisseur(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFournisseur>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFournisseurQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFournisseur>>
+>;
+export type GetFournisseurQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a supplier
+ */
+
+export function useGetFournisseur<
+  TData = Awaited<ReturnType<typeof getFournisseur>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFournisseur>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFournisseurQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a supplier
+ */
+export const getUpdateFournisseurUrl = (id: number) => {
+  return `/api/fournisseurs/${id}`;
+};
+
+export const updateFournisseur = async (
+  id: number,
+  createFournisseurBody: CreateFournisseurBody,
+  options?: RequestInit,
+): Promise<Fournisseur> => {
+  return customFetch<Fournisseur>(getUpdateFournisseurUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createFournisseurBody),
+  });
+};
+
+export const getUpdateFournisseurMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateFournisseur>>,
+    TError,
+    { id: number; data: BodyType<CreateFournisseurBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateFournisseur>>,
+  TError,
+  { id: number; data: BodyType<CreateFournisseurBody> },
+  TContext
+> => {
+  const mutationKey = ["updateFournisseur"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateFournisseur>>,
+    { id: number; data: BodyType<CreateFournisseurBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateFournisseur(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateFournisseurMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateFournisseur>>
+>;
+export type UpdateFournisseurMutationBody = BodyType<CreateFournisseurBody>;
+export type UpdateFournisseurMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a supplier
+ */
+export const useUpdateFournisseur = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateFournisseur>>,
+    TError,
+    { id: number; data: BodyType<CreateFournisseurBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateFournisseur>>,
+  TError,
+  { id: number; data: BodyType<CreateFournisseurBody> },
+  TContext
+> => {
+  return useMutation(getUpdateFournisseurMutationOptions(options));
+};
+
+/**
+ * @summary Delete a supplier
+ */
+export const getDeleteFournisseurUrl = (id: number) => {
+  return `/api/fournisseurs/${id}`;
+};
+
+export const deleteFournisseur = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SuccessResponse> => {
+  return customFetch<SuccessResponse>(getDeleteFournisseurUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteFournisseurMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteFournisseur>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteFournisseur>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteFournisseur"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteFournisseur>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteFournisseur(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteFournisseurMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteFournisseur>>
+>;
+
+export type DeleteFournisseurMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a supplier
+ */
+export const useDeleteFournisseur = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteFournisseur>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteFournisseur>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteFournisseurMutationOptions(options));
 };
 
 /**

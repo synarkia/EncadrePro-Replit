@@ -5,7 +5,10 @@
  * EncadrePro API – gestion d'un atelier d'encadrement
  * OpenAPI spec version: 1.0.0
  */
+import type { ListProduitsTypeCode } from "./listProduitsTypeCode";
 
 export type ListProduitsParams = {
-  categorie?: string;
+  type_code?: ListProduitsTypeCode;
+  type?: string;
+  fournisseur_id?: number;
 };

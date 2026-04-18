@@ -120,26 +120,124 @@ export interface ClientStats {
   factures: Facture[];
 }
 
+export type ProduitTypeCode =
+  (typeof ProduitTypeCode)[keyof typeof ProduitTypeCode];
+
+export const ProduitTypeCode = {
+  VR: "VR",
+  FA: "FA",
+  AU: "AU",
+  SD: "SD",
+  EN: "EN",
+} as const;
+
+export type ProduitPricingMode =
+  (typeof ProduitPricingMode)[keyof typeof ProduitPricingMode];
+
+export const ProduitPricingMode = {
+  unit: "unit",
+  linear_meter: "linear_meter",
+  square_meter: "square_meter",
+} as const;
+
 export interface Produit {
   id: number;
   reference?: string | null;
   designation: string;
-  categorie: string;
+  type_code: ProduitTypeCode;
+  pricing_mode: ProduitPricingMode;
+  type_produit?: string | null;
+  fournisseur?: string | null;
+  fournisseur_id?: number | null;
+  sous_categorie?: string | null;
+  unite?: string | null;
   unite_calcul: string;
+  prix_achat_ht?: number | null;
+  coefficient_marge?: number | null;
   prix_ht: number;
   taux_tva: number;
+  largeur_mm?: number | null;
+  epaisseur_mm?: number | null;
+  longueur_barre_m?: number | null;
+  stock_alerte?: number | null;
+  ref_legacy_v1?: string | null;
   actif: number;
   notes?: string | null;
+  image_url?: string | null;
   cree_le: string;
+  modifie_le: string;
 }
+
+export type CreateProduitBodyTypeCode =
+  (typeof CreateProduitBodyTypeCode)[keyof typeof CreateProduitBodyTypeCode];
+
+export const CreateProduitBodyTypeCode = {
+  VR: "VR",
+  FA: "FA",
+  AU: "AU",
+  SD: "SD",
+  EN: "EN",
+} as const;
+
+export type CreateProduitBodyPricingMode =
+  (typeof CreateProduitBodyPricingMode)[keyof typeof CreateProduitBodyPricingMode];
+
+export const CreateProduitBodyPricingMode = {
+  unit: "unit",
+  linear_meter: "linear_meter",
+  square_meter: "square_meter",
+} as const;
 
 export interface CreateProduitBody {
   reference?: string | null;
   designation: string;
-  categorie: string;
+  type_code?: CreateProduitBodyTypeCode;
+  pricing_mode?: CreateProduitBodyPricingMode;
+  type_produit?: string | null;
+  fournisseur?: string | null;
+  fournisseur_id?: number | null;
+  sous_categorie?: string | null;
+  unite?: string | null;
   unite_calcul: string;
+  prix_achat_ht?: number | null;
+  coefficient_marge?: number | null;
   prix_ht: number;
   taux_tva: number;
+  largeur_mm?: number | null;
+  epaisseur_mm?: number | null;
+  longueur_barre_m?: number | null;
+  stock_alerte?: number | null;
+  ref_legacy_v1?: string | null;
+  notes?: string | null;
+  image_url?: string | null;
+}
+
+export interface Fournisseur {
+  id: number;
+  nom: string;
+  contact?: string | null;
+  email?: string | null;
+  telephone?: string | null;
+  adresse?: string | null;
+  ville?: string | null;
+  code_postal?: string | null;
+  pays?: string | null;
+  siret?: string | null;
+  notes?: string | null;
+  cree_le: string;
+  modifie_le: string;
+}
+
+export interface CreateFournisseurBody {
+  nom: string;
+  contact?: string | null;
+  email?: string | null;
+  telephone?: string | null;
+  adresse?: string | null;
+  ville?: string | null;
+  code_postal?: string | null;
+  pays?: string | null;
+  siret?: string | null;
   notes?: string | null;
 }
 
@@ -259,8 +357,21 @@ export type ListClientsParams = {
 };
 
 export type ListProduitsParams = {
-  categorie?: string;
+  type_code?: ListProduitsTypeCode;
+  type?: string;
+  fournisseur_id?: number;
 };
+
+export type ListProduitsTypeCode =
+  (typeof ListProduitsTypeCode)[keyof typeof ListProduitsTypeCode];
+
+export const ListProduitsTypeCode = {
+  VR: "VR",
+  FA: "FA",
+  AU: "AU",
+  SD: "SD",
+  EN: "EN",
+} as const;
 
 export type ListDevisParams = {
   statut?: string;
