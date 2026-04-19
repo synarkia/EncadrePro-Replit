@@ -79,7 +79,10 @@ export function computeLigneTotalHT(p: ComputeLigneTotalHTInput): number {
 
   if (isVerre && isSurface && (p.regime ?? "TN") === "TN" && p.mini_fact_tn != null) {
     const billable = Math.max(surface, p.mini_fact_tn);
-    return Number((billable * p.prix_unitaire_ht).toFixed(2));
+    // Apply thickness markup (majo_epaisseur) — defaults to 1 when absent so the
+    // formula still degrades gracefully for old products without the coefficient.
+    const epais = p.majo_epaisseur ?? 1;
+    return Number((billable * p.prix_unitaire_ht * epais).toFixed(2));
   }
 
   return Number((p.quantite * p.prix_unitaire_ht).toFixed(2));

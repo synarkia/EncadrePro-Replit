@@ -274,6 +274,7 @@ export interface LigneDevisFaconnage {
   produit_id?: number | null;
   designation: string;
   quantite: number;
+  longueur_m?: number | null;
   prix_unitaire_ht: number;
   taux_tva: number;
   total_ht: number;
@@ -311,6 +312,7 @@ export interface LigneDevis {
   total_ht: number;
   total_ttc: number;
   ordre: number;
+  regime_pricing?: string | null;
   faconnage?: LigneDevisFaconnage[];
   service?: LigneDevisService[];
 }
@@ -319,6 +321,7 @@ export interface LigneInputFaconnage {
   produit_id?: number | null;
   designation: string;
   quantite: number;
+  longueur_m?: number | null;
   prix_unitaire_ht: number;
   taux_tva: number;
   parametres_json?: string | null;
@@ -347,6 +350,7 @@ export interface LigneInput {
   prix_unitaire_ht: number;
   taux_tva: number;
   ordre?: number;
+  regime_pricing?: string | null;
   faconnage?: LigneInputFaconnage[];
   service?: LigneInputService[];
 }

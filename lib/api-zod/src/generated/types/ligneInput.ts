@@ -20,6 +20,7 @@ export interface LigneInput {
   prix_unitaire_ht: number;
   taux_tva: number;
   ordre?: number;
+  regime_pricing?: string | null;
   faconnage?: LigneInputFaconnage[];
   service?: LigneInputService[];
 }

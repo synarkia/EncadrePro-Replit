@@ -10,6 +10,7 @@ export interface LigneInputFaconnage {
   produit_id?: number | null;
   designation: string;
   quantite: number;
+  longueur_m?: number | null;
   prix_unitaire_ht: number;
   taux_tva: number;
   parametres_json?: string | null;

@@ -36,7 +36,11 @@ function calcLigne(unite: string, widthCm: number | null, heightCm: number | nul
   const wM = (widthCm ?? 0) / 100;
   const hM = (heightCm ?? 0) / 100;
   if (unite === "ml" || unite === "metre_lineaire") {
-    return (wM + hM) * 2 * quantite;
+    // V1 stored a single "longueur" in widthCm — sum widthCm + heightCm so
+    // callers that only fill one of the two still get the typed length.
+    // No ×2 perimeter doubling: clients should pre-compute perimeter
+    // themselves if they want it billed as such.
+    return (wM + hM) * quantite;
   }
   if (unite === "m²" || unite === "metre_carre") {
     return wM * hM * quantite;
@@ -216,6 +220,7 @@ router.get("/devis/:id", async (req, res): Promise<void> => {
       total_ht: l.total_ht,
       total_ttc: l.total_ttc,
       ordre: l.ordre,
+      regime_pricing: l.regime_pricing ?? null,
       faconnage: faconnageAll
         .filter(f => f.ligne_devis_id === l.id)
         .map(f => ({
@@ -224,6 +229,7 @@ router.get("/devis/:id", async (req, res): Promise<void> => {
           produit_id: f.produit_id ?? null,
           designation: f.designation,
           quantite: f.quantite,
+          longueur_m: f.longueur_m ?? null,
           prix_unitaire_ht: f.prix_unitaire_ht,
           taux_tva: f.taux_tva,
           total_ht: f.total_ht,
@@ -338,18 +344,24 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
       total_ht: totalHT,
       total_ttc: totalTTC,
       ordre: l.ordre ?? i,
+      regime_pricing: (l as { regime_pricing?: string | null }).regime_pricing ?? null,
     }).returning();
 
     // Insert faconnage sub-items
     const faconnageItems = l.faconnage ?? [];
     for (let fi = 0; fi < faconnageItems.length; fi++) {
       const f = faconnageItems[fi];
-      const fTotalHT = f.quantite * f.prix_unitaire_ht;
+      const fLong = (f as { longueur_m?: number | null }).longueur_m ?? null;
+      // When longueur_m is provided, treat it as a per-unit length multiplier so
+      // that mat-board / per-meter façonnage products bill correctly.
+      const effLength = fLong != null && fLong > 0 ? fLong : 1;
+      const fTotalHT = f.quantite * effLength * f.prix_unitaire_ht;
       await db.insert(lignesDevisFaconnageTable).values({
         ligne_devis_id: inserted.id,
         produit_id: f.produit_id ?? null,
         designation: f.designation,
         quantite: f.quantite,
+        longueur_m: fLong,
         prix_unitaire_ht: f.prix_unitaire_ht,
         taux_tva: f.taux_tva,
         total_ht: fTotalHT,

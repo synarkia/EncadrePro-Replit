@@ -44,6 +44,8 @@ export const lignesDevisTable = pgTable("lignes_devis", {
   total_ht: numeric("total_ht", { precision: 12, scale: 2, mode: "number" }).notNull(),
   total_ttc: numeric("total_ttc", { precision: 12, scale: 2, mode: "number" }).notNull(),
   ordre: integer("ordre").notNull().default(0),
+  // ── VR-only TN/TA regime selector (null for non-VR lines) ──────────────
+  regime_pricing: text("regime_pricing"),
 });
 
 export const lignesDevisFaconnageTable = pgTable("lignes_devis_faconnage", {
@@ -52,6 +54,9 @@ export const lignesDevisFaconnageTable = pgTable("lignes_devis_faconnage", {
   produit_id: integer("produit_id").references(() => produitsTable.id),
   designation: text("designation").notNull(),
   quantite: real("quantite").notNull().default(1),
+  // Optional length in metres — used for FA products priced per linear meter
+  // (e.g. mat-board cut). When set, line total = quantite × longueur_m × pu_ht.
+  longueur_m: real("longueur_m"),
   prix_unitaire_ht: numeric("prix_unitaire_ht", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
   taux_tva: numeric("taux_tva", { precision: 5, scale: 2, mode: "number" }).notNull().default(20),
   total_ht: numeric("total_ht", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),

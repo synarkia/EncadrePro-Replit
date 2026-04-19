@@ -25,6 +25,7 @@ export interface LigneDevis {
   total_ht: number;
   total_ttc: number;
   ordre: number;
+  regime_pricing?: string | null;
   faconnage?: LigneDevisFaconnage[];
   service?: LigneDevisService[];
 }

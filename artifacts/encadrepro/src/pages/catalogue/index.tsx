@@ -495,12 +495,16 @@ export default function Catalogue() {
                     <Switch checked={produit.actif === 1} onCheckedChange={() => handleToggle(produit.id)} className="scale-90" />
                   </div>
 
-                  {/* Reference + name */}
-                  <div className="mb-2">
+                  {/* Reference + name (clickable → opens edit dialog) */}
+                  <div
+                    className="mb-2 cursor-pointer group/title"
+                    onClick={() => openEdit(produit)}
+                    title="Cliquer pour modifier"
+                  >
                     {produit.reference && (
                       <p className="text-[10px] text-muted-foreground/70 font-mono mb-0.5">{produit.reference}</p>
                     )}
-                    <h3 className="font-semibold text-sm leading-tight line-clamp-2">{produit.designation}</h3>
+                    <h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover/title:text-primary transition-colors">{produit.designation}</h3>
                     {(produit.sous_categorie) && (
                       <div className="flex items-center gap-1 mt-1">
                         <Tag className="h-3 w-3 text-muted-foreground/50" />

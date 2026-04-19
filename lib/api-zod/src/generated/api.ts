@@ -659,6 +659,7 @@ export const GetDevisResponse = zod
           total_ht: zod.number(),
           total_ttc: zod.number(),
           ordre: zod.number(),
+          regime_pricing: zod.string().nullish(),
           faconnage: zod
             .array(
               zod.object({
@@ -667,6 +668,7 @@ export const GetDevisResponse = zod
                 produit_id: zod.number().nullish(),
                 designation: zod.string(),
                 quantite: zod.number(),
+                longueur_m: zod.number().nullish(),
                 prix_unitaire_ht: zod.number(),
                 taux_tva: zod.number(),
                 total_ht: zod.number(),
@@ -759,12 +761,14 @@ export const SaveDevisLignesBody = zod.object({
       prix_unitaire_ht: zod.number(),
       taux_tva: zod.number(),
       ordre: zod.number().optional(),
+      regime_pricing: zod.string().nullish(),
       faconnage: zod
         .array(
           zod.object({
             produit_id: zod.number().nullish(),
             designation: zod.string(),
             quantite: zod.number(),
+            longueur_m: zod.number().nullish(),
             prix_unitaire_ht: zod.number(),
             taux_tva: zod.number(),
             parametres_json: zod.string().nullish(),
@@ -904,6 +908,7 @@ export const GetFactureResponse = zod
           total_ht: zod.number(),
           total_ttc: zod.number(),
           ordre: zod.number(),
+          regime_pricing: zod.string().nullish(),
           faconnage: zod
             .array(
               zod.object({
@@ -912,6 +917,7 @@ export const GetFactureResponse = zod
                 produit_id: zod.number().nullish(),
                 designation: zod.string(),
                 quantite: zod.number(),
+                longueur_m: zod.number().nullish(),
                 prix_unitaire_ht: zod.number(),
                 taux_tva: zod.number(),
                 total_ht: zod.number(),

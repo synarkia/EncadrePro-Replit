@@ -48,9 +48,16 @@ const STATUT_OPTIONS: { value: string; label: string }[] = [
 function calcQ(unite: string, widthCm: number, heightCm: number, qte: number): number {
   const wM = widthCm / 100;
   const hM = heightCm / 100;
-  if (unite === "ml" || unite === "metre_lineaire") return (wM + hM) * 2 * qte;
+  // Linear meters: typed dimensions are summed and used as-is (no perimeter doubling).
+  // Must stay in lock-step with QuoteLineCard.calcQuantite and api-server devis.calcLigne.
+  if (unite === "ml" || unite === "metre_lineaire") return (wM + hM) * qte;
   if (unite === "m²" || unite === "metre_carre") return wM * hM * qte;
   return qte;
+}
+
+function faconnageHT(f: { quantite: number; longueur_m?: number | null; prix_unitaire_ht: number }) {
+  const eff = f.longueur_m != null && f.longueur_m > 0 ? f.longueur_m : 1;
+  return f.quantite * eff * f.prix_unitaire_ht;
 }
 
 function newEmptyLine(ordre: number): QuoteLine {
@@ -117,11 +124,13 @@ export default function DevisDetail() {
         quantite: l.quantite,
         prix_unitaire_ht: l.prix_unitaire_ht,
         taux_tva: l.taux_tva,
+        regime_pricing: ((l as { regime_pricing?: string | null }).regime_pricing ?? null) as "TN" | "TA" | null,
         faconnage: (l.faconnage ?? []).map(f => ({
           id: f.id,
           produit_id: f.produit_id ?? null,
           designation: f.designation,
           quantite: f.quantite,
+          longueur_m: (f as { longueur_m?: number | null }).longueur_m ?? null,
           prix_unitaire_ht: f.prix_unitaire_ht,
           taux_tva: f.taux_tva,
           total_ht: f.total_ht,
@@ -166,10 +175,12 @@ export default function DevisDetail() {
       prix_unitaire_ht: l.prix_unitaire_ht,
       taux_tva: l.taux_tva,
       ordre: i,
+      regime_pricing: l.regime_pricing ?? null,
       faconnage: (l.faconnage ?? []).map((f, fi) => ({
         produit_id: f.produit_id ?? null,
         designation: f.designation || "—",
         quantite: f.quantite,
+        longueur_m: f.longueur_m ?? null,
         prix_unitaire_ht: f.prix_unitaire_ht,
         taux_tva: f.taux_tva,
         parametres_json: f.parametres_json ?? null,
@@ -262,19 +273,24 @@ export default function DevisDetail() {
       const hCm = l.height_cm ?? 0;
       const qCalc = calcQ(l.unite_calcul, wCm, hCm, l.quantite);
       const lineHT = qCalc * l.prix_unitaire_ht;
-      const faconnageHT = (l.faconnage ?? []).reduce((s, f) => s + f.quantite * f.prix_unitaire_ht, 0);
+      const facHT = (l.faconnage ?? []).reduce((s, f) => s + faconnageHT(f), 0);
       const serviceHT = (l.service ?? []).reduce((s, sv) => s + sv.quantite * sv.prix_unitaire_ht, 0);
-      const totalLineHT = lineHT + faconnageHT + serviceHT;
+      const totalLineHT = lineHT + facHT + serviceHT;
 
       ht += totalLineHT;
       if (l.taux_tva === 10) tva10 += lineHT * 0.1;
       else if (l.taux_tva === 20) tva20 += lineHT * 0.2;
 
-      // Also add TVA for sub-items
-      [...(l.faconnage ?? []), ...(l.service ?? [])].forEach(sub => {
-        const subHT = sub.quantite * sub.prix_unitaire_ht;
-        if (sub.taux_tva === 10) tva10 += subHT * 0.1;
-        else if (sub.taux_tva === 20) tva20 += subHT * 0.2;
+      // Also add TVA for sub-items (façonnage uses longueur_m multiplier when set)
+      (l.faconnage ?? []).forEach(f => {
+        const subHT = faconnageHT(f);
+        if (f.taux_tva === 10) tva10 += subHT * 0.1;
+        else if (f.taux_tva === 20) tva20 += subHT * 0.2;
+      });
+      (l.service ?? []).forEach(sv => {
+        const subHT = sv.quantite * sv.prix_unitaire_ht;
+        if (sv.taux_tva === 10) tva10 += subHT * 0.1;
+        else if (sv.taux_tva === 20) tva20 += subHT * 0.2;
       });
     });
     return { ht, tva10, tva20, ttc: ht + tva10 + tva20 };
@@ -347,17 +363,21 @@ export default function DevisDetail() {
                     <td className="text-right">{l.taux_tva}%</td>
                     <td className="text-right font-semibold">{formatCurrency(totalHt)}</td>
                   </tr>
-                  {(l.faconnage ?? []).map((f, fi) => (
-                    <tr key={`f-${fi}`} className="text-gray-500 text-xs">
-                      <td className="pl-4 italic">↳ {f.designation}</td>
-                      <td>unité</td>
-                      <td>-</td>
-                      <td className="text-right">{f.quantite}</td>
-                      <td className="text-right">{formatCurrency(f.prix_unitaire_ht)}</td>
-                      <td className="text-right">{f.taux_tva}%</td>
-                      <td className="text-right">{formatCurrency(f.quantite * f.prix_unitaire_ht)}</td>
-                    </tr>
-                  ))}
+                  {(l.faconnage ?? []).map((f, fi) => {
+                    const fLong = (f as { longueur_m?: number | null }).longueur_m ?? null;
+                    const eff = fLong != null && fLong > 0 ? fLong : 1;
+                    return (
+                      <tr key={`f-${fi}`} className="text-gray-500 text-xs">
+                        <td className="pl-4 italic">↳ {f.designation}</td>
+                        <td>{fLong != null && fLong > 0 ? "ml" : "unité"}</td>
+                        <td>{fLong != null && fLong > 0 ? `${fLong.toFixed(2)} m` : "-"}</td>
+                        <td className="text-right">{f.quantite}</td>
+                        <td className="text-right">{formatCurrency(f.prix_unitaire_ht)}</td>
+                        <td className="text-right">{f.taux_tva}%</td>
+                        <td className="text-right">{formatCurrency(f.quantite * eff * f.prix_unitaire_ht)}</td>
+                      </tr>
+                    );
+                  })}
                   {(l.service ?? []).map((s, si) => (
                     <tr key={`s-${si}`} className="text-gray-500 text-xs">
                       <td className="pl-4 italic">↳ {s.designation}</td>

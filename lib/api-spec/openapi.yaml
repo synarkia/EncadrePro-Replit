@@ -957,6 +957,7 @@ components:
         produit_id: { type: integer, nullable: true }
         designation: { type: string }
         quantite: { type: number }
+        longueur_m: { type: number, nullable: true }
         prix_unitaire_ht: { type: number }
         taux_tva: { type: number }
         total_ht: { type: number }
@@ -998,6 +999,7 @@ components:
         total_ht: { type: number }
         total_ttc: { type: number }
         ordre: { type: integer }
+        regime_pricing: { type: string, nullable: true }
         faconnage:
           type: array
           items:
@@ -1014,6 +1016,7 @@ components:
         produit_id: { type: integer, nullable: true }
         designation: { type: string }
         quantite: { type: number }
+        longueur_m: { type: number, nullable: true }
         prix_unitaire_ht: { type: number }
         taux_tva: { type: number }
         parametres_json: { type: string, nullable: true }
@@ -1046,6 +1049,7 @@ components:
         prix_unitaire_ht: { type: number }
         taux_tva: { type: number }
         ordre: { type: integer }
+        regime_pricing: { type: string, nullable: true }
         faconnage:
           type: array
           items:

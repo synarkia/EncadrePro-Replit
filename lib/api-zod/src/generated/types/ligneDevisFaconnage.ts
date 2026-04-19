@@ -12,6 +12,7 @@ export interface LigneDevisFaconnage {
   produit_id?: number | null;
   designation: string;
   quantite: number;
+  longueur_m?: number | null;
   prix_unitaire_ht: number;
   taux_tva: number;
   total_ht: number;

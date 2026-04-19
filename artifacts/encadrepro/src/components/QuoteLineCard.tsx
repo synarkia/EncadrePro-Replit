@@ -23,6 +23,7 @@ export type FaconnageItem = {
   produit_id: number | null;
   designation: string;
   quantite: number;
+  longueur_m: number | null;
   prix_unitaire_ht: number;
   taux_tva: number;
   total_ht: number;
@@ -75,7 +76,8 @@ export type QuoteLine = {
 function calcQuantite(unite: string, widthCm: number, heightCm: number, qte: number): number {
   const wM = widthCm / 100;
   const hM = heightCm / 100;
-  if (unite === "ml" || unite === "metre_lineaire") return (wM + hM) * 2 * qte;
+  // No perimeter doubling — the typed dimension(s) are summed and used as-is.
+  if (unite === "ml" || unite === "metre_lineaire") return (wM + hM) * qte;
   if (unite === "m²" || unite === "metre_carre") return wM * hM * qte;
   return qte;
 }
@@ -177,7 +179,10 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
     plus_value_ta_pct: line.plus_value_ta_pct,
   });
 
-  const totalFaconnageHT = (line.faconnage ?? []).reduce((s, f) => s + f.quantite * f.prix_unitaire_ht, 0);
+  const totalFaconnageHT = (line.faconnage ?? []).reduce((s, f) => {
+    const eff = f.longueur_m != null && f.longueur_m > 0 ? f.longueur_m : 1;
+    return s + f.quantite * eff * f.prix_unitaire_ht;
+  }, 0);
   const totalServiceHT = (line.service ?? []).reduce((s, s2) => s + s2.quantite * s2.prix_unitaire_ht, 0);
   const totalHT = lineHT + totalFaconnageHT + totalServiceHT;
 
@@ -236,7 +241,7 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
   const addFaconnage = () => {
     update({ faconnage: [...(line.faconnage ?? []), {
       id: `f-${Date.now()}`, produit_id: null, designation: "",
-      quantite: 1, prix_unitaire_ht: 0, taux_tva: 20, total_ht: 0,
+      quantite: 1, longueur_m: null, prix_unitaire_ht: 0, taux_tva: 20, total_ht: 0,
       parametres_json: null, ordre: (line.faconnage ?? []).length,
     }] });
     setShowFaconnage(true);
@@ -506,6 +511,16 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
                               className="h-7 w-14 text-center text-xs bg-background/50 border-border/50"
                             />
                           </div>
+                          {/* Optional length in metres for per-meter façonnage products */}
+                          <div className="flex items-center gap-1 shrink-0" title="Longueur en mètres (laisser vide si non applicable)">
+                            <span className="text-[10px] text-muted-foreground">L (m)</span>
+                            <Input type="number" step="0.01" min="0"
+                              value={f.longueur_m ?? ""}
+                              placeholder="—"
+                              onChange={e => updateFaconnage(fi, { longueur_m: e.target.value ? parseFloat(e.target.value) : null })}
+                              className="h-7 w-16 text-center text-xs bg-background/50 border-border/50"
+                            />
+                          </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <Input type="number" step="0.01"
                               value={f.prix_unitaire_ht}
@@ -522,9 +537,9 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
                       ) : (
                         <>
                           <span className="text-xs flex-1">{f.designation}</span>
-                          <span className="text-[10px] text-muted-foreground">×{f.quantite}</span>
+                          <span className="text-[10px] text-muted-foreground">×{f.quantite}{f.longueur_m != null && f.longueur_m > 0 ? ` × ${f.longueur_m.toFixed(2)}m` : ""}</span>
                           <span className="text-[10px] text-muted-foreground">TVA {f.taux_tva}%</span>
-                          <span className="text-xs font-semibold text-blue-400">{formatCurrency(f.quantite * f.prix_unitaire_ht)}</span>
+                          <span className="text-xs font-semibold text-blue-400">{formatCurrency(f.quantite * (f.longueur_m != null && f.longueur_m > 0 ? f.longueur_m : 1) * f.prix_unitaire_ht)}</span>
                         </>
                       )}
                     </div>
