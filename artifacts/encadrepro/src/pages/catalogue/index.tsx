@@ -1,126 +1,104 @@
 import { useRef, useState } from "react";
-import { 
+import {
   useListProduits, getListProduitsQueryKey,
-  useCreateProduit, useUpdateProduit, useDeleteProduit, useToggleProduitActif 
+  useCreateProduit, useUpdateProduit, useDeleteProduit, useToggleProduitActif,
+  useListFournisseurs,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Camera, Loader2, Pencil, Trash2, Building2, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  PRODUCT_TYPES, PRICING_MODES, getProductType, pricingModeToUniteCalcul, deducePricingMode,
+  type ProductTypeCode,
+} from "@/lib/product-types";
+import { SupplierCombobox } from "@/components/SupplierCombobox";
 
-// ── Type definitions ─────────────────────────────────────────────────────────
-const TYPE_TABS = [
-  { id: "tous", label: "Tous" },
-  { id: "matière", label: "Matière" },
-  { id: "façonnage", label: "Façonnage" },
-  { id: "service", label: "Service" },
-];
-
-const UNITE_OPTIONS = [
-  { value: "ml", label: "Mètre linéaire (ml)" },
-  { value: "m²", label: "Mètre carré (m²)" },
-  { value: "pièce", label: "Pièce" },
-  { value: "heure", label: "Heure" },
-  { value: "forfait", label: "Forfait" },
-];
-
-// Map new unit to old unite_calcul for backward compat
-function uniteToUniteCalcul(unite: string): string {
-  const map: Record<string, string> = {
-    "ml": "metre_lineaire",
-    "m²": "metre_carre",
-    "pièce": "unitaire",
-    "heure": "heure",
-    "forfait": "unitaire",
-  };
-  return map[unite] ?? "unitaire";
-}
-
-// Map old unite_calcul to new unite for display
-function uniteCalcToUnite(uniteCalcul: string, unite?: string | null): string {
-  if (unite) return unite;
-  const map: Record<string, string> = {
-    "metre_lineaire": "ml",
-    "metre_carre": "m²",
-    "unitaire": "pièce",
-    "heure": "heure",
-  };
-  return map[uniteCalcul] ?? "pièce";
-}
-
-function typeBadgeVariant(type: string | null | undefined) {
-  if (type === "façonnage") return "bg-blue-500/15 text-blue-400 border-blue-500/30";
-  if (type === "service") return "bg-green-500/15 text-green-400 border-green-500/30";
-  return "bg-primary/15 text-primary border-primary/30"; // matière or unknown
-}
-
-function typeLabel(type: string | null | undefined) {
-  if (type === "façonnage") return "Façonnage";
-  if (type === "service") return "Service";
-  return "Matière";
-}
+/* WEB-TO-DESKTOP NOTE: writes ONLY new fields (type_code, pricing_mode, fournisseur_id).
+   Legacy columns (type_produit, fournisseur free-text) are no longer touched by the UI. */
 
 // ── Form state ────────────────────────────────────────────────────────────────
-const EMPTY_FORM = {
-  type_produit: "matière" as string,
-  fournisseur: "",
+type FormState = {
+  type_code: ProductTypeCode;
+  pricing_mode: "unit" | "linear_meter" | "square_meter";
+  fournisseur_id: number | null;
+  sous_categorie: string;
+  reference: string;
+  designation: string;
+  prix_ht: string;
+  prix_achat_ht: string;
+  coefficient_marge: string;
+  taux_tva: string;
+  largeur_mm: string;
+  epaisseur_mm: string;
+  longueur_barre_m: string;
+  stock_alerte: string;
+  notes: string;
+};
+
+const EMPTY_FORM: FormState = {
+  type_code: "EN",
+  pricing_mode: "linear_meter",
+  fournisseur_id: null,
   sous_categorie: "",
-  unite: "ml",
   reference: "",
   designation: "",
   prix_ht: "",
+  prix_achat_ht: "",
+  coefficient_marge: "",
   taux_tva: "20",
+  largeur_mm: "",
+  epaisseur_mm: "",
+  longueur_barre_m: "",
+  stock_alerte: "",
   notes: "",
 };
 
+const SHOWS_PROFILE = (t: ProductTypeCode) => t === "EN" || t === "FA";
+const SHOWS_PURCHASE = (t: ProductTypeCode) => t !== "SD";
+const SHOWS_STOCK = (t: ProductTypeCode) => t !== "SD" && t !== "FA";
+const SHOWS_SUPPLIER = (t: ProductTypeCode) => t !== "SD";
+
 function ProduitForm({ formData, setFormData }: {
-  formData: typeof EMPTY_FORM;
-  setFormData: (d: typeof EMPTY_FORM) => void;
+  formData: FormState;
+  setFormData: (d: FormState) => void;
 }) {
+  const set = (patch: Partial<FormState>) => setFormData({ ...formData, ...patch });
+
   return (
-    <div className="space-y-4 py-2">
-      {/* Type selector */}
+    <div className="space-y-4 py-2 max-h-[65vh] overflow-y-auto pr-1">
+      {/* Type selector — 5 codes */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Type de produit *</label>
-        <div className="flex gap-2">
-          {["matière", "façonnage", "service"].map(t => (
+        <div className="grid grid-cols-5 gap-1.5">
+          {PRODUCT_TYPES.map(t => (
             <button
-              key={t}
+              key={t.code}
               type="button"
-              onClick={() => setFormData({ ...formData, type_produit: t })}
-              className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all capitalize ${
-                formData.type_produit === t
-                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
-                  : "bg-card border-border/50 text-muted-foreground hover:border-primary/50"
+              onClick={() => set({ type_code: t.code, pricing_mode: t.code === "EN" ? "linear_meter" : t.code === "VR" ? "square_meter" : "unit" })}
+              title={t.description}
+              className={`py-2 px-1 rounded-lg border text-xs font-medium transition-all ${
+                formData.type_code === t.code
+                  ? t.chipColor
+                  : "bg-card border-border/50 text-muted-foreground hover:border-primary/40"
               }`}
             >
-              {t}
+              <div className="font-mono font-bold text-[11px]">{t.code}</div>
+              <div className="text-[10px] opacity-80 truncate">{t.label}</div>
             </button>
           ))}
         </div>
@@ -130,69 +108,66 @@ function ProduitForm({ formData, setFormData }: {
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <label className="text-sm font-medium">Référence</label>
-          <Input
-            value={formData.reference}
-            onChange={e => setFormData({ ...formData, reference: e.target.value })}
-            placeholder="Ex: BAG-001"
-          />
+          <Input value={formData.reference} onChange={e => set({ reference: e.target.value })} placeholder="Ex: BAG-001" />
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">Désignation *</label>
-          <Input
-            value={formData.designation}
-            onChange={e => setFormData({ ...formData, designation: e.target.value })}
-            placeholder="Moulure chêne massif..."
-          />
+          <Input value={formData.designation} onChange={e => set({ designation: e.target.value })} placeholder="Moulure chêne massif..." />
         </div>
       </div>
 
       {/* Supplier + SubCategory */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Fournisseur</label>
-          <Input
-            value={formData.fournisseur}
-            onChange={e => setFormData({ ...formData, fournisseur: e.target.value })}
-            placeholder="Larson-Juhl, Artclair..."
-          />
-        </div>
+        {SHOWS_SUPPLIER(formData.type_code) ? (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Fournisseur</label>
+            <SupplierCombobox value={formData.fournisseur_id} onChange={(id) => set({ fournisseur_id: id })} />
+          </div>
+        ) : <div />}
         <div className="space-y-2">
           <label className="text-sm font-medium">Sous-catégorie</label>
-          <Input
-            value={formData.sous_categorie}
-            onChange={e => setFormData({ ...formData, sous_categorie: e.target.value })}
-            placeholder={formData.type_produit === "façonnage" ? "Polissage, Soudure..." : formData.type_produit === "service" ? "Livraison, Pose..." : "Baguette, Verre..."}
-          />
+          <Input value={formData.sous_categorie} onChange={e => set({ sous_categorie: e.target.value })} placeholder="Baguette, Verre, Polissage..." />
         </div>
       </div>
 
-      {/* Unit + Price + TVA */}
+      {/* Pricing mode */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Mode de calcul</label>
+        <Select value={formData.pricing_mode} onValueChange={v => set({ pricing_mode: v as FormState["pricing_mode"] })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {PRICING_MODES.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Profile measurements */}
+      {SHOWS_PROFILE(formData.type_code) && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Largeur (mm)</label>
+            <Input type="number" step="0.1" value={formData.largeur_mm} onChange={e => set({ largeur_mm: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Épaisseur (mm)</label>
+            <Input type="number" step="0.1" value={formData.epaisseur_mm} onChange={e => set({ epaisseur_mm: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Barre (m)</label>
+            <Input type="number" step="0.01" value={formData.longueur_barre_m} onChange={e => set({ longueur_barre_m: e.target.value })} />
+          </div>
+        </div>
+      )}
+
+      {/* Price + TVA + Stock */}
       <div className="grid grid-cols-3 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Unité</label>
-          <Select value={formData.unite} onValueChange={v => setFormData({ ...formData, unite: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {UNITE_OPTIONS.map(u => (
-                <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
           <label className="text-sm font-medium">Prix HT *</label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            value={formData.prix_ht}
-            onChange={e => setFormData({ ...formData, prix_ht: e.target.value })}
-            placeholder="0.00"
-          />
+          <Input type="number" step="0.01" min="0" value={formData.prix_ht} onChange={e => set({ prix_ht: e.target.value })} placeholder="0.00" />
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">TVA</label>
-          <Select value={formData.taux_tva} onValueChange={v => setFormData({ ...formData, taux_tva: v })}>
+          <Select value={formData.taux_tva} onValueChange={v => set({ taux_tva: v })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="20">20%</SelectItem>
@@ -202,16 +177,32 @@ function ProduitForm({ formData, setFormData }: {
             </SelectContent>
           </Select>
         </div>
+        {SHOWS_STOCK(formData.type_code) && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Alerte stock</label>
+            <Input type="number" min="0" value={formData.stock_alerte} onChange={e => set({ stock_alerte: e.target.value })} placeholder="—" />
+          </div>
+        )}
       </div>
+
+      {/* Purchase price + margin */}
+      {SHOWS_PURCHASE(formData.type_code) && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Prix d'achat HT</label>
+            <Input type="number" step="0.01" min="0" value={formData.prix_achat_ht} onChange={e => set({ prix_achat_ht: e.target.value })} placeholder="0.00" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Coefficient marge</label>
+            <Input type="number" step="0.01" min="0" value={formData.coefficient_marge} onChange={e => set({ coefficient_marge: e.target.value })} placeholder="2.5" />
+          </div>
+        </div>
+      )}
 
       {/* Notes */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Notes</label>
-        <Input
-          value={formData.notes}
-          onChange={e => setFormData({ ...formData, notes: e.target.value })}
-          placeholder="Remarques optionnelles..."
-        />
+        <Input value={formData.notes} onChange={e => set({ notes: e.target.value })} placeholder="Remarques optionnelles..." />
       </div>
     </div>
   );
@@ -234,11 +225,7 @@ function useImageUpload(produitId: number, onSuccess: () => void) {
       if (!urlRes.ok) throw new Error("Impossible d'obtenir l'URL d'upload");
       const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
 
-      await fetch(uploadURL, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
+      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
 
       const patchRes = await fetch(`/api/produits/${produitId}/image`, {
         method: "PATCH",
@@ -302,9 +289,14 @@ function ProductImageArea({ produit, onRefresh }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Catalogue() {
-  const [typeFilter, setTypeFilter] = useState("tous");
+  const [typeFilter, setTypeFilter] = useState<string>("tous");
   const [search, setSearch] = useState("");
-  const { data: produits, isLoading } = useListProduits(typeFilter !== "tous" ? { type: typeFilter } : {});
+  const { data: produits, isLoading } = useListProduits(
+    typeFilter !== "tous" ? { type_code: typeFilter } : {}
+  );
+  // Always-loaded all-types list, used for tab count badges.
+  const { data: allProduits } = useListProduits({});
+  const { data: fournisseurs } = useListFournisseurs();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -314,10 +306,10 @@ export default function Catalogue() {
   const deleteProduit = useDeleteProduit();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ ...EMPTY_FORM });
+  const [createForm, setCreateForm] = useState<FormState>({ ...EMPTY_FORM });
 
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState({ ...EMPTY_FORM });
+  const [editForm, setEditForm] = useState<FormState>({ ...EMPTY_FORM });
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deletingName, setDeletingName] = useState("");
@@ -334,29 +326,26 @@ export default function Catalogue() {
     toggleActif.mutate({ id }, { onSuccess: () => { invalidate(); toast({ title: "Statut mis à jour" }); } });
   };
 
-  /* WEB-TO-DESKTOP NOTE: legacy 3-type UI maps to new 5-code typology + pricing_mode. */
-  const buildPayload = (form: typeof EMPTY_FORM) => {
-    const typeCodeMap: Record<string, "VR" | "FA" | "AU" | "SD" | "EN"> = {
-      "matière": "EN", "façonnage": "FA", "service": "SD",
-    };
-    const pricingModeMap: Record<string, "unit" | "linear_meter" | "square_meter"> = {
-      "ml": "linear_meter", "m²": "square_meter",
-    };
-    return {
-      type_code: typeCodeMap[form.type_produit] ?? "EN",
-      pricing_mode: pricingModeMap[form.unite] ?? "unit",
-      type_produit: form.type_produit || "matière",
-      fournisseur: form.fournisseur || null,
-      sous_categorie: form.sous_categorie || null,
-      unite: form.unite,
-      reference: form.reference || null,
-      designation: form.designation,
-      unite_calcul: uniteToUniteCalcul(form.unite),
-      prix_ht: parseFloat(form.prix_ht),
-      taux_tva: parseFloat(form.taux_tva),
-      notes: form.notes || null,
-    };
-  };
+  /* WEB-TO-DESKTOP NOTE: build payload using ONLY new fields. */
+  const buildPayload = (form: FormState) => ({
+    type_code: form.type_code,
+    pricing_mode: form.pricing_mode,
+    fournisseur_id: form.fournisseur_id,
+    sous_categorie: form.sous_categorie || null,
+    reference: form.reference || null,
+    designation: form.designation,
+    // Backend column is NOT NULL, so we always derive it from pricing_mode.
+    unite_calcul: pricingModeToUniteCalcul(form.pricing_mode),
+    prix_ht: parseFloat(form.prix_ht),
+    prix_achat_ht: form.prix_achat_ht ? parseFloat(form.prix_achat_ht) : null,
+    coefficient_marge: form.coefficient_marge ? parseFloat(form.coefficient_marge) : null,
+    taux_tva: parseFloat(form.taux_tva),
+    largeur_mm: form.largeur_mm ? parseFloat(form.largeur_mm) : null,
+    epaisseur_mm: form.epaisseur_mm ? parseFloat(form.epaisseur_mm) : null,
+    longueur_barre_m: form.longueur_barre_m ? parseFloat(form.longueur_barre_m) : null,
+    stock_alerte: form.stock_alerte ? parseInt(form.stock_alerte, 10) : null,
+    notes: form.notes || null,
+  });
 
   const handleCreate = () => {
     const prix = parseFloat(createForm.prix_ht);
@@ -373,14 +362,20 @@ export default function Catalogue() {
 
   const openEdit = (p: NonNullable<typeof produits>[number]) => {
     setEditForm({
-      type_produit: p.type_produit ?? "matière",
-      fournisseur: p.fournisseur ?? "",
+      type_code: (p.type_code as ProductTypeCode) ?? "EN",
+      pricing_mode: (p.pricing_mode as FormState["pricing_mode"]) ?? deducePricingMode(p.unite_calcul),
+      fournisseur_id: p.fournisseur_id ?? null,
       sous_categorie: p.sous_categorie ?? "",
-      unite: uniteCalcToUnite(p.unite_calcul, p.unite),
       reference: p.reference ?? "",
       designation: p.designation,
       prix_ht: String(p.prix_ht),
+      prix_achat_ht: p.prix_achat_ht != null ? String(p.prix_achat_ht) : "",
+      coefficient_marge: p.coefficient_marge != null ? String(p.coefficient_marge) : "",
       taux_tva: String(p.taux_tva),
+      largeur_mm: p.largeur_mm != null ? String(p.largeur_mm) : "",
+      epaisseur_mm: p.epaisseur_mm != null ? String(p.epaisseur_mm) : "",
+      longueur_barre_m: p.longueur_barre_m != null ? String(p.longueur_barre_m) : "",
+      stock_alerte: p.stock_alerte != null ? String(p.stock_alerte) : "",
       notes: p.notes ?? "",
     });
     setEditingId(p.id);
@@ -410,17 +405,34 @@ export default function Catalogue() {
     });
   };
 
+  // Tab counts
+  const totalCount = allProduits?.length ?? 0;
+  const countByCode = (code: string) => allProduits?.filter(p => p.type_code === code).length ?? 0;
+
+  const fournisseurNameById = (id: number | null | undefined) => {
+    if (!id) return null;
+    return fournisseurs?.find(f => f.id === id)?.nom ?? null;
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Catalogue</h1>
-          <p className="text-muted-foreground mt-1">Matières, façonnages et services.</p>
+          <p className="text-muted-foreground mt-1">Volumes, façonnages, accessoires, services et encadrements.</p>
         </div>
         <Button
           className="shadow-lg shadow-primary/20"
-          onClick={() => { setCreateForm({ ...EMPTY_FORM, type_produit: typeFilter !== "tous" ? typeFilter : "matière" }); setIsCreateOpen(true); }}
+          onClick={() => {
+            const t = (PRODUCT_TYPES.find(p => p.code === typeFilter)?.code ?? "EN") as ProductTypeCode;
+            setCreateForm({
+              ...EMPTY_FORM,
+              type_code: t,
+              pricing_mode: t === "EN" ? "linear_meter" : t === "VR" ? "square_meter" : "unit",
+            });
+            setIsCreateOpen(true);
+          }}
         >
           <Plus className="mr-2 h-4 w-4" /> Nouveau produit
         </Button>
@@ -429,14 +441,17 @@ export default function Catalogue() {
       {/* ── Filters ────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         <Tabs value={typeFilter} onValueChange={setTypeFilter} className="w-full sm:w-auto">
-          <TabsList className="glass-panel h-auto">
-            {TYPE_TABS.map(tab => (
+          <TabsList className="glass-panel h-auto flex-wrap">
+            <TabsTrigger value="tous" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4">
+              Tous <span className="ml-1.5 text-[10px] opacity-70">({totalCount})</span>
+            </TabsTrigger>
+            {PRODUCT_TYPES.map(t => (
               <TabsTrigger
-                key={tab.id}
-                value={tab.id}
+                key={t.code}
+                value={t.code}
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4"
               >
-                {tab.label}
+                {t.plural} <span className="ml-1.5 text-[10px] opacity-70">({countByCode(t.code)})</span>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -462,7 +477,8 @@ export default function Catalogue() {
           </div>
         ) : (
           filteredProduits?.map(produit => {
-            const unite = uniteCalcToUnite(produit.unite_calcul, produit.unite);
+            const meta = getProductType(produit.type_code);
+            const supplierName = fournisseurNameById(produit.fournisseur_id) ?? produit.fournisseur;
             return (
               <Card
                 key={produit.id}
@@ -473,8 +489,8 @@ export default function Catalogue() {
 
                   {/* Type + toggle */}
                   <div className="flex items-center justify-between mb-2">
-                    <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${typeBadgeVariant(produit.type_produit)}`}>
-                      {typeLabel(produit.type_produit)}
+                    <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${meta.color}`}>
+                      {meta.code} · {meta.label}
                     </span>
                     <Switch checked={produit.actif === 1} onCheckedChange={() => handleToggle(produit.id)} className="scale-90" />
                   </div>
@@ -494,17 +510,17 @@ export default function Catalogue() {
                   </div>
 
                   {/* Supplier pill */}
-                  {produit.fournisseur && (
+                  {supplierName && (
                     <div className="flex items-center gap-1 mb-3">
                       <Building2 className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-                      <span className="text-[10px] text-muted-foreground/70 truncate">{produit.fournisseur}</span>
+                      <span className="text-[10px] text-muted-foreground/70 truncate">{supplierName}</span>
                     </div>
                   )}
 
                   {/* Price row */}
                   <div className="flex justify-between items-end pt-2 border-t border-border/30">
                     <div>
-                      <span className="text-[10px] text-muted-foreground/60">{unite} · TVA {produit.taux_tva}%</span>
+                      <span className="text-[10px] text-muted-foreground/60">{PRICING_MODES.find(m => m.value === produit.pricing_mode)?.label ?? produit.unite_calcul} · TVA {produit.taux_tva}%</span>
                     </div>
                     <div className="text-right">
                       <span className="text-base font-bold text-accent">{formatCurrency(produit.prix_ht)}</span>

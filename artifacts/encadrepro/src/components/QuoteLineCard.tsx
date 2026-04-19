@@ -7,6 +7,14 @@ import { ProductSearchCombobox } from "./ProductSearchCombobox";
 import { QuickAddProductModal } from "./QuickAddProductModal";
 import { formatCurrency } from "@/lib/format";
 import type { ProduitSearchResult } from "./ProductSearchCombobox";
+import { pricingModeToUniteCalcul, type ProductTypeCode } from "@/lib/product-types";
+import { computeLignePvuht, type RegimePricing } from "@/lib/compute-line";
+
+/* WEB-TO-DESKTOP NOTE: visually keeps the 3 buckets (Matière / Façonnage / Service)
+   but the matière bucket now accepts EN, VR or AU products. Façonnage is FA-only and
+   Service is SD-only. When a product is picked the line's calculation method is
+   inherited from the product's pricing_mode so the dimensions form (Quantité only,
+   Longueur only, or Largeur×Hauteur) appears correctly. */
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,6 +56,11 @@ export type QuoteLine = {
   taux_tva: number;
   faconnage: FaconnageItem[];
   service: ServiceItem[];
+  // ── Client-only metadata used to drive the TN/TA selector for VR products. ──
+  type_code?: ProductTypeCode | null;
+  prix_achat_ht?: number | null;
+  coefficient_marge?: number | null;
+  regime_pricing?: RegimePricing | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -85,9 +98,7 @@ function SectionHeader({ icon: Icon, label, color, count, onAdd, addLabel, isEdi
       <div className="flex items-center gap-1.5">
         <Icon className="h-3 w-3 opacity-80" />
         <span className="text-[11px] font-semibold uppercase tracking-wider opacity-90">{label}</span>
-        {count > 0 && (
-          <span className="text-[10px] opacity-60">({count})</span>
-        )}
+        {count > 0 && <span className="text-[10px] opacity-60">({count})</span>}
       </div>
       {isEditable && onAdd && (
         <button
@@ -139,7 +150,7 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
   const [showFaconnage, setShowFaconnage] = useState(true);
   const [showService, setShowService] = useState(true);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [quickAddType, setQuickAddType] = useState<string>("façonnage");
+  const [quickAddType, setQuickAddType] = useState<ProductTypeCode>("EN");
 
   const wCm = line.width_cm ?? 0;
   const hCm = line.height_cm ?? 0;
@@ -156,13 +167,44 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
   const update = (patch: Partial<QuoteLine>) => onChange({ ...line, ...patch });
 
   const handleMatiereSelect = (p: ProduitSearchResult) => {
+    const newRegime: RegimePricing = "TN";
+    const pvuht = computeLignePvuht({
+      type_code: p.type_code,
+      prix_ht: p.prix_ht,
+      prix_achat_ht: p.prix_achat_ht,
+      coefficient_marge: p.coefficient_marge,
+      regime: newRegime,
+    });
     update({
       produit_id: p.id,
       designation: p.designation,
-      unite_calcul: p.unite ?? p.unite_calcul,
-      prix_unitaire_ht: p.prix_ht,
+      // Inherit calculation method from the product's pricing_mode.
+      unite_calcul: p.pricing_mode ? pricingModeToUniteCalcul(p.pricing_mode) : (p.unite ?? p.unite_calcul),
+      prix_unitaire_ht: pvuht,
       taux_tva: p.taux_tva,
+      type_code: p.type_code,
+      prix_achat_ht: p.prix_achat_ht,
+      coefficient_marge: p.coefficient_marge,
+      regime_pricing: newRegime,
     });
+  };
+
+  const handleRegimeChange = (regime: RegimePricing) => {
+    const pvuht = computeLignePvuht({
+      type_code: line.type_code,
+      prix_ht: line.prix_unitaire_ht, // fallback for TN if no other source
+      prix_achat_ht: line.prix_achat_ht,
+      coefficient_marge: line.coefficient_marge,
+      regime,
+    });
+    // For TN we can't easily recover the catalogue prix_ht once the user has
+    // overridden prix_unitaire_ht, so we only auto-update the line when going
+    // from TN→TA (we can compute from prix_achat_ht * coefficient_marge).
+    if (regime === "TA" && line.prix_achat_ht != null && line.coefficient_marge != null) {
+      update({ regime_pricing: regime, prix_unitaire_ht: pvuht });
+    } else {
+      update({ regime_pricing: regime });
+    }
   };
 
   // Façonnage handlers
@@ -213,6 +255,8 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
     update({ service: (line.service ?? []).filter((_, i) => i !== si) });
   };
 
+  const isVerre = line.type_code === "VR";
+
   return (
     <>
       <div className={`rounded-xl border transition-all overflow-hidden ${isEditable ? "border-border/50 bg-card/60" : "border-border/30 bg-card/30"}`}>
@@ -220,9 +264,7 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
         {/* ── Card title bar ───────────────────────────────────────── */}
         <div className="flex items-center gap-2 px-4 py-2.5 bg-card/40 border-b border-border/30">
           <span className="text-[10px] font-mono text-muted-foreground/50 bg-muted/30 px-1.5 py-0.5 rounded">#{index + 1}</span>
-          {!isEditable && (
-            <span className="text-sm font-medium flex-1 truncate">{line.designation}</span>
-          )}
+          {!isEditable && (<span className="text-sm font-medium flex-1 truncate">{line.designation}</span>)}
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-sm font-bold text-accent tabular-nums">{formatCurrency(totalHT)}</span>
             <span className="text-[10px] text-muted-foreground">HT</span>
@@ -237,12 +279,12 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
         <div className="p-4 space-y-4">
 
           {/* ══════════════════════════════════════════════════════
-              SECTION: MATIÈRE
+              SECTION: MATIÈRE  (host item — accepts EN, VR, AU)
           ══════════════════════════════════════════════════════ */}
           <div className="space-y-2">
             <SectionHeader
               icon={Layers}
-              label="Matière"
+              label="Matière (Encadrement / Volume / Accessoire)"
               color="bg-violet-500/10 text-violet-300"
               count={0}
               isEditable={false}
@@ -251,13 +293,39 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
               {/* Product search */}
               {isEditable && (
                 <ProductSearchCombobox
-                  typeFilter="matière"
-                  placeholder="Chercher matière... (2+ car.)"
+                  typeCodes={["EN", "VR", "AU"]}
+                  placeholder="Chercher encadrement, verre, accessoire... (2+ car.)"
                   onSelect={handleMatiereSelect}
-                  onCreateNew={() => { setQuickAddType("matière"); setQuickAddOpen(true); }}
+                  onCreateNew={() => { setQuickAddType("EN"); setQuickAddOpen(true); }}
                   showSupplierPills
                 />
               )}
+
+              {/* TN/TA regime selector — VR only */}
+              {isEditable && isVerre && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Régime tarifaire</span>
+                  {(["TN", "TA"] as const).map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => handleRegimeChange(r)}
+                      title={r === "TN" ? "Tarif net (prix HT catalogue)" : "Tarif achat (prix d'achat × marge)"}
+                      className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border transition-all ${
+                        (line.regime_pricing ?? "TN") === r
+                          ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-300"
+                          : "border-border/40 text-muted-foreground hover:border-cyan-500/30"
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                  {line.regime_pricing === "TA" && (line.prix_achat_ht == null || line.coefficient_marge == null) && (
+                    <span className="text-[10px] text-amber-400/80">Prix d'achat ou marge manquant</span>
+                  )}
+                </div>
+              )}
+
               {/* Free-text designation */}
               {isEditable ? (
                 <Input
@@ -279,13 +347,11 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pièce">Pièce</SelectItem>
-                      <SelectItem value="ml">ml</SelectItem>
-                      <SelectItem value="m²">m²</SelectItem>
+                      <SelectItem value="unitaire">Pièce</SelectItem>
+                      <SelectItem value="metre_lineaire">ml</SelectItem>
+                      <SelectItem value="metre_carre">m²</SelectItem>
                       <SelectItem value="heure">Heure</SelectItem>
                       <SelectItem value="forfait">Forfait</SelectItem>
-                      <SelectItem value="metre_lineaire">ml (legacy)</SelectItem>
-                      <SelectItem value="metre_carre">m² (legacy)</SelectItem>
                     </SelectContent>
                   </Select>
                 ) : (
@@ -330,9 +396,7 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
                       className="h-8 w-16 text-center text-xs bg-background/50 border-border/50"
                     />
                   </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Qté {line.quantite}</span>
-                )}
+                ) : (<span className="text-xs text-muted-foreground">Qté {line.quantite}</span>)}
 
                 {/* Price */}
                 {isEditable ? (
@@ -363,7 +427,7 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
           </div>
 
           {/* ══════════════════════════════════════════════════════
-              SECTION: FAÇONNAGE
+              SECTION: FAÇONNAGE  (FA only)
           ══════════════════════════════════════════════════════ */}
           {(isEditable || faconnageCount > 0) && (
             <div className="space-y-2">
@@ -397,10 +461,10 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
                         <>
                           <div className="flex-1 min-w-0">
                             <ProductSearchCombobox
-                              typeFilter="façonnage"
+                              typeCodes={["FA"]}
                               placeholder="Chercher façonnage..."
                               onSelect={p => selectFaconnageProduit(fi, p)}
-                              onCreateNew={() => { setQuickAddType("façonnage"); setQuickAddOpen(true); }}
+                              onCreateNew={() => { setQuickAddType("FA"); setQuickAddOpen(true); }}
                             />
                           </div>
                           <Input
@@ -455,7 +519,7 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
           )}
 
           {/* ══════════════════════════════════════════════════════
-              SECTION: SERVICES
+              SECTION: SERVICES  (SD only)
           ══════════════════════════════════════════════════════ */}
           {(isEditable || serviceCount > 0) && (
             <div className="space-y-2">
@@ -489,10 +553,10 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
                         <>
                           <div className="flex-1 min-w-0">
                             <ProductSearchCombobox
-                              typeFilter="service"
+                              typeCodes={["SD"]}
                               placeholder="Chercher service..."
                               onSelect={p => selectServiceProduit(si, p)}
-                              onCreateNew={() => { setQuickAddType("service"); setQuickAddOpen(true); }}
+                              onCreateNew={() => { setQuickAddType("SD"); setQuickAddOpen(true); }}
                             />
                           </div>
                           <Input
@@ -550,7 +614,7 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
 
       <QuickAddProductModal
         open={quickAddOpen}
-        defaultType={quickAddType}
+        defaultTypeCode={quickAddType}
         onClose={() => setQuickAddOpen(false)}
         onCreated={() => setQuickAddOpen(false)}
       />

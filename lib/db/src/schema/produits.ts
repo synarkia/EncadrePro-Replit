@@ -37,11 +37,14 @@ export const produitsTable = pgTable("produits", {
   pricing_mode: text("pricing_mode").notNull().default("unit"), // unit | linear_meter | square_meter
 
   // ── Modular metadata (kept for filtering) ─────────────────────────────────
+  // TODO: drop after FileMaker import migration is complete and verified
   type_produit: text("type_produit"),    // legacy free-form: matière | façonnage | service
-  fournisseur: text("fournisseur"),      // free-form supplier name (legacy)
+  // TODO: drop after FileMaker import migration is complete and verified — superseded by fournisseur_id
+  fournisseur: text("fournisseur"),
   fournisseur_id: integer("fournisseur_id").references(() => fournisseursTable.id, { onDelete: "set null" }), // FK → fournisseurs.id
   sous_categorie: text("sous_categorie"),
   unite: text("unite"),                  // m² | ml | pièce | heure | forfait
+  // TODO: drop after FileMaker import migration is complete and verified — superseded by pricing_mode
   unite_calcul: text("unite_calcul").notNull().default("unitaire"),
 
   // ── Pricing (numeric for precision) ───────────────────────────────────────

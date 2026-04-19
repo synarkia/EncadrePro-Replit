@@ -893,6 +893,10 @@ components:
       properties:
         id: { type: integer }
         nom: { type: string }
+        version_tarif: { type: string, nullable: true }
+        contact_nom: { type: string, nullable: true }
+        contact_email: { type: string, nullable: true }
+        contact_tel: { type: string, nullable: true }
         contact: { type: string, nullable: true }
         email: { type: string, nullable: true }
         telephone: { type: string, nullable: true }
@@ -910,6 +914,10 @@ components:
       type: object
       properties:
         nom: { type: string }
+        version_tarif: { type: string, nullable: true }
+        contact_nom: { type: string, nullable: true }
+        contact_email: { type: string, nullable: true }
+        contact_tel: { type: string, nullable: true }
         contact: { type: string, nullable: true }
         email: { type: string, nullable: true }
         telephone: { type: string, nullable: true }

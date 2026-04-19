@@ -1,0 +1,61 @@
+EncadrePro — Agent Task 03: Adjustments to UI Propagation (Task 02 in-flight)
+Context
+You're partway through Task 02 (propagating the 5-type product system through the UI). Your "before-coding" summary was good and surfaced real drift. Approved with three adjustments below. Apply these as part of the same Task 02 work — do not start a separate task.
+
+Adjustment 1 — QuoteLineCard architecture: keep main item + sub-items
+Stick with the structure you proposed (option A in your summary): keep the visual hierarchy of one main item (Matière bucket) with nested Façonnage and Service sub-items. This maps well to how a frame quote naturally builds up — a frame, with its glass, polishing, hardware, and delivery as related items underneath.
+Inside the Matière bucket, the search combobox should accept any of these types: EN, VR, AU. Inside the Façonnage section: FA only. Inside the Service section: SD only.
+When a product is selected, copy its pricing_mode into the line's calculation method so the dimensions form (Quantité only, Longueur only, or Largeur×Hauteur) appears correctly.
+
+Adjustment 2 — Stop writing to legacy fields
+When the UI saves a product or a devis line, write only to the new fields:
+
+type_code (not type_produit)
+pricing_mode (not unite_calcul)
+fournisseur_id (not the free-text fournisseur string)
+
+Do NOT keep the old fields in sync from the UI anymore. The mapping tables that today translate "matière" → EN/VR/AU on submit can be deleted from the form code.
+Leave the legacy columns in the database — do not drop them yet. We'll drop them after the FileMaker import lands and we've confirmed nothing else reads them. Add a comment next to each deprecated column in the schema file:
+ts// TODO: drop after FileMaker import migration is complete and verified
+type_produit: text('type_produit'),
+unite_calcul: text('unite_calcul'),
+fournisseur: text('fournisseur'),  // free-text legacy; superseded by fournisseur_id
+If any backend route still requires the legacy fields to be populated for the response to validate, fix the route to derive them from the new fields at read-time (or remove them from the response shape if nothing consumes them). Don't paper over by re-adding writes from the UI.
+
+Adjustment 3 — Supplier dropdown in QuickAddProductModal
+Add a proper supplier picker to the QuickAdd form in this same pass — do not defer to a follow-up task. The current free-text input will produce duplicate supplier records the moment real product entry begins (e.g. "NIELSEN" vs "NIELSEN 02/2025" vs "Nielsen").
+Implementation:
+
+Replace the free-text supplier input with a combobox that queries GET /fournisseurs.
+Display each option as {nom} — {version_tarif} if version_tarif exists, else just {nom}.
+At the bottom of the dropdown, include a "+ Nouveau fournisseur" option that opens a small inline form (modal-in-modal or expandable section) with fields: nom (required), version_tarif (optional), contact_nom (optional), contact_email (optional), contact_tel (optional). On submit, POST to /fournisseurs, then auto-select the newly-created supplier.
+The combobox writes fournisseur_id to the product form state. Do not also write the free-text fournisseur string.
+
+The full suppliers management page (list + edit) is still follow-up task #5. This pass only adds the picker + inline create.
+
+Source of truth (reminder)
+Before any other code changes, create artifacts/encadrepro/src/lib/product-types.ts exporting the PRODUCT_TYPES array with codes, French labels, plurals, and color classes (per the original Task 02 prompt). Every UI file that needs type metadata must import from this file. If you find yourself hardcoding "Volumes", 'VR', or any color class outside this file, refactor.
+
+Verification (must pass before reporting done)
+
+The catalog page shows 5 tabs (Tous + Volumes + Façonnages + Accessoires + Services + Encadrements) with count badges, type reflected in URL.
+QuickAdd creates a product of any of the 5 types, with type-conditional fields, and writes only to the new fields (type_code, pricing_mode, fournisseur_id). Verify by inspecting the database row directly.
+QuickAdd's supplier dropdown queries /fournisseurs, lets you create a new supplier inline, and auto-selects it.
+A devis line can be created for each of the 5 types, with the dimensions form adapting per pricing_mode.
+For VR products, the TN/TA regime selector appears and switching it changes the computed price.
+pnpm typecheck passes from the workspace root.
+The deployed preview loads the catalog and a devis page without console errors.
+
+
+Final report (post in chat when done)
+
+Files modified, grouped by area
+New files created (especially lib/product-types.ts and computeLignePvuht location)
+Confirmation that legacy fields (type_produit, unite_calcul, free-text fournisseur) are no longer written by the UI
+Confirmation that supplier picker + inline create works
+Verification results — explicit pass/fail for each item above
+Any drift between schema, OpenAPI, and UI you noticed but didn't fix (out of scope for this pass)
+Suggested next agent task
+
+Do not push directly to main — open a checkpoint for review.
+Proceed.

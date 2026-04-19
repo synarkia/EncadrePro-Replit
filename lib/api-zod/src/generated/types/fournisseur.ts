@@ -9,6 +9,10 @@
 export interface Fournisseur {
   id: number;
   nom: string;
+  version_tarif?: string | null;
+  contact_nom?: string | null;
+  contact_email?: string | null;
+  contact_tel?: string | null;
   contact?: string | null;
   email?: string | null;
   telephone?: string | null;

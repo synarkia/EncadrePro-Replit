@@ -7,8 +7,15 @@ import { z } from "zod/v4";
 export const fournisseursTable = pgTable("fournisseurs", {
   id: serial("id").primaryKey(),
   nom: text("nom").notNull(),
+  version_tarif: text("version_tarif"),
+  contact_nom: text("contact_nom"),
+  contact_email: text("contact_email"),
+  contact_tel: text("contact_tel"),
+  // TODO: drop after FileMaker import migration is complete and verified
   contact: text("contact"),
+  // TODO: drop after FileMaker import migration is complete and verified
   email: text("email"),
+  // TODO: drop after FileMaker import migration is complete and verified
   telephone: text("telephone"),
   adresse: text("adresse"),
   ville: text("ville"),

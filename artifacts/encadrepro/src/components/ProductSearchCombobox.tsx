@@ -2,24 +2,33 @@ import { useState, useEffect, useRef } from "react";
 import { Search, Plus, Building2, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/format";
+import { getProductType, type ProductTypeCode } from "@/lib/product-types";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
+/* WEB-TO-DESKTOP NOTE: type filter is the new 5-code typology (VR/FA/AU/SD/EN). */
+
 export type ProduitSearchResult = {
   id: number;
+  type_code: ProductTypeCode | null;
+  pricing_mode: string | null;
   type_produit: string | null;
   designation: string;
   reference: string | null;
   fournisseur: string | null;
+  fournisseur_id: number | null;
   sous_categorie: string | null;
   unite: string | null;
   unite_calcul: string;
   prix_ht: number;
+  prix_achat_ht: number | null;
+  coefficient_marge: number | null;
   taux_tva: number;
 };
 
 interface ProductSearchComboboxProps {
-  typeFilter?: string;
+  /** Filter the search to one or more 5-code types (VR/FA/AU/SD/EN). */
+  typeCodes?: ProductTypeCode[];
   placeholder?: string;
   onSelect: (produit: ProduitSearchResult) => void;
   onCreateNew?: () => void;
@@ -28,7 +37,7 @@ interface ProductSearchComboboxProps {
 }
 
 export function ProductSearchCombobox({
-  typeFilter,
+  typeCodes,
   placeholder = "Rechercher un produit... (2+ caractères)",
   onSelect,
   onCreateNew,
@@ -53,10 +62,12 @@ export function ProductSearchCombobox({
   useEffect(() => {
     if (!showSupplierPills) return;
     fetch(`${BASE_URL}/api/produits/fournisseurs`)
-      .then(r => r.json())
-      .then((data: string[]) => setSuppliers(data))
-      .catch(() => {});
+      .then(r => r.ok ? r.json() : [])
+      .then((data: string[]) => setSuppliers(Array.isArray(data) ? data : []))
+      .catch(() => setSuppliers([]));
   }, [showSupplierPills]);
+
+  const typeKey = (typeCodes ?? []).join(",");
 
   useEffect(() => {
     if (query.length < 2) {
@@ -70,20 +81,28 @@ export function ProductSearchCombobox({
       setLoading(true);
       try {
         const params = new URLSearchParams({ q: query });
-        if (typeFilter) params.set("type", typeFilter);
+        // The backend currently filters by a single type_code; for multi-type
+        // searches (e.g. EN+VR+AU in the matière bucket) we fetch unfiltered
+        // and apply the union client-side.
+        if (typeCodes && typeCodes.length === 1) params.set("type_code", typeCodes[0]);
         if (activeSupplier) params.set("fournisseur", activeSupplier);
         const res = await fetch(`${BASE_URL}/api/produits/search?${params}`);
+        if (!res.ok) throw new Error(`Search failed (${res.status})`);
         const data = await res.json() as ProduitSearchResult[];
-        setResults(data);
+        const filtered = typeCodes && typeCodes.length > 1
+          ? data.filter(p => p.type_code && typeCodes.includes(p.type_code))
+          : data;
+        setResults(filtered);
         setOpen(true);
         setHighlightedIndex(0);
       } catch {
         setResults([]);
+        setOpen(false);
       } finally {
         setLoading(false);
       }
     }, 220);
-  }, [query, typeFilter, activeSupplier]);
+  }, [query, typeKey, activeSupplier]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -122,10 +141,13 @@ export function ProductSearchCombobox({
     setResults([]);
   };
 
-  function typeBadge(type: string | null | undefined) {
-    if (type === "façonnage") return <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30">FAÇ</span>;
-    if (type === "service") return <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/30">SRV</span>;
-    return <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30">MAT</span>;
+  function typeBadge(code: ProductTypeCode | null) {
+    const meta = getProductType(code);
+    return (
+      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${meta.color}`}>
+        {meta.code}
+      </span>
+    );
   }
 
   return (
@@ -179,7 +201,7 @@ export function ProductSearchCombobox({
                 onMouseDown={e => { e.preventDefault(); handleSelect(p); }}
               >
                 <div className="flex items-center gap-2">
-                  {typeBadge(p.type_produit)}
+                  {typeBadge(p.type_code)}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium truncate">{p.designation}</span>

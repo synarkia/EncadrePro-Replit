@@ -406,6 +406,10 @@ export const ToggleProduitActifResponse = zod.object({
 export const ListFournisseursResponseItem = zod.object({
   id: zod.number(),
   nom: zod.string(),
+  version_tarif: zod.string().nullish(),
+  contact_nom: zod.string().nullish(),
+  contact_email: zod.string().nullish(),
+  contact_tel: zod.string().nullish(),
   contact: zod.string().nullish(),
   email: zod.string().nullish(),
   telephone: zod.string().nullish(),
@@ -425,6 +429,10 @@ export const ListFournisseursResponse = zod.array(ListFournisseursResponseItem);
  */
 export const CreateFournisseurBody = zod.object({
   nom: zod.string(),
+  version_tarif: zod.string().nullish(),
+  contact_nom: zod.string().nullish(),
+  contact_email: zod.string().nullish(),
+  contact_tel: zod.string().nullish(),
   contact: zod.string().nullish(),
   email: zod.string().nullish(),
   telephone: zod.string().nullish(),
@@ -446,6 +454,10 @@ export const GetFournisseurParams = zod.object({
 export const GetFournisseurResponse = zod.object({
   id: zod.number(),
   nom: zod.string(),
+  version_tarif: zod.string().nullish(),
+  contact_nom: zod.string().nullish(),
+  contact_email: zod.string().nullish(),
+  contact_tel: zod.string().nullish(),
   contact: zod.string().nullish(),
   email: zod.string().nullish(),
   telephone: zod.string().nullish(),
@@ -468,6 +480,10 @@ export const UpdateFournisseurParams = zod.object({
 
 export const UpdateFournisseurBody = zod.object({
   nom: zod.string(),
+  version_tarif: zod.string().nullish(),
+  contact_nom: zod.string().nullish(),
+  contact_email: zod.string().nullish(),
+  contact_tel: zod.string().nullish(),
   contact: zod.string().nullish(),
   email: zod.string().nullish(),
   telephone: zod.string().nullish(),
@@ -482,6 +498,10 @@ export const UpdateFournisseurBody = zod.object({
 export const UpdateFournisseurResponse = zod.object({
   id: zod.number(),
   nom: zod.string(),
+  version_tarif: zod.string().nullish(),
+  contact_nom: zod.string().nullish(),
+  contact_email: zod.string().nullish(),
+  contact_tel: zod.string().nullish(),
   contact: zod.string().nullish(),
   email: zod.string().nullish(),
   telephone: zod.string().nullish(),
