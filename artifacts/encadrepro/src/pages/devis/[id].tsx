@@ -358,7 +358,7 @@ export default function DevisDetail() {
                       <td className="text-right">{formatCurrency(f.quantite * f.prix_unitaire_ht)}</td>
                     </tr>
                   ))}
-                  {(l.service ?? []).map((s: any, si: number) => (
+                  {(l.service ?? []).map((s, si) => (
                     <tr key={`s-${si}`} className="text-gray-500 text-xs">
                       <td className="pl-4 italic">↳ {s.designation}</td>
                       <td>{s.heures ? "heure" : "unité"}</td>
