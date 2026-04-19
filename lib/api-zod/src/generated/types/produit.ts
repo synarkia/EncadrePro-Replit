@@ -28,7 +28,15 @@ export interface Produit {
   epaisseur_mm?: number | null;
   longueur_barre_m?: number | null;
   stock_alerte?: number | null;
-  ref_legacy_v1?: string | null;
+  ref_legacy?: string | null;
+  majo_epaisseur?: number | null;
+  mini_fact_tn?: number | null;
+  mini_fact_ta?: number | null;
+  coef_marge_ta?: number | null;
+  plus_value_ta_pct?: number | null;
+  fac_mm?: number | null;
+  cadre_or_accessoire?: string | null;
+  vendu: boolean;
   actif: number;
   notes?: string | null;
   image_url?: string | null;

@@ -301,7 +301,6 @@ export default function DevisDetail() {
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{atelier?.nom || "Atelier"}</h2>
             {atelier?.adresse && <p className="text-sm text-gray-600">{atelier.adresse}</p>}
-            {atelier?.code_postal && <p className="text-sm text-gray-600">{atelier.code_postal} {atelier.ville}</p>}
             {atelier?.telephone && <p className="text-sm text-gray-600">Tél. {atelier.telephone}</p>}
             {atelier?.email && <p className="text-sm text-gray-600">{atelier.email}</p>}
             {atelier?.siret && <p className="text-xs text-gray-500 mt-1">SIRET : {atelier.siret}</p>}
@@ -359,7 +358,7 @@ export default function DevisDetail() {
                       <td className="text-right">{formatCurrency(f.quantite * f.prix_unitaire_ht)}</td>
                     </tr>
                   ))}
-                  {(l.service ?? []).map((s, si) => (
+                  {(l.service ?? []).map((s: any, si: number) => (
                     <tr key={`s-${si}`} className="text-gray-500 text-xs">
                       <td className="pl-4 italic">↳ {s.designation}</td>
                       <td>{s.heures ? "heure" : "unité"}</td>
@@ -387,15 +386,15 @@ export default function DevisDetail() {
           </table>
         </div>
 
-        {atelier?.conditions_devis && (
+        {atelier?.conditions_generales && (
           <div className="print-conditions">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Conditions</p>
-            <p className="text-xs text-gray-600">{atelier.conditions_devis}</p>
+            <p className="text-xs text-gray-600">{atelier.conditions_generales}</p>
           </div>
         )}
         <div className="print-footer">
           {atelier?.siret && <span>SIRET : {atelier.siret}</span>}
-          {atelier?.tva_intracommunautaire && <span>TVA Intracomm. : {atelier.tva_intracommunautaire}</span>}
+          {atelier?.tva_intracom && <span>TVA Intracomm. : {atelier.tva_intracom}</span>}
         </div>
       </div>
 

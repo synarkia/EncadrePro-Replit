@@ -24,7 +24,7 @@ const atelierSchema = z.object({
   tva_defaut: z.coerce.number().min(0).max(100),
   conditions_generales: z.string().optional().or(z.literal("")),
   smtp_host: z.string().optional().or(z.literal("")),
-  smtp_port: z.coerce.number().optional().or(z.literal("")),
+  smtp_port: z.preprocess((v) => v === "" || v === null ? undefined : v, z.coerce.number().int().optional()),
   smtp_user: z.string().optional().or(z.literal("")),
   smtp_pass: z.string().optional().or(z.literal("")),
 });

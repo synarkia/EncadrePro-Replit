@@ -43,6 +43,17 @@ type FormState = {
   epaisseur_mm: string;
   longueur_barre_m: string;
   stock_alerte: string;
+  // Legacy V1 VR-specific coefficients (TN/TA pricing).
+  majo_epaisseur: string;
+  mini_fact_tn: string;
+  mini_fact_ta: string;
+  coef_marge_ta: string;
+  plus_value_ta_pct: string;
+  // EN-specific (encadrement) hint.
+  cadre_or_accessoire: string;
+  // FA-specific dimension.
+  fac_mm: string;
+  vendu: boolean;
 };
 
 const DEFAULT_PRICING: Record<ProductTypeCode, "unit" | "linear_meter" | "square_meter"> = {
@@ -69,6 +80,14 @@ function makeDefault(type: ProductTypeCode): FormState {
     epaisseur_mm: "",
     longueur_barre_m: "",
     stock_alerte: "",
+    majo_epaisseur: "",
+    mini_fact_tn: "",
+    mini_fact_ta: "",
+    coef_marge_ta: "",
+    plus_value_ta_pct: "",
+    cadre_or_accessoire: type === "EN" ? "cadre" : "",
+    fac_mm: "",
+    vendu: true,
   };
 }
 
@@ -116,6 +135,14 @@ export function QuickAddProductModal({ open, defaultTypeCode = "EN", onClose, on
       epaisseur_mm: form.epaisseur_mm ? parseFloat(form.epaisseur_mm) : null,
       longueur_barre_m: form.longueur_barre_m ? parseFloat(form.longueur_barre_m) : null,
       stock_alerte: form.stock_alerte ? parseInt(form.stock_alerte, 10) : null,
+      majo_epaisseur: form.majo_epaisseur ? parseFloat(form.majo_epaisseur) : null,
+      mini_fact_tn: form.mini_fact_tn ? parseFloat(form.mini_fact_tn) : null,
+      mini_fact_ta: form.mini_fact_ta ? parseFloat(form.mini_fact_ta) : null,
+      coef_marge_ta: form.coef_marge_ta ? parseFloat(form.coef_marge_ta) : null,
+      plus_value_ta_pct: form.plus_value_ta_pct ? parseFloat(form.plus_value_ta_pct) : null,
+      cadre_or_accessoire: form.cadre_or_accessoire || null,
+      fac_mm: form.fac_mm ? parseInt(form.fac_mm, 10) : null,
+      vendu: form.vendu,
       notes: null,
     };
 
@@ -139,6 +166,11 @@ export function QuickAddProductModal({ open, defaultTypeCode = "EN", onClose, on
           prix_achat_ht: created.prix_achat_ht ?? null,
           coefficient_marge: created.coefficient_marge ?? null,
           taux_tva: created.taux_tva,
+          majo_epaisseur: created.majo_epaisseur ?? null,
+          mini_fact_tn: created.mini_fact_tn ?? null,
+          mini_fact_ta: created.mini_fact_ta ?? null,
+          coef_marge_ta: created.coef_marge_ta ?? null,
+          plus_value_ta_pct: created.plus_value_ta_pct ?? null,
         });
         onClose();
       },
@@ -274,6 +306,71 @@ export function QuickAddProductModal({ open, defaultTypeCode = "EN", onClose, on
               </div>
             </div>
           )}
+
+          {/* ── EN-specific: cadre vs accessoire ─────────────────── */}
+          {form.type_code === "EN" && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Type d'encadrement</label>
+              <Select value={form.cadre_or_accessoire || "cadre"} onValueChange={v => set({ cadre_or_accessoire: v })}>
+                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cadre">Cadre (baguette)</SelectItem>
+                  <SelectItem value="accessoire">Accessoire (passe-partout, fond, etc.)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* ── FA-specific: fac_mm ─────────────────────────────── */}
+          {form.type_code === "FA" && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Façonnage (mm)</label>
+              <Input className="h-8 text-sm" type="number" step="1" min="0" value={form.fac_mm} onChange={e => set({ fac_mm: e.target.value })} placeholder="Largeur de façonnage" />
+            </div>
+          )}
+
+          {/* ── VR-specific: legacy TN/TA coefficients ───────────── */}
+          {form.type_code === "VR" && (
+            <div className="space-y-2 rounded-lg border border-border/40 p-2.5">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Coefficients TN / TA (verre)</div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground">Mini fact. TN (m²)</label>
+                  <Input className="h-7 text-xs" type="number" step="0.001" min="0" value={form.mini_fact_tn} onChange={e => set({ mini_fact_tn: e.target.value })} placeholder="0.10" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground">Mini fact. TA (m²)</label>
+                  <Input className="h-7 text-xs" type="number" step="0.001" min="0" value={form.mini_fact_ta} onChange={e => set({ mini_fact_ta: e.target.value })} placeholder="0.10" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground">Majo. épaisseur</label>
+                  <Input className="h-7 text-xs" type="number" step="0.01" min="0" value={form.majo_epaisseur} onChange={e => set({ majo_epaisseur: e.target.value })} placeholder="1.00" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground">Coef marge TA</label>
+                  <Input className="h-7 text-xs" type="number" step="0.001" min="0" value={form.coef_marge_ta} onChange={e => set({ coef_marge_ta: e.target.value })} placeholder="2.500" />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <label className="text-[10px] text-muted-foreground">Plus-value TA (%)</label>
+                  <Input className="h-7 text-xs" type="number" step="0.1" value={form.plus_value_ta_pct} onChange={e => set({ plus_value_ta_pct: e.target.value })} placeholder="0.0" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Vendu toggle ─────────────────────────────────────── */}
+          <div className="flex items-center gap-2">
+            <input
+              id="vendu"
+              type="checkbox"
+              checked={form.vendu}
+              onChange={e => set({ vendu: e.target.checked })}
+              className="h-4 w-4 rounded border-border/40"
+            />
+            <label htmlFor="vendu" className="text-xs font-medium text-muted-foreground cursor-pointer">
+              Produit vendu (apparaît dans les recherches devis)
+            </label>
+          </div>
         </div>
 
         <DialogFooter>

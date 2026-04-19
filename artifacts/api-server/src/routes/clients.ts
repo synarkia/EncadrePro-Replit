@@ -151,7 +151,7 @@ router.put("/clients/:id", async (req, res): Promise<void> => {
 
   const [client] = await db
     .update(clientsTable)
-    .set({ ...parsed.data, modifie_le: new Date() })
+    .set({ ...parsed.data })
     .where(eq(clientsTable.id, params.data.id))
     .returning();
 

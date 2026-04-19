@@ -18,4 +18,7 @@ export interface Client {
   notes?: string | null;
   cree_le: string;
   modifie_le: string;
+  ca_total?: number | null;
+  devis_count?: number | null;
+  derniere_activite?: string | null;
 }

@@ -262,7 +262,6 @@ export default function FactureDetail() {
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{atelier?.nom || "Atelier"}</h2>
             {atelier?.adresse && <p className="text-sm text-gray-600">{atelier.adresse}</p>}
-            {atelier?.code_postal && <p className="text-sm text-gray-600">{atelier.code_postal} {atelier.ville}</p>}
             {atelier?.telephone && <p className="text-sm text-gray-600">Tél. {atelier.telephone}</p>}
             {atelier?.email && <p className="text-sm text-gray-600">{atelier.email}</p>}
             {atelier?.siret && <p className="text-xs text-gray-500 mt-1">SIRET : {atelier.siret}</p>}
@@ -320,15 +319,15 @@ export default function FactureDetail() {
           </table>
         </div>
 
-        {atelier?.conditions_facture && (
+        {atelier?.conditions_generales && (
           <div className="print-conditions">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Conditions de règlement</p>
-            <p className="text-xs text-gray-600">{atelier.conditions_facture}</p>
+            <p className="text-xs text-gray-600">{atelier.conditions_generales}</p>
           </div>
         )}
         <div className="print-footer">
           {atelier?.siret && <span>SIRET : {atelier.siret}</span>}
-          {atelier?.tva_intracommunautaire && <span>TVA Intracomm. : {atelier.tva_intracommunautaire}</span>}
+          {atelier?.tva_intracom && <span>TVA Intracomm. : {atelier.tva_intracom}</span>}
         </div>
       </div>
 

@@ -1,0 +1,236 @@
+# EncadrePro — Agent Task 03b: Foundation Completion (pause QA, fix what Task 02/03 missed)
+
+## Context
+
+Your Task 04 pre-flight check surfaced three blockers that prove the foundation from Tasks 02/03 is incomplete:
+
+1. `pnpm -r typecheck` fails at root with 30+ errors — missing exports from `@workspace/db` and `@workspace/api-zod`
+2. The `produits` table is missing 8 columns required for the full 5-type pricing model (VR TN/TA regime fields, FA fac_mm, EN cadre_or_accessoire, EN vendu)
+3. `lib/compute-line.ts` only implements a simplified pricing formula — the full VR TN/TA formula with surface minimums, thickness markup, separate TA margin coefficient, and plus-value percentage is missing
+
+This task closes those three gaps and nothing else. No QA, no feature building, no refactoring of unrelated code. Foundation completion only. Once this lands, Task 04 (QA sweep) will be re-issued unchanged and should actually be able to run.
+
+---
+
+## Before you start
+
+Confirm HEAD commit, run `pnpm -r typecheck` from root, and paste the first ~15 error lines in chat as a baseline. We want to measure that the typecheck goes from red to green by the end of this task.
+
+Then proceed.
+
+---
+
+## Execute these steps in order — do NOT skip ahead
+
+### STEP 1 — Fix the typecheck (must be green before Step 2)
+
+The errors are all of two shapes:
+- `'@workspace/db' has no exported member 'XTable'` — the schema package isn't re-exporting the new tables
+- `'@workspace/api-zod' has no exported member 'YResponse'` — the codegen isn't producing the expected type aliases
+
+**Fix the db re-exports:**
+1. Open `lib/db/src/schema/index.ts`. List every table file in `lib/db/src/schema/`. Make sure each table object is re-exported with the exact name the routes import (`produitsTable`, `fournisseursTable`, `atelierTable`, `clientsTable`, `devisTable`, `lignesDevisTable`, `lignesDevisFaconnageTable`, `lignesDevisServiceTable`, `facturesTable`, `lignesFactureTable`, `acomptesTable`). If a table is exported under a different name (e.g. `produits` instead of `produitsTable`), add an aliased re-export — do NOT rename the underlying symbol if other code depends on it.
+2. Verify via `pnpm --filter @workspace/db run build` (or equivalent) that the db package compiles cleanly.
+
+**Fix the api-zod exports:**
+3. Run `pnpm --filter @workspace/api-spec run codegen` to regenerate.
+4. If regeneration doesn't produce the missing exports (`ListProduitsResponse`, `GetFactureResponse`, etc.), check `lib/api-spec/openapi.yaml` — the operations for these endpoints may be missing proper `operationId` or response schemas. Fix the spec and regenerate.
+5. If any route file imports a type that genuinely doesn't exist in the API contract, that's drift — add the missing response type to the OpenAPI spec rather than inventing a local workaround.
+
+**Gate:** Run `pnpm -r typecheck` from root. It MUST pass before you touch Step 2. If it takes more than 30 minutes of real work, stop and report — something is more broken than expected.
+
+---
+
+### STEP 2 — Add the 8 missing columns to `produits`
+
+Open `lib/db/src/schema/produits.ts` (or equivalent file) and add these columns. All nullable — they only apply to specific product types.
+
+| Column | Type | For type | Purpose |
+|---|---|---|---|
+| `majo_epaisseur` | `numeric(4, 2)` | VR | thickness markup multiplier (e.g. 1.7 for 10mm glass) |
+| `mini_fact_tn` | `numeric(6, 3)` | VR | minimum billable surface in m² — Tarif Normal regime |
+| `mini_fact_ta` | `numeric(6, 3)` | VR | minimum billable surface in m² — Tarif Atelier regime |
+| `coef_marge_ta` | `numeric(6, 3)` | VR | separate margin coefficient for TA regime |
+| `plus_value_ta_pct` | `numeric(6, 2)` | VR | TA plus-value percentage uplift (e.g. 650 for 650%) |
+| `fac_mm` | `integer` | FA | façonnage physical mm spec (e.g. "Bords polis 6mm") |
+| `cadre_or_accessoire` | `text` | EN | values: `cadre` or `accessoire` (no enum — keep as text for now) |
+| `vendu` | `boolean`, default `false` | EN | unique brocante items marked as sold |
+
+**Also:** rename `ref_legacy_v1` to `ref_legacy` in the schema file AND update every reference to it in routes, API spec, and UI. This is a breaking rename but there's no production data to migrate, so just do it cleanly.
+
+**Generate the migration:**
+```
+pnpm --filter @workspace/db run generate
+```
+Review the generated SQL before applying. Confirm it does ADD COLUMN + RENAME COLUMN — no unexpected drops. Apply with `push` or `migrate`, whichever the repo uses.
+
+**Update OpenAPI and regenerate:**
+1. Open `lib/api-spec/openapi.yaml` and add the 8 new fields to the `Produit`, `CreateProduitBody`, and `UpdateProduitBody` schemas. All nullable.
+2. Rename any `ref_legacy_v1` references in the spec to `ref_legacy`.
+3. Run codegen: `pnpm --filter @workspace/api-spec run codegen`.
+
+**Gate:** `pnpm -r typecheck` must still be green. Query the DB directly and confirm the 8 new columns exist on `produits`. Post the output in chat.
+
+---
+
+### STEP 3 — Extend `lib/compute-line.ts` with the full VR TN/TA formula
+
+Open `lib/compute-line.ts`. Find the branch that handles `pricing_mode === 'square_meter'` (VR products). Replace it with the full formula below. Keep the existing `unit` and `linear_meter` branches unchanged.
+
+**Function signature** (adjust to match current signature if it differs):
+
+```ts
+export function computeLignePvuht(input: {
+  pricing_mode: 'unit' | 'linear_meter' | 'square_meter';
+  product: {
+    pauht: number;              // prix d'achat HT (was prix_achat_ht in some places)
+    coef_marge: number;         // (was coefficient_marge)
+    // VR-specific (nullable, required when pricing_mode === 'square_meter')
+    majo_epaisseur?: number | null;
+    mini_fact_tn?: number | null;
+    mini_fact_ta?: number | null;
+    coef_marge_ta?: number | null;
+    plus_value_ta_pct?: number | null;
+  };
+  largeur_cm?: number;
+  hauteur_cm?: number;
+  longueur_cm?: number;
+  quantite: number;
+  regime?: 'TN' | 'TA';        // only used for square_meter; defaults to 'TN'
+}): {
+  pvuht: number;
+  surface_m2?: number;
+  longueur_ml?: number;
+}
+```
+
+**Body for the `square_meter` branch:**
+
+```ts
+// For VR (glass, mirror, plexi): TN or TA regime
+const regime = input.regime ?? 'TN';
+const largeur = input.largeur_cm ?? 0;
+const hauteur = input.hauteur_cm ?? 0;
+const rawSurface = (largeur * hauteur) / 10000;  // cm² → m²
+
+const majo = input.product.majo_epaisseur ?? 1;
+
+if (regime === 'TN') {
+  const miniTn = input.product.mini_fact_tn ?? 0;
+  const surface = Math.max(rawSurface, miniTn);
+  const coef = input.product.coef_marge;
+  const pvuht = input.product.pauht * majo * coef * surface * input.quantite;
+  return { pvuht, surface_m2: surface };
+} else {
+  // TA regime
+  const miniTa = input.product.mini_fact_ta ?? 0;
+  const surface = Math.max(rawSurface, miniTa);
+  const coefTa = input.product.coef_marge_ta ?? input.product.coef_marge;
+  const plusValue = input.product.plus_value_ta_pct ?? 0;
+  const base = input.product.pauht * majo * coefTa * surface * input.quantite;
+  const pvuht = base * (1 + plusValue / 100);
+  return { pvuht, surface_m2: surface };
+}
+```
+
+**Leave `unit` and `linear_meter` branches exactly as they are today.** Only change `square_meter`.
+
+Check whether `compute-line.ts` has any tests. If a `.test.ts` file exists, update the test fixtures to the new signature so existing tests pass. Do NOT write new tests — that's a separate future task. Just keep existing tests green.
+
+**Gate:** `pnpm -r typecheck` still green after this change.
+
+---
+
+### STEP 4 — Expose the new fields in the QuickAdd modal and catalogue edit form
+
+The Task 02/03 prompt asked for type-conditional fields. For VR and EN they were partially or fully skipped. Add them now.
+
+Open `artifacts/encadrepro/src/components/QuickAddProductModal.tsx` (and the catalogue edit form if it has a separate path — check `pages/catalogue/[id].tsx` or similar).
+
+**For `type_code === 'VR'`, show all of these fields** (in addition to the common fields already shown):
+
+- `epaisseur_mm` — number input, label "Épaisseur (mm)"
+- `majo_epaisseur` — number input, step 0.1, label "Majoration épaisseur"
+- `mini_fact_tn` — number input, step 0.001, label "Mini facturable TN (m²)"
+- `mini_fact_ta` — number input, step 0.001, label "Mini facturable TA (m²)"
+- `coef_marge_ta` — number input, step 0.001, label "Coef marge TA"
+- `plus_value_ta_pct` — number input, step 0.01, label "Plus-value TA (%)"
+
+Auto-default `pricing_mode` to `square_meter` when VR is selected.
+
+**For `type_code === 'FA'`, show:**
+- `fac_mm` — number input, label "Profil (mm)"
+
+Auto-default `pricing_mode` to `linear_meter`.
+
+**For `type_code === 'EN'`, show:**
+- `cadre_or_accessoire` — select with options "Cadre" / "Accessoire"
+- `vendu` — checkbox, label "Vendu (pièce unique)"
+- `image_url` — text input (URL only, no file upload in this task)
+- Let the user choose `pricing_mode` between `unit` and `linear_meter` (Encadrements can be either — P.U vs Px.ml)
+
+**For AU and SD:** no additional fields. Default `pricing_mode` to `unit`. For SD, default `coef_marge` to 1.
+
+**Wiring:**
+- The form should use the already-existing React Hook Form setup — do not introduce a different library.
+- On submit, the request body should include ONLY fields relevant to the selected type. Do not send VR fields when creating an AU product. The generated Zod schemas should handle this cleanly since all the fields are nullable.
+- Display labels must all be in French. Codes stay as codes (VR, FA, AU, SD, EN) in the DB and URLs.
+- Import type metadata (labels, codes) from `lib/product-types.ts` — do NOT hardcode labels in the modal.
+
+**Gate:** `pnpm -r typecheck` still green. The dev preview must load, and opening QuickAdd for a VR product must show the 6 VR-specific fields.
+
+---
+
+## Hard constraints
+
+1. **Do NOT run Task 04 QA after this.** Stop at the end of Step 4 and post your report. Wait for a new task instruction.
+2. **Do NOT build new features** beyond what's listed above. No suppliers admin page. No new product detail screens. No PDF generation. No polish passes on unrelated components.
+3. **Do NOT refactor files that aren't directly involved** in these four steps. If you find yourself editing `pages/devis/[id].tsx` for reasons beyond "my rename of ref_legacy_v1 broke an import," stop.
+4. **Do NOT introduce new dependencies.**
+5. **All UI text in French.**
+6. **If any step reveals a deeper problem than expected** (e.g. Step 2 migration fails, Step 3 existing tests break in ways the new formula can't fix, Step 4 conditional rendering needs a component rewrite) — STOP and report. Don't improvise.
+
+---
+
+## Final report format (post in chat when done)
+
+```
+## TASK 03b REPORT
+
+### Step 1 — Typecheck
+- Baseline errors: [count]
+- Files fixed: [list with one-line reason]
+- `pnpm -r typecheck` result: [GREEN / RED with residual errors]
+
+### Step 2 — Schema columns
+- Migration file: [filename]
+- Columns added: [list]
+- Rename applied: ref_legacy_v1 → ref_legacy [yes/no]
+- OpenAPI regenerated: [yes/no]
+- DB verification (psql output): [paste column list for `produits`]
+
+### Step 3 — compute-line.ts
+- Function signature changed: [yes/no — if yes, summary]
+- TN formula implemented: [yes]
+- TA formula implemented: [yes]
+- Existing tests (if any): [still passing / updated / none existed]
+
+### Step 4 — UI fields
+- VR fields exposed in QuickAdd: [list]
+- FA fields exposed: [list]
+- EN fields exposed: [list]
+- Defaults wiring verified: [yes/no per type]
+- pricing_mode selector for EN: [yes/no]
+
+### Final gate
+- `pnpm -r typecheck`: [GREEN / RED]
+- Dev preview loads without console errors: [yes/no]
+
+### Anything I found but did NOT fix (out of scope)
+- [list with one-line reason per item]
+
+### Known limitations after this task
+- [e.g. existing products seeded in earlier runs won't have the new VR fields populated — that's expected; will be handled by Task 04 re-seed]
+```
+
+Proceed. Start with the Step 0 baseline measurement.

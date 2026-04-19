@@ -292,7 +292,7 @@ export default function Catalogue() {
   const [typeFilter, setTypeFilter] = useState<string>("tous");
   const [search, setSearch] = useState("");
   const { data: produits, isLoading } = useListProduits(
-    typeFilter !== "tous" ? { type_code: typeFilter } : {}
+    typeFilter !== "tous" ? { type_code: typeFilter as any } : {}
   );
   // Always-loaded all-types list, used for tab count badges.
   const { data: allProduits } = useListProduits({});

@@ -35,7 +35,15 @@ function mapProduit(p: typeof produitsTable.$inferSelect) {
     epaisseur_mm: p.epaisseur_mm ?? null,
     longueur_barre_m: p.longueur_barre_m ?? null,
     stock_alerte: p.stock_alerte ?? null,
-    ref_legacy_v1: p.ref_legacy_v1 ?? null,
+    ref_legacy: p.ref_legacy ?? null,
+    majo_epaisseur: p.majo_epaisseur ?? null,
+    mini_fact_tn: p.mini_fact_tn ?? null,
+    mini_fact_ta: p.mini_fact_ta ?? null,
+    coef_marge_ta: p.coef_marge_ta ?? null,
+    plus_value_ta_pct: p.plus_value_ta_pct ?? null,
+    fac_mm: p.fac_mm ?? null,
+    cadre_or_accessoire: p.cadre_or_accessoire ?? null,
+    vendu: p.vendu ?? false,
   };
 }
 

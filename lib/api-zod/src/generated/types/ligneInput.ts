@@ -5,6 +5,8 @@
  * EncadrePro API – gestion d'un atelier d'encadrement
  * OpenAPI spec version: 1.0.0
  */
+import type { LigneInputFaconnage } from "./ligneInputFaconnage";
+import type { LigneInputService } from "./ligneInputService";
 
 export interface LigneInput {
   produit_id?: number | null;
@@ -12,8 +14,12 @@ export interface LigneInput {
   unite_calcul: string;
   largeur_m?: number | null;
   hauteur_m?: number | null;
+  width_cm?: number | null;
+  height_cm?: number | null;
   quantite: number;
   prix_unitaire_ht: number;
   taux_tva: number;
   ordre?: number;
+  faconnage?: LigneInputFaconnage[];
+  service?: LigneInputService[];
 }

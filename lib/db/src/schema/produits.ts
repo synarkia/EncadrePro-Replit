@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, numeric, timestamp, real } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, numeric, timestamp, real, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { fournisseursTable } from "./fournisseurs";
@@ -55,12 +55,26 @@ export const produitsTable = pgTable("produits", {
 
   // ── Specialised measurements (façonnage / encadrement) ────────────────────
   largeur_mm: real("largeur_mm"),       // moulding profile width
-  epaisseur_mm: real("epaisseur_mm"),   // moulding profile depth
+  epaisseur_mm: real("epaisseur_mm"),   // moulding profile depth (VR thickness)
   longueur_barre_m: real("longueur_barre_m"), // standard bar length
+
+  // ── VR-specific TN/TA pricing parameters ──────────────────────────────────
+  majo_epaisseur: numeric("majo_epaisseur", { precision: 4, scale: 2, mode: "number" }),       // thickness markup multiplier
+  mini_fact_tn: numeric("mini_fact_tn", { precision: 6, scale: 3, mode: "number" }),           // min billable surface m² – Tarif Normal
+  mini_fact_ta: numeric("mini_fact_ta", { precision: 6, scale: 3, mode: "number" }),           // min billable surface m² – Tarif Atelier
+  coef_marge_ta: numeric("coef_marge_ta", { precision: 6, scale: 3, mode: "number" }),         // separate margin coef for TA
+  plus_value_ta_pct: numeric("plus_value_ta_pct", { precision: 6, scale: 2, mode: "number" }), // TA plus-value % uplift
+
+  // ── FA-specific ───────────────────────────────────────────────────────────
+  fac_mm: integer("fac_mm"),                                    // façonnage profile mm
+
+  // ── EN-specific ───────────────────────────────────────────────────────────
+  cadre_or_accessoire: text("cadre_or_accessoire"),             // 'cadre' | 'accessoire'
+  vendu: boolean("vendu").notNull().default(false),             // brocante: pièce unique vendue
 
   // ── Inventory & legacy refs ───────────────────────────────────────────────
   stock_alerte: integer("stock_alerte"),
-  ref_legacy_v1: text("ref_legacy_v1"), // V1 Electron desktop reference
+  ref_legacy: text("ref_legacy"),       // V1 Electron desktop reference
   notes: text("notes"),
   image_url: text("image_url"),
   actif: integer("actif").notNull().default(1),

@@ -9,13 +9,14 @@
 export interface SaveAtelierBody {
   nom?: string;
   siret?: string | null;
+  tva_intracom?: string | null;
   adresse?: string | null;
   telephone?: string | null;
   email?: string | null;
   conditions_generales?: string | null;
-  prefixe_devis?: string | null;
-  prefixe_facture?: string | null;
-  tva_defaut?: number | null;
+  prefixe_devis?: string;
+  prefixe_facture?: string;
+  tva_defaut?: number;
   email_template?: string | null;
   smtp_host?: string | null;
   smtp_port?: number | null;

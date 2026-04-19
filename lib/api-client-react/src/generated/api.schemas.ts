@@ -57,6 +57,9 @@ export interface Client {
   notes?: string | null;
   cree_le: string;
   modifie_le: string;
+  ca_total?: number | null;
+  devis_count?: number | null;
+  derniere_activite?: string | null;
 }
 
 export interface CreateClientBody {
@@ -160,7 +163,15 @@ export interface Produit {
   epaisseur_mm?: number | null;
   longueur_barre_m?: number | null;
   stock_alerte?: number | null;
-  ref_legacy_v1?: string | null;
+  ref_legacy?: string | null;
+  majo_epaisseur?: number | null;
+  mini_fact_tn?: number | null;
+  mini_fact_ta?: number | null;
+  coef_marge_ta?: number | null;
+  plus_value_ta_pct?: number | null;
+  fac_mm?: number | null;
+  cadre_or_accessoire?: string | null;
+  vendu: boolean;
   actif: number;
   notes?: string | null;
   image_url?: string | null;
@@ -207,7 +218,15 @@ export interface CreateProduitBody {
   epaisseur_mm?: number | null;
   longueur_barre_m?: number | null;
   stock_alerte?: number | null;
-  ref_legacy_v1?: string | null;
+  ref_legacy?: string | null;
+  majo_epaisseur?: number | null;
+  mini_fact_tn?: number | null;
+  mini_fact_ta?: number | null;
+  coef_marge_ta?: number | null;
+  plus_value_ta_pct?: number | null;
+  fac_mm?: number | null;
+  cadre_or_accessoire?: string | null;
+  vendu?: boolean;
   notes?: string | null;
   image_url?: string | null;
 }
@@ -249,6 +268,32 @@ export interface CreateFournisseurBody {
   notes?: string | null;
 }
 
+export interface LigneDevisFaconnage {
+  id: number;
+  ligne_devis_id: number;
+  produit_id?: number | null;
+  designation: string;
+  quantite: number;
+  prix_unitaire_ht: number;
+  taux_tva: number;
+  total_ht: number;
+  parametres_json?: string | null;
+  ordre: number;
+}
+
+export interface LigneDevisService {
+  id: number;
+  ligne_devis_id: number;
+  produit_id?: number | null;
+  designation: string;
+  quantite: number;
+  heures?: number | null;
+  prix_unitaire_ht: number;
+  taux_tva: number;
+  total_ht: number;
+  ordre: number;
+}
+
 export interface LigneDevis {
   id: number;
   devis_id: number;
@@ -257,6 +302,8 @@ export interface LigneDevis {
   unite_calcul: string;
   largeur_m?: number | null;
   hauteur_m?: number | null;
+  width_cm?: number | null;
+  height_cm?: number | null;
   quantite: number;
   quantite_calculee?: number | null;
   prix_unitaire_ht: number;
@@ -264,6 +311,28 @@ export interface LigneDevis {
   total_ht: number;
   total_ttc: number;
   ordre: number;
+  faconnage?: LigneDevisFaconnage[];
+  service?: LigneDevisService[];
+}
+
+export interface LigneInputFaconnage {
+  produit_id?: number | null;
+  designation: string;
+  quantite: number;
+  prix_unitaire_ht: number;
+  taux_tva: number;
+  parametres_json?: string | null;
+  ordre?: number;
+}
+
+export interface LigneInputService {
+  produit_id?: number | null;
+  designation: string;
+  quantite: number;
+  heures?: number | null;
+  prix_unitaire_ht: number;
+  taux_tva: number;
+  ordre?: number;
 }
 
 export interface LigneInput {
@@ -272,10 +341,14 @@ export interface LigneInput {
   unite_calcul: string;
   largeur_m?: number | null;
   hauteur_m?: number | null;
+  width_cm?: number | null;
+  height_cm?: number | null;
   quantite: number;
   prix_unitaire_ht: number;
   taux_tva: number;
   ordre?: number;
+  faconnage?: LigneInputFaconnage[];
+  service?: LigneInputService[];
 }
 
 export type DevisDetail = Devis & {
@@ -326,6 +399,7 @@ export interface Atelier {
   id: number;
   nom: string;
   siret?: string | null;
+  tva_intracom?: string | null;
   adresse?: string | null;
   telephone?: string | null;
   email?: string | null;
@@ -346,13 +420,14 @@ export interface Atelier {
 export interface SaveAtelierBody {
   nom?: string;
   siret?: string | null;
+  tva_intracom?: string | null;
   adresse?: string | null;
   telephone?: string | null;
   email?: string | null;
   conditions_generales?: string | null;
-  prefixe_devis?: string | null;
-  prefixe_facture?: string | null;
-  tva_defaut?: number | null;
+  prefixe_devis?: string;
+  prefixe_facture?: string;
+  tva_defaut?: number;
   email_template?: string | null;
   smtp_host?: string | null;
   smtp_port?: number | null;

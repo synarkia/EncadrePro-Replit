@@ -8,7 +8,7 @@ import { QuickAddProductModal } from "./QuickAddProductModal";
 import { formatCurrency } from "@/lib/format";
 import type { ProduitSearchResult } from "./ProductSearchCombobox";
 import { pricingModeToUniteCalcul, type ProductTypeCode } from "@/lib/product-types";
-import { computeLignePvuht, type RegimePricing } from "@/lib/compute-line";
+import { computeLignePvuht, computeLigneTotalHT, type RegimePricing } from "@/lib/compute-line";
 
 /* WEB-TO-DESKTOP NOTE: visually keeps the 3 buckets (Matière / Façonnage / Service)
    but the matière bucket now accepts EN, VR or AU products. Façonnage is FA-only and
@@ -61,6 +61,13 @@ export type QuoteLine = {
   prix_achat_ht?: number | null;
   coefficient_marge?: number | null;
   regime_pricing?: RegimePricing | null;
+  // Legacy V1 TA/TN coefficients propagated from the catalogue when a VR product
+  // is picked. Used by `computeLigneTotalHT` to apply the legacy formula.
+  majo_epaisseur?: number | null;
+  mini_fact_tn?: number | null;
+  mini_fact_ta?: number | null;
+  coef_marge_ta?: number | null;
+  plus_value_ta_pct?: number | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -155,7 +162,20 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
   const wCm = line.width_cm ?? 0;
   const hCm = line.height_cm ?? 0;
   const qCalc = calcQuantite(line.unite_calcul, wCm, hCm, line.quantite);
-  const lineHT = qCalc * line.prix_unitaire_ht;
+  const lineHT = computeLigneTotalHT({
+    type_code: line.type_code,
+    unite_calcul: line.unite_calcul,
+    quantite: qCalc,
+    surface_m2: (line.unite_calcul === "m²" || line.unite_calcul === "metre_carre" || line.unite_calcul === "m2") ? qCalc : null,
+    prix_unitaire_ht: line.prix_unitaire_ht,
+    regime: line.regime_pricing,
+    prix_achat_ht: line.prix_achat_ht,
+    majo_epaisseur: line.majo_epaisseur,
+    mini_fact_tn: line.mini_fact_tn,
+    mini_fact_ta: line.mini_fact_ta,
+    coef_marge_ta: line.coef_marge_ta,
+    plus_value_ta_pct: line.plus_value_ta_pct,
+  });
 
   const totalFaconnageHT = (line.faconnage ?? []).reduce((s, f) => s + f.quantite * f.prix_unitaire_ht, 0);
   const totalServiceHT = (line.service ?? []).reduce((s, s2) => s + s2.quantite * s2.prix_unitaire_ht, 0);
@@ -186,6 +206,11 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
       prix_achat_ht: p.prix_achat_ht,
       coefficient_marge: p.coefficient_marge,
       regime_pricing: newRegime,
+      majo_epaisseur: p.majo_epaisseur ?? null,
+      mini_fact_tn: p.mini_fact_tn ?? null,
+      mini_fact_ta: p.mini_fact_ta ?? null,
+      coef_marge_ta: p.coef_marge_ta ?? null,
+      plus_value_ta_pct: p.plus_value_ta_pct ?? null,
     });
   };
 

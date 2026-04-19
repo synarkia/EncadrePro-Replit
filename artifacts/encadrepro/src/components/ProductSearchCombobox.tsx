@@ -24,6 +24,12 @@ export type ProduitSearchResult = {
   prix_achat_ht: number | null;
   coefficient_marge: number | null;
   taux_tva: number;
+  // Legacy V1 TA/TN coefficients used by computeLigneTotalHT for VR-TA pricing.
+  majo_epaisseur?: number | null;
+  mini_fact_tn?: number | null;
+  mini_fact_ta?: number | null;
+  coef_marge_ta?: number | null;
+  plus_value_ta_pct?: number | null;
 };
 
 interface ProductSearchComboboxProps {

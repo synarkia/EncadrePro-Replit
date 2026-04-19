@@ -79,7 +79,7 @@ async function recalcFacture(factureId: number): Promise<void> {
     .set({
       sous_total_ht: ht, total_tva_10: tva10, total_tva_20: tva20,
       total_ttc: totalTTC, total_paye: totalPaye, solde_restant: soldeRestant,
-      statut, modifie_le: new Date(),
+      statut,
     })
     .where(eq(facturesTable.id, factureId));
 }
@@ -172,7 +172,7 @@ router.get("/factures/:id", async (req, res): Promise<void> => {
     paiements: paiements.map((p) => ({
       id: p.id, facture_id: p.facture_id, montant: p.montant,
       date_paiement: p.date_paiement, mode_paiement: p.mode_paiement ?? null,
-      notes: p.notes ?? null, cree_le: p.cree_le.toISOString(),
+      notes: p.notes ?? null, cree_le: p.cree_le,
     })),
   };
 
@@ -188,8 +188,7 @@ router.put("/factures/:id", async (req, res): Promise<void> => {
   await db.update(facturesTable)
     .set({
       ...(notes !== undefined && { notes }),
-      ...(date_echeance !== undefined && { date_echeance: date_echeance ? new Date(date_echeance) : null }),
-      modifie_le: new Date(),
+      ...(date_echeance !== undefined && { date_echeance: date_echeance ?? null }),
     })
     .where(eq(facturesTable.id, id));
 
@@ -225,7 +224,7 @@ router.patch("/factures/:id/statut", async (req, res): Promise<void> => {
   }
 
   await db.update(facturesTable)
-    .set({ statut: parsed.data.statut, modifie_le: new Date() })
+    .set({ statut: parsed.data.statut })
     .where(eq(facturesTable.id, params.data.id));
 
   const updated = await getFactureWithClient(params.data.id);
@@ -315,7 +314,7 @@ router.put("/factures/:id/lignes", async (req, res): Promise<void> => {
     paiements: paiements.map((p) => ({
       id: p.id, facture_id: p.facture_id, montant: p.montant,
       date_paiement: p.date_paiement, mode_paiement: p.mode_paiement ?? null,
-      notes: p.notes ?? null, cree_le: p.cree_le.toISOString(),
+      notes: p.notes ?? null, cree_le: p.cree_le,
     })),
   };
 
@@ -354,7 +353,7 @@ router.post("/factures/:id/paiements", async (req, res): Promise<void> => {
     date_paiement: acompte.date_paiement,
     mode_paiement: acompte.mode_paiement ?? null,
     notes: acompte.notes ?? null,
-    cree_le: acompte.cree_le.toISOString(),
+    cree_le: acompte.cree_le,
   });
 });
 

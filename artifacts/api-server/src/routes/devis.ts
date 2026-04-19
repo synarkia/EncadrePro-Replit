@@ -92,7 +92,7 @@ async function recalcDevis(devisId: number): Promise<void> {
   }
 
   await db.update(devisTable)
-    .set({ sous_total_ht: ht, total_tva_10: tva10, total_tva_20: tva20, total_ttc: ht + tva10 + tva20, modifie_le: new Date() })
+    .set({ sous_total_ht: ht, total_tva_10: tva10, total_tva_20: tva20, total_ttc: ht + tva10 + tva20 })
     .where(eq(devisTable.id, devisId));
 }
 
@@ -259,9 +259,8 @@ router.put("/devis/:id", async (req, res): Promise<void> => {
   await db.update(devisTable)
     .set({
       ...(notes !== undefined && { notes }),
-      ...(date_validite !== undefined && { date_validite: date_validite ? new Date(date_validite) : null }),
-      ...(date_creation !== undefined && date_creation && { date_creation: new Date(date_creation) }),
-      modifie_le: new Date(),
+      ...(date_validite !== undefined && { date_validite: date_validite ?? null }),
+      ...(date_creation !== undefined && date_creation && { date_creation: date_creation }),
     })
     .where(eq(devisTable.id, id));
 
@@ -288,7 +287,7 @@ router.patch("/devis/:id/statut", async (req, res): Promise<void> => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   await db.update(devisTable)
-    .set({ statut: parsed.data.statut, modifie_le: new Date() })
+    .set({ statut: parsed.data.statut })
     .where(eq(devisTable.id, params.data.id));
 
   const updated = await getDevisWithClient(params.data.id);
@@ -433,7 +432,7 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
   }
 
   await db.update(devisTable)
-    .set({ statut: "converti", facture_id: facture.id, modifie_le: new Date() })
+    .set({ statut: "converti", facture_id: facture.id })
     .where(eq(devisTable.id, devis.id));
 
   const factureRows = await execRows<{

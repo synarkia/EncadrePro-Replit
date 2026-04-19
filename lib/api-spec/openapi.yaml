@@ -800,6 +800,9 @@ components:
         notes: { type: string, nullable: true }
         cree_le: { type: string }
         modifie_le: { type: string }
+        ca_total: { type: number, nullable: true }
+        devis_count: { type: integer, nullable: true }
+        derniere_activite: { type: string, nullable: true }
       required: [id, nom, cree_le, modifie_le]
 
     CreateClientBody:
@@ -854,13 +857,21 @@ components:
         epaisseur_mm: { type: number, nullable: true }
         longueur_barre_m: { type: number, nullable: true }
         stock_alerte: { type: integer, nullable: true }
-        ref_legacy_v1: { type: string, nullable: true }
+        ref_legacy: { type: string, nullable: true }
+        majo_epaisseur: { type: number, nullable: true }
+        mini_fact_tn: { type: number, nullable: true }
+        mini_fact_ta: { type: number, nullable: true }
+        coef_marge_ta: { type: number, nullable: true }
+        plus_value_ta_pct: { type: number, nullable: true }
+        fac_mm: { type: integer, nullable: true }
+        cadre_or_accessoire: { type: string, nullable: true }
+        vendu: { type: boolean }
         actif: { type: integer }
         notes: { type: string, nullable: true }
         image_url: { type: string, nullable: true }
         cree_le: { type: string }
         modifie_le: { type: string }
-      required: [id, designation, type_code, pricing_mode, unite_calcul, prix_ht, taux_tva, actif, cree_le, modifie_le]
+      required: [id, designation, type_code, pricing_mode, unite_calcul, prix_ht, taux_tva, actif, vendu, cree_le, modifie_le]
 
     CreateProduitBody:
       type: object
@@ -883,7 +894,15 @@ components:
         epaisseur_mm: { type: number, nullable: true }
         longueur_barre_m: { type: number, nullable: true }
         stock_alerte: { type: integer, nullable: true }
-        ref_legacy_v1: { type: string, nullable: true }
+        ref_legacy: { type: string, nullable: true }
+        majo_epaisseur: { type: number, nullable: true }
+        mini_fact_tn: { type: number, nullable: true }
+        mini_fact_ta: { type: number, nullable: true }
+        coef_marge_ta: { type: number, nullable: true }
+        plus_value_ta_pct: { type: number, nullable: true }
+        fac_mm: { type: integer, nullable: true }
+        cadre_or_accessoire: { type: string, nullable: true }
+        vendu: { type: boolean }
         notes: { type: string, nullable: true }
         image_url: { type: string, nullable: true }
       required: [designation, unite_calcul, prix_ht, taux_tva]
@@ -930,6 +949,36 @@ components:
       required: [nom]
 
     # ── DEVIS ──
+    LigneDevisFaconnage:
+      type: object
+      properties:
+        id: { type: integer }
+        ligne_devis_id: { type: integer }
+        produit_id: { type: integer, nullable: true }
+        designation: { type: string }
+        quantite: { type: number }
+        prix_unitaire_ht: { type: number }
+        taux_tva: { type: number }
+        total_ht: { type: number }
+        parametres_json: { type: string, nullable: true }
+        ordre: { type: integer }
+      required: [id, ligne_devis_id, designation, quantite, prix_unitaire_ht, taux_tva, total_ht, ordre]
+
+    LigneDevisService:
+      type: object
+      properties:
+        id: { type: integer }
+        ligne_devis_id: { type: integer }
+        produit_id: { type: integer, nullable: true }
+        designation: { type: string }
+        quantite: { type: number }
+        heures: { type: number, nullable: true }
+        prix_unitaire_ht: { type: number }
+        taux_tva: { type: number }
+        total_ht: { type: number }
+        ordre: { type: integer }
+      required: [id, ligne_devis_id, designation, quantite, prix_unitaire_ht, taux_tva, total_ht, ordre]
+
     LigneDevis:
       type: object
       properties:
@@ -940,6 +989,8 @@ components:
         unite_calcul: { type: string }
         largeur_m: { type: number, nullable: true }
         hauteur_m: { type: number, nullable: true }
+        width_cm: { type: number, nullable: true }
+        height_cm: { type: number, nullable: true }
         quantite: { type: number }
         quantite_calculee: { type: number, nullable: true }
         prix_unitaire_ht: { type: number }
@@ -947,7 +998,39 @@ components:
         total_ht: { type: number }
         total_ttc: { type: number }
         ordre: { type: integer }
+        faconnage:
+          type: array
+          items:
+            $ref: "#/components/schemas/LigneDevisFaconnage"
+        service:
+          type: array
+          items:
+            $ref: "#/components/schemas/LigneDevisService"
       required: [id, devis_id, designation, unite_calcul, quantite, prix_unitaire_ht, taux_tva, total_ht, total_ttc, ordre]
+
+    LigneInputFaconnage:
+      type: object
+      properties:
+        produit_id: { type: integer, nullable: true }
+        designation: { type: string }
+        quantite: { type: number }
+        prix_unitaire_ht: { type: number }
+        taux_tva: { type: number }
+        parametres_json: { type: string, nullable: true }
+        ordre: { type: integer }
+      required: [designation, quantite, prix_unitaire_ht, taux_tva]
+
+    LigneInputService:
+      type: object
+      properties:
+        produit_id: { type: integer, nullable: true }
+        designation: { type: string }
+        quantite: { type: number }
+        heures: { type: number, nullable: true }
+        prix_unitaire_ht: { type: number }
+        taux_tva: { type: number }
+        ordre: { type: integer }
+      required: [designation, quantite, prix_unitaire_ht, taux_tva]
 
     LigneInput:
       type: object
@@ -957,10 +1040,20 @@ components:
         unite_calcul: { type: string }
         largeur_m: { type: number, nullable: true }
         hauteur_m: { type: number, nullable: true }
+        width_cm: { type: number, nullable: true }
+        height_cm: { type: number, nullable: true }
         quantite: { type: number }
         prix_unitaire_ht: { type: number }
         taux_tva: { type: number }
         ordre: { type: integer }
+        faconnage:
+          type: array
+          items:
+            $ref: "#/components/schemas/LigneInputFaconnage"
+        service:
+          type: array
+          items:
+            $ref: "#/components/schemas/LigneInputService"
       required: [designation, unite_calcul, quantite, prix_unitaire_ht, taux_tva]
 
     Devis:
@@ -1093,6 +1186,7 @@ components:
         id: { type: integer }
         nom: { type: string }
         siret: { type: string, nullable: true }
+        tva_intracom: { type: string, nullable: true }
         adresse: { type: string, nullable: true }
         telephone: { type: string, nullable: true }
         email: { type: string, nullable: true }
@@ -1115,13 +1209,14 @@ components:
       properties:
         nom: { type: string }
         siret: { type: string, nullable: true }
+        tva_intracom: { type: string, nullable: true }
         adresse: { type: string, nullable: true }
         telephone: { type: string, nullable: true }
         email: { type: string, nullable: true }
         conditions_generales: { type: string, nullable: true }
-        prefixe_devis: { type: string, nullable: true }
-        prefixe_facture: { type: string, nullable: true }
-        tva_defaut: { type: number, nullable: true }
+        prefixe_devis: { type: string }
+        prefixe_facture: { type: string }
+        tva_defaut: { type: number }
         email_template: { type: string, nullable: true }
         smtp_host: { type: string, nullable: true }
         smtp_port: { type: integer, nullable: true }

@@ -10,6 +10,7 @@ export interface Atelier {
   id: number;
   nom: string;
   siret?: string | null;
+  tva_intracom?: string | null;
   adresse?: string | null;
   telephone?: string | null;
   email?: string | null;

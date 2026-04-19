@@ -79,7 +79,7 @@ export default function ClientDetail() {
     query: { enabled: !!clientId, queryKey: getGetClientQueryKey(clientId) }
   });
   const { data: stats, isLoading: statsLoading } = useGetClientStats(clientId, {
-    query: { enabled: !!clientId }
+    query: { enabled: !!clientId, queryKey: ["clientStats", clientId] }
   });
 
   const updateClient = useUpdateClient();
