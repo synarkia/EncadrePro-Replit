@@ -1,0 +1,29 @@
+Encadrepro agent prompt 02 ui propagation · MDCopyEncadrePro — Agent Task 02: Propagate 5-Type Product System Through All UI
+Context
+In the previous task (commit 65adcb8), the database schema was migrated from 3 product types (Matière / Façonnage / Service) to 5 (VR / FA / AU / SD / EN), per the legacy FileMaker app the client uses. The API server, OpenAPI spec, generated Zod schemas, and React Query hooks all now know about the 5 types.
+The UI was deliberately not rebuilt in that pass — it was scoped to schema only. As a result, the user-facing pages still reflect the old 3-type model and the catalog appears empty (test data was wiped during migration).
+This task propagates the 5-type system through every UI surface: catalog browser, product detail/edit forms, the devis (quote) composer, line item entry, search filters, and anywhere else the old 3-type list is hardcoded. After this task, a user should be able to navigate the full app and create a devis containing line items of all 5 product types.
+Scope discipline reminder: This is a UI propagation task, not a feature build. You are replacing references to the old 3-type system with the new 5-type system, plus adding the minimum type-conditional UI required for each type's specific fields. You are NOT building new screens, new workflows, or new components beyond what's required to expose the 5 types correctly.
+
+Before you do ANYTHING else
+
+Read commit 65adcb8 to understand exactly what changed at the schema/API layer. Run git show 65adcb8 --stat and git log --oneline -20.
+Read the current state of:
+
+lib/db/src/schema/produits.ts (or current name) — confirm the 5-type enum, the new columns, and which are nullable per type
+lib/api-spec/openapi.yaml — find every reference to product type in request/response schemas
+lib/api-zod/ (generated) — confirm what TypeScript types are now exported
+lib/api-client-react/ (generated) — confirm hook names and signatures
+
+
+Then grep -rn "Matière\|Matiere\|Façonnage\|Faconnage" artifacts/encadrepro/src/ to find every UI reference to the old 3-type list. Also grep -rn "type_produit\|productType\|TypeProduit" to find type-related logic.
+Read every file in artifacts/encadrepro/src/pages/catalogue/ and artifacts/encadrepro/src/pages/devis/.
+Read artifacts/encadrepro/src/components/ProductSearchCombobox.tsx, QuickAddProductModal.tsx, QuoteLineCard.tsx.
+
+After reading, post a short summary in chat covering:
+
+Which files reference the old 3-type list and need updating
+Which components are type-aware vs type-agnostic
+Whether ProductSearchCombobox already supports filtering by type (and how)
+Any pre-existing UI that already handles per-type conditional fields (if so, mirror its patterns rather than inventing new ones)
+Anything unexpected — particularly any drift between schema, OpenAPI, and UI
