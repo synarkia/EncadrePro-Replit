@@ -1,0 +1,189 @@
+# EncadrePro — Agent Task 05: QA Fixes (Findings 1, 3, 4, 5 from Task 04)
+
+## Context
+
+The Task 04 QA sweep surfaced 6 findings. This task addresses 4 of them — the surgical, deterministic ones that don't require external input. Findings #2 (cadre length UX intent) and #6 (TA formula reconciliation) are explicitly OUT of scope — they need product-owner and legacy-FileMaker-source input first and will be handled in separate tasks.
+
+This is a fix task, not a feature task. Each finding gets a small, targeted fix. No refactoring of unrelated code. No new features. No "while I'm here" improvements.
+
+---
+
+## Before you start
+
+1. Confirm HEAD commit hash and that `pnpm -r typecheck` is currently green.
+2. Read the current state of:
+   - `lib/compute-line.ts` (the pricing function)
+   - `artifacts/api-server/src/routes/devis.ts` (specifically the PUT `/devis/:id/lignes` handler — Task 03b flagged this as possibly out of sync with the UI formula)
+   - `lib/db/src/schema/devis.ts` (or wherever `lignes_devis` and `lignes_devis_faconnage` are defined)
+   - `artifacts/encadrepro/src/components/QuoteLineCard.tsx`
+   - `artifacts/encadrepro/src/pages/catalogue/index.tsx`
+3. Post a one-paragraph orientation in chat: current commit, typecheck status, any surprises from the file read (especially: does the server-side PUT handler compute prices with its own formula, or does it trust the UI-supplied total?).
+
+Then post your proposed plan covering all 4 findings (per the structure below) and **wait for confirmation before coding**.
+
+---
+
+## Plan format — post in chat, wait for approval before executing
+
+For each finding, specify:
+- Files you'll modify
+- Schema migration SQL preview (if applicable)
+- Estimated scope (lines of code, new columns, new routes)
+- Order of operations (which finding is safe to do first, whether any have dependencies on each other)
+
+Then stop and wait.
+
+---
+
+## The 4 findings to fix
+
+### FINDING #3 — VR TN formula missing `majo_epaisseur` factor
+
+**Evidence from QA:** A 10mm verre clair at 56.5 × 71cm in TN regime produced **50.90 €** but should produce **86.53 €**. The ratio 86.53 / 50.90 = exactly 1.7, which is the `majo_epaisseur` value for that product. The formula is dropping that factor.
+
+**Expected formula for VR TN (verify and fix wherever VR TN math is computed):**
+
+```
+surface_m2 = max((largeur_cm × hauteur_cm) / 10000, mini_fact_tn)
+pvuht = pauht × majo_epaisseur × coef_marge × surface_m2 × quantite
+```
+
+**Fix steps:**
+
+1. Inspect `lib/compute-line.ts` — confirm the TN branch includes the `majo_epaisseur` multiplier. If it does (Task 03b claimed it did), then the bug is elsewhere — possibly the server-side route is using a different formula, or the frontend is reading from a computed field that bypasses `compute-line.ts`. Trace the actual number path from UI input to persisted price.
+
+2. Inspect `artifacts/api-server/src/routes/devis.ts` — find the handler that saves/computes line prices. Task 03b explicitly flagged: *"mirroring the legacy verre formula in the server-side PUT /devis/:id/lignes so saved quote totals match the live preview"* as an outstanding follow-up. **This finding is likely a symptom of that.** If the server is recomputing prices with its own formula, replace that recomputation with a direct call to `computeLigneTotalHT()` (or equivalent) from `@workspace/compute-line` so there's ONE formula, not two.
+
+3. **Critical**: after the fix, there should be exactly ONE place in the codebase that computes `pvuht` for a devis line. If you find two, consolidate them. This is the single most important architectural outcome of this finding — not the formula fix itself.
+
+4. Verification: after the fix, create a devis with a verre clair 10mm line at 56.5×71, TN regime, quantité 1. Save. Reload. Query the DB directly. The stored `pvuht` should equal **86.53 €** (rounding to 2 decimal places acceptable).
+
+**Out of scope for this finding:** the TA formula discrepancy (Finding #6) — do NOT touch the TA branch. It has its own issues that need legacy-source reconciliation.
+
+---
+
+### FINDING #1 — Persist TN/TA regime on devis lines
+
+**Evidence from QA:** The UI exposes a TN/TA toggle on VR lines, the live preview respects it, but after save + reload the regime is gone. No column exists on `lignes_devis` to store it.
+
+**Fix steps:**
+
+1. Add a column to `lignes_devis` schema: `regime_pricing text` (nullable; only populated for VR lines where it's meaningful). No default; leave NULL for non-VR lines.
+2. Generate migration, review SQL before applying, apply cleanly.
+3. Update OpenAPI spec: add `regime_pricing: { type: string, enum: [TN, TA], nullable: true }` to the `LigneDevis` and `SaveLigneDevisBody` schemas.
+4. Regenerate codegen.
+5. Update the server-side save handler to accept and persist `regime_pricing`.
+6. Update the UI to include `regime_pricing` in the save payload and restore it into the form state when loading a devis.
+7. Verification: create a VR line, switch to TA, save, reload page. The toggle should still be on TA. The displayed price should still reflect TA regime.
+
+**Out of scope:** the TA formula's *correctness* — Finding #6. This finding is about persistence only.
+
+---
+
+### FINDING #4 — Façonnage sub-items ignore length input
+
+**Evidence from QA:** Façonnage lines under a main matière line are priced as `qty × unit price`, ignoring any length the user enters. The UI either has no length input or has one that's disconnected from the calculation.
+
+**Fix steps:**
+
+1. Inspect `lib/db/src/schema/` for the façonnage sub-items table (likely `lignes_devis_faconnage` based on earlier agent reports). If it has a length column, confirm its name. If not, add one: `longueur_cm integer` (nullable since some façonnages might be sold per-unit rather than per-length — but for FA type products with `pricing_mode === 'linear_meter'`, it should be populated).
+2. Generate migration if needed.
+3. Update OpenAPI spec for the façonnage sub-item schema.
+4. In `QuoteLineCard.tsx` (or wherever façonnage sub-items are rendered), ensure there's a length input visible when the selected FA product has `pricing_mode === 'linear_meter'`. Default value: inherit from the parent matière line's length if that makes sense (e.g. Bords polis on a glass piece — the polished edge is naturally the perimeter of the glass). If inheritance is non-trivial, just leave the input empty and let the user type.
+5. Wire the length input to the pricing formula:
+   ```
+   pvuht = pauht × coef_marge × (longueur_cm / 100) × quantite
+   ```
+6. Make sure both UI live preview AND server-side save use the same formula (same consolidation principle as Finding #3).
+7. Verification: create a devis with a main matière line (Cadre Trafalia, Ref 420) + a façonnage sub-item (Bords polis, Ref 7) with longueur 280cm, quantité 1. Expected façonnage line total: `13.50 × 1.0 × 2.80 × 1 = 37.80 €`. Save, reload, confirm persisted.
+
+---
+
+### FINDING #5 — Catalogue product cards aren't clickable
+
+**Evidence from QA:** On `/catalogue`, clicking a product does nothing. No link to detail or edit. Thomas cannot review or modify his 5,000 products without this.
+
+**Fix steps:**
+
+1. In `artifacts/encadrepro/src/pages/catalogue/index.tsx`, wrap each product card in a link to `/catalogue/[id]` (adjust to actual routing convention — check existing route patterns in the project).
+2. Check if `pages/catalogue/[id].tsx` already exists. If not, create a minimal version:
+   - Shows all product fields in a read-mostly layout
+   - Groups fields into sections: "Identification" (ref_legacy, designation, type_code, fournisseur), "Pricing" (pauht, coef_marge, pricing_mode + type-specific pricing fields), "Type-specific" (the VR/FA/EN fields), "Metadata" (notes, image_url, vendu, created_at, updated_at)
+   - A "Modifier" button that opens an edit dialog (reuse the QuickAddProductModal component in edit mode — if QuickAdd supports an optional `initialValues` prop, use it; if not, extract the shared form into a separate component that both QuickAdd and this edit page can use)
+   - A "Retour au catalogue" breadcrumb/back button
+3. Match existing page layout patterns — don't invent new styling.
+4. Verification: navigate to `/catalogue`, click a VR product — should navigate to `/catalogue/[id]`, show all VR-specific fields (épaisseur, majo, mini fact TN/TA, coef marge TA, plus-value TA%). Click Modifier — edit form opens with current values pre-filled. Save a change — values persist.
+
+**Out of scope:** delete functionality, product duplication, image upload, advanced filtering on the list page.
+
+---
+
+## Order of operations (recommended)
+
+1. **Finding #3 first** — it's the most important (pricing correctness) and it forces you to consolidate the duplicate formula issue that Task 03b flagged. Getting ONE source of truth for pricing makes Findings #1 and #4 easier.
+2. **Finding #1 second** — depends on the ONE-formula outcome of #3 being in place.
+3. **Finding #4 third** — same formula consolidation pattern as #1.
+4. **Finding #5 last** — independent, UI-only, safe to do after the pricing fixes.
+
+Each finding committed separately so the diff is reviewable per-fix.
+
+---
+
+## Hard constraints
+
+1. **No new features beyond the 4 findings.** No suppliers admin page. No PDF generation. No dashboard changes.
+2. **No refactoring of files not directly involved in these 4 fixes.** Exception: if consolidating the duplicate pricing formula (Finding #3) requires touching one additional file, that's allowed and in scope.
+3. **`pnpm -r typecheck` must stay green after each finding's commit.** If it's red, stop — don't proceed to the next finding until it's fixed.
+4. **Do NOT touch the TA formula math** (Finding #6). You may touch the *persistence* of the TA regime (Finding #1), but the formula itself stays as-is — it will be reconciled against legacy FileMaker source in a separate task.
+5. **Do NOT touch the cadre length interpretation** (Finding #2). The current "doubled length" behavior (perimeter convention) stays until product-owner confirms intent.
+6. **No new dependencies.**
+7. **All UI text in French.** Match existing label patterns.
+8. **If any finding reveals a deeper problem than described** (e.g. Finding #3's consolidation exposes three places computing prices instead of two, or Finding #5's edit flow requires a substantial component refactor) — stop and report before improvising.
+
+---
+
+## Final report (post when done)
+
+```
+## TASK 05 REPORT — QA Fixes
+
+### Finding #3 — VR TN majo_epaisseur
+- Root cause: [UI formula OK but server recomputed / UI formula wrong / other]
+- Files modified: [list]
+- Pricing formula consolidation: [one source now / still N sources — explain]
+- Verification: test case 56.5×71 verre clair 10mm TN produces: [X €] (expected 86.53 €)
+
+### Finding #1 — regime_pricing persistence
+- Migration file: [name]
+- Schema column added: [yes/no + nullable setting]
+- OpenAPI + codegen updated: [yes/no]
+- Server-side handler updated: [yes/no]
+- UI save + restore: [yes/no]
+- Verification: toggle TA, save, reload: regime preserved [yes/no]
+
+### Finding #4 — Façonnage length
+- Column added/renamed: [name, type, nullable]
+- UI input visible for linear_meter FA: [yes/no]
+- Formula uses length: [yes/no]
+- Server + UI use same formula: [yes/no]
+- Verification: Bords polis 280cm on Cadre Trafalia = [X €] (expected 37.80 €)
+
+### Finding #5 — Catalogue navigation
+- Cards clickable: [yes/no]
+- /catalogue/[id] page: [existed / created]
+- Modifier (edit) flow: [reuses QuickAddProductModal / new component / extracted shared form]
+- Verification: navigate to VR product, all VR fields displayed, edit and save works: [yes/no]
+
+### Typecheck status
+- After each commit: [all green / details]
+
+### Out-of-scope items I noticed but did NOT fix
+- [list]
+
+### Suggested next task
+- [based on what you found]
+```
+
+Do not push directly to main. Checkpoint for review.
+
+Post the plan first. Wait for approval before coding.
