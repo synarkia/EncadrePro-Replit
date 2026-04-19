@@ -1,0 +1,279 @@
+# EncadrePro — Agent Task 04: Seed Realistic Data + End-to-End QA Sweep
+
+## Context
+
+Task 03 completed: 5-code product type system propagated through UI, suppliers picker added, pricing computation via `lib/compute-line.ts`. The catalog is currently **empty** (test data was wiped during the foundation migration).
+
+**This task is NOT a build task.** You will seed realistic data, then exercise every feature end-to-end and report what actually works versus what breaks. The goal is an honest QA sweep, not new features. You should only modify code to **fix bugs you discover during testing** — and even then, only small, surgical fixes. Anything that looks like it needs a larger change should be reported, not fixed.
+
+Think of yourself as a QA engineer, not a developer, for this pass.
+
+---
+
+## Before you do anything else
+
+1. Confirm the current commit hash and that Task 03's changes are deployed (`git log --oneline -5`).
+2. Run `pnpm typecheck` from the root and confirm it passes. If it fails, STOP and report — don't proceed with a broken typecheck.
+3. Start the dev server / verify the workflow is running and the preview is reachable.
+4. List the current tables in the database (connect via the Database tool or `psql`) and confirm `produits`, `fournisseurs`, `clients`, `devis`, `lignes_devis`, `factures`, `acomptes`, `atelier` exist. Report if any are missing.
+
+Post a one-paragraph status check in chat before continuing.
+
+---
+
+## PHASE 1 — Seed realistic data
+
+Create or extend `artifacts/api-server/src/seed.ts` (or equivalent) with the following dataset. Use `INSERT ... ON CONFLICT DO NOTHING` patterns so the seed can be re-run safely.
+
+### Atelier (single row, id=1)
+
+```
+nom: "Atelier AGV"
+adresse: "Lyon, France"
+tel: "06 23 80 15 27"
+email: "contact@atelier-agv.fr"
+siret: "12345678900010"
+tva_intracom: "FR12345678900"
+rcs: "Lyon B 123 456 789"
+forme_juridique: "SARL"
+capital: 10000
+code_ape: "1623Z"
+mentions_legales: "TVA applicable, art. 293 B du CGI non retenu"
+tva_taux_par_defaut: 20
+iban: "FR76 1234 5678 9012 3456 7890 123"
+bic: "BNPAFRPP"
+```
+
+### Fournisseurs (6 suppliers)
+
+| nom | version_tarif | contact_email |
+|---|---|---|
+| NIELSEN | 02/2025 | contact@nielsen.fr |
+| GLASSOLUTIONS | 04/2019 | — |
+| MACOCCO | 01/2023 | — |
+| RM DIFFUSION | 2023 | — |
+| ATELIER | 2024 | (internal) |
+| SOGIMEX | 2022 | — |
+
+### Clients (5 clients)
+
+| nom | adresse | tel | email |
+|---|---|---|---|
+| O'CALLAGHAN-LOCKE Ryan | 12 rue Victor Hugo, 69002 Lyon | 06 23 80 15 27 | ryan.ocl@example.fr |
+| DUPONT Marie | 45 avenue Jean Jaurès, 69007 Lyon | 04 72 00 00 00 | — |
+| MARTIN Jean-Pierre | 8 place Bellecour, 69002 Lyon | — | jp.martin@example.fr |
+| Galerie des Arts | 23 rue Mercière, 69002 Lyon | 04 78 00 00 00 | contact@galeriedesarts.fr |
+| Musée de Lyon | 1 place de la Confluence, 69002 Lyon | — | regie@musee-lyon.fr |
+
+### Produits — 20 products covering all 5 types
+
+Match the exact pricing models from the legacy app. Each row below is a complete product spec. Use `type_code`, `pricing_mode`, and the type-specific fields correctly.
+
+**VR — Volumes (4 products, all `pricing_mode: 'square_meter'`)**
+
+| ref_legacy | designation | fournisseur | pauht | coef_marge | epaisseur_mm | majo_epaisseur | mini_fact_tn | mini_fact_ta | coef_marge_ta | plus_value_ta_pct |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 8 | verre clair 10mm | GLASSOLUTIONS | 48.80 | 2.6 | 10 | 1.7 | 0.35 | 0.5 | 2.6 | 650 |
+| 12 | Verre clair 2mm | MACOCCO | 25.00 | 2.6 | 2 | 1.0 | 0.35 | 0.5 | 2.6 | 400 |
+| 61 | Miroir Gris Joint poli 4mm | MACOCCO | 35.00 | 2.5 | 4 | 1.2 | 0.35 | 0.5 | 2.5 | 500 |
+| 94 | Plexiglass extrudé Anti-reflet 2mm | CINDAR | 60.00 | 2.0 | 2 | 1.0 | 0.5 | 0.5 | 2.0 | 300 |
+
+*Note: use ATELIER fournisseur for CINDAR — or create CINDAR as an additional fournisseur if you prefer*
+
+**FA — Façonnages (4 products, all `pricing_mode: 'linear_meter'`)**
+
+| ref_legacy | designation | fournisseur | pauht | coef_marge | fac_mm |
+|---|---|---|---|---|---|
+| 7 | Bords polis (mini 1ml) | ATELIER | 13.50 | 1.0 | 6 |
+| 21 | Biseau talon brut demi-rond SUR DEVIS | REVERCHON | 35.00 | 1.0 | 35 |
+| 24 | Biseau talon poli | REVERCHON | 18.00 | 1.0 | 6 |
+| 27 | Chanfrein mini 1ml | ATELIER | 12.00 | 1.0 | 6 |
+
+*Note: create REVERCHON fournisseur if not present*
+
+**AU — Accessoires (4 products, all `pricing_mode: 'unit'`)**
+
+| ref_legacy | designation | fournisseur | pauht | coef_marge |
+|---|---|---|---|---|
+| 20 | Aérateur à hélice 160mm | SOGIMEX | 19.00 | 2.0 |
+| 25 | Couteau à mastic forme Boucher | SOGIMEX | 8.50 | 2.0 |
+| 75 | Bouton double Chromé Brillant | SOGIMEX | 4.20 | 2.0 |
+| 104 | Silicone blanc neutre | SOGIMEX | 6.00 | 2.0 |
+
+**SD — Services (4 products, all `pricing_mode: 'unit'`, `coef_marge: 1.0`)**
+
+| ref_legacy | designation | fournisseur | pauht |
+|---|---|---|---|
+| 826 | Pose (1conf) | ATELIER | 120.00 |
+| 827 | Pose en atelier 10mm | ATELIER | 150.00 |
+| 1086 | Pénalité de retard | ATELIER | 50.00 |
+| 1089 | Livraison grand volume | ATELIER | 80.00 |
+
+**EN — Encadrements (4 products: 2x `linear_meter`, 2x `unit`)**
+
+| ref_legacy | designation | fournisseur | pauht | coef_marge | pricing_mode | cadre_or_accessoire | vendu |
+|---|---|---|---|---|---|---|---|
+| 420 | Cadre Trafalia 334-03 Argent ancien | NIELSEN | 21.41 | 2.5 | linear_meter | cadre | false |
+| 365 | Cadre alu 04-021 Noir mat | NIELSEN | 18.00 | 2.5 | linear_meter | cadre | false |
+| 448 | Cadre 448 Orofina Art déco 20×30 | RM DIFFUSION | 45.00 | 2.0 | unit | cadre | false |
+| 304 | Cadre Lodge 51,2×33,2 | ATELIER | 0.00 | 1.0 | unit | cadre | true |
+
+### After seeding
+
+- Report how many rows were inserted per table.
+- Verify from the API: `GET /produits` should return 20 products, `GET /fournisseurs` should return at least 6, etc.
+- If any insertion failed (FK violation, constraint error), report it clearly — do not silently skip.
+
+---
+
+## PHASE 2 — Execute the QA test matrix
+
+For each test case below, perform the action, verify the expected result, and record **PASS / FAIL / PARTIAL / BLOCKED** with evidence.
+
+### 2.1 — Catalog browser
+
+| # | Action | Expected |
+|---|---|---|
+| 2.1.1 | Open `/catalogue` | Page loads, no console errors, 5 type tabs + "Tous" visible |
+| 2.1.2 | Click each of the 5 type tabs | URL updates with `?type=VR` etc.; list filters correctly |
+| 2.1.3 | Verify count badges | Tab counts match actual records (4 each = 20 total) |
+| 2.1.4 | Click a product row | Navigates to product detail/edit view |
+| 2.1.5 | Check a VR product detail | Shows épaisseur, majo, mini facturables TN & TA, coef marge TA, plus-value TA% |
+| 2.1.6 | Check an EN product detail | Shows cadre/accessoire toggle value, vendu flag, pricing_mode |
+| 2.1.7 | Check display of ref_legacy | Products show Réf 8, 12, 420 etc. as user-facing ID (not internal db id) |
+
+### 2.2 — Product creation via QuickAdd
+
+| # | Action | Expected |
+|---|---|---|
+| 2.2.1 | Open QuickAdd, select type VR | VR-specific fields appear (épaisseur, majo, mini fact TN/TA, coef marge TA, plus-value TA%); pricing_mode defaults to `square_meter` |
+| 2.2.2 | Select type FA | FA-specific field appears (fac_mm); pricing_mode defaults to `linear_meter` |
+| 2.2.3 | Select type AU | No VR/FA/EN-specific fields visible; pricing_mode defaults to `unit` |
+| 2.2.4 | Select type SD | No specialty fields; coef_marge defaults to 1.0; pricing_mode defaults to `unit` |
+| 2.2.5 | Select type EN | Cadre/Accessoire toggle, vendu checkbox, image URL field, pricing_mode selector (unit OR linear_meter) |
+| 2.2.6 | Open supplier dropdown | Queries `/fournisseurs`, shows "NIELSEN — 02/2025" format options |
+| 2.2.7 | Click "+ Nouveau fournisseur" | Inline form appears with nom, version_tarif, contact fields |
+| 2.2.8 | Create new supplier inline | POSTs to `/fournisseurs`, auto-selects in picker |
+| 2.2.9 | Submit a new VR product | Product created; verify DB row has correct `type_code='VR'`, `pricing_mode='square_meter'`, `fournisseur_id` set, all VR fields populated |
+| 2.2.10 | Verify legacy fields not written | DB row should have NULL or empty `type_produit`, `unite_calcul`, free-text `fournisseur` (confirms Task 03 Adjustment 2 landed correctly) |
+
+### 2.3 — Devis creation and line composition
+
+| # | Action | Expected |
+|---|---|---|
+| 2.3.1 | Create a new devis for O'CALLAGHAN-LOCKE Ryan | Devis created, redirects to devis editor |
+| 2.3.2 | Add a main Matière line, pick Ref 420 (Cadre Trafalia) | Product selected, pricing_mode = `linear_meter`, form shows Longueur + Quantité fields |
+| 2.3.3 | Enter longueur = 280 cm, quantité = 1 | Live price preview shows `21.41 × 2.5 × 2.80 × 1 = 149.87 €` |
+| 2.3.4 | Add a sub-item (Façonnage) under the main line, pick Ref 7 (Bords polis) | Façonnage search filters to FA type only; product selected |
+| 2.3.5 | Enter longueur = 280 cm | Live price: `13.50 × 1.0 × 2.80 × 1 = 37.80 €` |
+| 2.3.6 | Add a sub-item (Service), pick Ref 1089 (Livraison) | Service search filters to SD only; quantity = 1 default |
+| 2.3.7 | Live price of service line | `80.00 × 1.0 × 1 = 80.00 €` |
+| 2.3.8 | Add a SECOND main item: Ref 8 (verre clair 10mm), regime TN | Form shows Largeur + Hauteur + Quantité, TN/TA toggle visible on VR |
+| 2.3.9 | Enter 56.5 × 71 cm, quantité 1, regime TN | Live price: `max(56.5 × 71 / 10000, 0.35) × 48.80 × 1.7 × 2.6 × 1 = ?`<br>Compute: surface = 0.4012 (above mini 0.35) → 0.4012 × 48.80 × 1.7 × 2.6 = **86.53 €** |
+| 2.3.10 | Switch to regime TA | Live price: `max(0.4012, 0.5) × 48.80 × 1.7 × 2.6_TA × (1 + 650/100) = 0.5 × 48.80 × 1.7 × 2.6 × 7.5 = ?`<br>Expected: about **808.74 €** (depending on exact formula — this is where you tell me if the legacy-app-matching 130.20 € from the earlier screenshot is reproducible, and what formula produces it) |
+| 2.3.11 | Save the devis | All lines persist; refreshing shows same lines with same values; prices snapshot correctly (not recomputed from current product prices) |
+| 2.3.12 | Totals strip at bottom | HT, TVA (20%), TTC computed correctly; no NaN, no Infinity, no undefined |
+
+**⚠️ Important on test 2.3.10**: The exact TA pricing formula is uncertain from the legacy screenshots. Report what your `compute-line.ts` produces and whether it matches the legacy-shown 130.20 € for the same inputs. If not, this is a critical finding — the whole pricing engine's TA branch may be wrong. Do not patch it; just report the discrepancy and we'll resolve it with the user.
+
+### 2.4 — Client management
+
+| # | Action | Expected |
+|---|---|---|
+| 2.4.1 | Open `/clients`, verify 5 clients listed | All 5 seeded clients visible |
+| 2.4.2 | Open a client's detail page | Shows fields, shows list of devis for that client |
+| 2.4.3 | Search for "Ryan" | Filters to O'CALLAGHAN-LOCKE |
+
+### 2.5 — Devis → Facture conversion
+
+| # | Action | Expected |
+|---|---|---|
+| 2.5.1 | From the devis created in 2.3, convert to facture | Facture created with own reference; status appropriate |
+| 2.5.2 | Verify the facture has the same line items, same totals | No data loss in conversion |
+| 2.5.3 | Try to edit the facture | Either allowed with caveats, or blocked — report what happens |
+
+### 2.6 — Payment / Acomptes
+
+| # | Action | Expected |
+|---|---|---|
+| 2.6.1 | On the facture, add an acompte of 200 € | Acompte saved |
+| 2.6.2 | Verify facture status updates | Should change from `brouillon` / `envoyee` to `partiellement_payee` |
+| 2.6.3 | Add second acompte to reach full total | Status → `soldee` |
+
+### 2.7 — Sanity: atelier settings
+
+| # | Action | Expected |
+|---|---|---|
+| 2.7.1 | Open `/parametres` | Workshop settings form loads with seeded data (SIRET, TVA, etc.) |
+| 2.7.2 | Change a value, save | Persists; reload shows new value |
+
+### 2.8 — API contract & data integrity spot checks
+
+| # | Action | Expected |
+|---|---|---|
+| 2.8.1 | `GET /produits` returns products with all new fields | `type_code`, `pricing_mode`, `fournisseur_id`, `ref_legacy`, type-specific fields all present |
+| 2.8.2 | `GET /produits?type_code=VR` | Returns only 4 VR products |
+| 2.8.3 | `GET /produits/search?q=verre` | Returns at least Ref 8 and Ref 12 |
+| 2.8.4 | `GET /fournisseurs` | Returns 6+ suppliers |
+| 2.8.5 | Check that no API response has `type_produit` populated as primary field | Confirms legacy field is truly deprecated |
+
+---
+
+## PHASE 3 — Report
+
+Post a structured report in chat with this exact format:
+
+```
+## QA REPORT — Task 04
+
+### Seeding summary
+- Atelier: [1 row / 0 rows — error X]
+- Fournisseurs: [6 rows]
+- Clients: [5 rows]
+- Produits: [20 rows — breakdown by type: VR 4, FA 4, AU 4, SD 4, EN 4]
+- Devis: [created during testing: X]
+- Factures: [created during testing: X]
+
+### Test results (by section)
+
+#### 2.1 Catalog browser — [PASS / FAIL / PARTIAL] (X of Y tests)
+- 2.1.1: [PASS/FAIL — evidence]
+- ... (one line per test)
+
+#### 2.2 Product creation — ...
+[same format for every section]
+
+### Critical findings (bugs that block real use)
+- [description, evidence, recommended fix — but do not implement unless trivial]
+
+### Minor findings (cosmetic, polish, small gaps)
+- [description]
+
+### Pricing math verification (test 2.3.10 specifically)
+- TN regime for verre clair 10mm @ 56.5×71: my code produces X €, legacy shows Y €, difference: Z
+- TA regime: my code produces X €, legacy shows Y €, difference: Z
+- Formula currently implemented: [paste the exact formula from compute-line.ts]
+- Verdict: matches / does not match / uncertain
+
+### Fixes I applied during testing
+- [list of small bug fixes applied, with commit hashes if committed]
+- [list of things I noticed but did NOT fix, with reason]
+
+### Suggested next agent task
+- [based on findings]
+```
+
+---
+
+## Hard constraints
+
+1. **Do not build new features.** If a screen is missing (e.g. suppliers list page), report it — don't create it.
+2. **Small fixes only.** A typo, a missing `res.ok` check, a wrong badge color — fix it. A refactor, a new component, a schema change — report it.
+3. **No invented test results.** If you can't reach a page, write BLOCKED with the error. If a price computation doesn't match the expected value, write FAIL with both numbers. Do not round to "close enough."
+4. **No new dependencies.**
+5. **French UI.** If you find English text anywhere it shouldn't be, flag it.
+6. **Commit seeds and any bug fixes separately** so the diff is reviewable. Don't bundle test fixes with seed data.
+
+---
+
+Begin with the status check from the "Before you do anything else" section.
