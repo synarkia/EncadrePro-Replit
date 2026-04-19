@@ -256,9 +256,9 @@ export default function ClientsList() {
                       </div>
                     )}
                     {/* Last activity */}
-                    {(client as any).derniere_activite && (
+                    {client.derniere_activite && (
                       <div className="text-right hidden lg:block">
-                        <p className="text-xs text-muted-foreground">{formatDate((client as any).derniere_activite)}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(client.derniere_activite)}</p>
                         <p className="text-[10px] text-muted-foreground/60">Dernière activité</p>
                       </div>
                     )}
