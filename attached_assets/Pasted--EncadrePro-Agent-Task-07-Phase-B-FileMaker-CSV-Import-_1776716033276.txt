@@ -1,0 +1,324 @@
+# EncadrePro — Agent Task 07 (Phase B): FileMaker CSV Import Infrastructure
+
+## Context
+
+EncadrePro's client (Thomas, Atelier AGV in Lyon) has been using FileMaker Pro for years and has ~5,000 product records, plus clients and suppliers, that need to land in EncadrePro's PostgreSQL database. This task builds the **import infrastructure** so that when Thomas sends his FileMaker exports (as `.xlsx` or `.csv` files), we can load them into EncadrePro with a click, preserving his existing Réf numbers so he still navigates his catalog by the numbers he's memorized for decades.
+
+**Key fact**: we do not have the actual CSV files yet. This task builds the infrastructure with reasonable assumptions about column names (inferred from the legacy app screenshots). When Thomas sends real files, a small adaptation pass will reconcile any column-name differences — but the framework, UI, validation, and import flow should all be in place.
+
+**This is a feature build task**, not a fix or refactor task. The scope is: new backend import routes + new UI in `/parametres` for uploading, previewing, and executing imports. No modifications to existing features beyond what's strictly necessary to surface the import UI.
+
+---
+
+## Before you start
+
+1. Confirm HEAD commit and that `pnpm -r typecheck` is green. If red, stop and report.
+2. Read:
+   - `lib/db/src/schema/` — the complete schema, especially `produits`, `fournisseurs`, `clients`, `atelier`
+   - `artifacts/api-server/src/routes/produits.ts`, `fournisseurs.ts`, `clients.ts` — to understand existing patterns for validation and insertion
+   - `artifacts/encadrepro/src/pages/parametres/index.tsx` — the existing settings page structure; the import UI will be added here
+   - Any existing `seed.ts` — to see the patterns already used for bulk inserts
+3. Post a short orientation summary covering: the current schema's primary keys and unique constraints on the affected tables, the existing upsert pattern used in seed/routes, whether any multipart form-data or file-upload handling already exists anywhere (check Express middleware configuration). Also list any existing CSV parsing libraries in `package.json`.
+
+**Wait for confirmation before coding.**
+
+---
+
+## The 3 import types
+
+Support exactly these three imports in this task. Each gets its own endpoint, its own UI section, its own mapper.
+
+1. **Fournisseurs** — must be imported first so product imports can resolve `fournisseur_id`
+2. **Clients** — independent, no dependencies
+3. **Produits** — depends on fournisseurs being imported first (to resolve `fournisseur_id` via fournisseur name lookup)
+
+Devis, Factures, Acomptes, etc. are NOT imported — historical quote/invoice migration is intentionally out of scope. Thomas keeps his legacy FileMaker installed for historical reference; EncadrePro starts fresh for new devis.
+
+---
+
+## Expected CSV column mappings
+
+Based on the legacy FileMaker screenshots, here are the best-guess column name mappings. **Treat these as the default mapping** that the mapper layer can override if real Thomas files use different names. Build the mapping as a lookup table so it's easy to change later.
+
+### Fournisseurs CSV → `fournisseurs` table
+
+| Legacy column (assumed) | EncadrePro field | Notes |
+|---|---|---|
+| `Nom` or `Fournisseur` | `nom` | required, text |
+| `Version` or `Tarif` | `version_tarif` | optional, text like "02/2025" |
+| `Email` | `contact_email` | optional |
+| `Téléphone` or `Tel` | `contact_tel` | optional |
+| `Contact` | `contact_nom` | optional |
+| `Notes` | `notes` | optional |
+
+**Deduplication rule**: if a fournisseur with the same `nom + version_tarif` already exists, skip (don't update). Report as "déjà présent" in the summary.
+
+### Clients CSV → `clients` table
+
+| Legacy column | EncadrePro field | Notes |
+|---|---|---|
+| `Nom` or `Raison sociale` | `nom` | required, text |
+| `Adresse` | `adresse` | optional, multiline allowed |
+| `CP` or `Code postal` | part of `adresse` or separate field — check schema | check |
+| `Ville` | part of `adresse` or separate field — check schema | check |
+| `Téléphone` or `Tel` | `tel` | optional |
+| `Email` | `email` | optional |
+| `Ref` or `Réf client` | `ref` | optional, string |
+
+**Deduplication rule**: match on `nom`. If exists, skip (don't overwrite — Thomas may have edited in EncadrePro).
+
+### Produits CSV → `produits` table (most complex)
+
+The legacy "Produits" export will likely be either one file with a `Type` column (VR/FA/AU/SD/EN) or five separate files (one per type). Support both — a dropdown in the UI lets Thomas specify "all-in-one CSV" or "per-type CSV" and tell us which type if per-type.
+
+| Legacy column | EncadrePro field | Notes |
+|---|---|---|
+| `Ref` | `ref_legacy` | **critical** — preserve the number Thomas memorized |
+| `Désignation` | `designation` | required |
+| `Fournisseur` | resolves to `fournisseur_id` | lookup by name + optional version match; skip row if unresolved and log |
+| `Réf Fournisseur` | `ref_fournisseur` | optional |
+| `Catégorie` or `Sous-catégorie` | `categorie` or `sous_categorie` | check schema for actual column name |
+| `Type` | `type_code` | one of `VR`/`FA`/`AU`/`SD`/`EN` |
+| `PAUHT` or `Prix achat` | `pauht` | number (handle French decimal comma) |
+| `Coef marge` | `coef_marge` | number, default 1 if missing |
+| `Notes` | `notes` | optional |
+| `Image` | `image_url` | optional, text URL |
+
+**Type-specific columns** (may or may not exist in Thomas's export, handle gracefully):
+
+For VR:
+- `Épais` or `Épaisseur` → `epaisseur_mm`
+- `Majo épais` → `majo_epaisseur`
+- `Mini fact TN` → `mini_fact_tn`
+- `Mini fact TA` → `mini_fact_ta`
+- `Coef marge TA` → `coef_marge_ta`
+- `PlusValue TA` → `plus_value_ta_pct`
+
+For FA:
+- `mm` or `fac mm` → `fac_mm`
+
+For EN:
+- `Cadre ou accessoire` → `cadre_or_accessoire` (normalize to `cadre` or `accessoire`)
+- `Vendu` → `vendu` (boolean — any truthy string like "x", "oui", "V", "true" → true)
+
+For AU and SD:
+- No extra columns
+
+**Pricing mode inference** (since Thomas's FileMaker probably doesn't have a `pricing_mode` column explicitly):
+- Type = VR → `pricing_mode = 'square_meter'`
+- Type = FA → `pricing_mode = 'linear_meter'`
+- Type = AU → `pricing_mode = 'unit'`
+- Type = SD → `pricing_mode = 'unit'`
+- Type = EN → default `pricing_mode = 'linear_meter'` (most Encadrements are Px.ml), but allow override via a `Pricing mode` column if present, or via a `P.U` marker
+
+**Deduplication rule for produits**: match on `ref_legacy` (since it's unique). If a row with that ref already exists, skip (don't overwrite). Report as "déjà présent."
+
+---
+
+## Backend — implementation
+
+### New files to create
+
+1. `lib/import/src/index.ts` — pure-TypeScript CSV/XLSX parsing and mapping logic, zero framework deps. Exports:
+   ```ts
+   export type ImportReport = {
+     total: number;
+     imported: number;
+     skipped: number;
+     skipped_rows: Array<{ row_number: number; reason: string; raw_data: Record<string, unknown> }>;
+   };
+   
+   export function parseCsv(buffer: Buffer, encoding?: string): Record<string, string>[];
+   export function parseXlsx(buffer: Buffer): Record<string, string>[];
+   
+   export function mapFournisseurRow(row, lineNumber): Result<FournisseurInsert, string>;
+   export function mapClientRow(row, lineNumber): Result<ClientInsert, string>;
+   export function mapProduitRow(row, lineNumber, fournisseurLookup): Result<ProduitInsert, string>;
+   ```
+   
+   Where `Result<T, E> = { ok: true; value: T } | { ok: false; error: E }` — standard discriminated union. No throwing from mappers.
+   
+   Create as a new pnpm workspace package: `lib/import/package.json` with name `@workspace/import`, standard TypeScript setup matching existing lib packages.
+
+2. `artifacts/api-server/src/routes/import.ts` — three endpoints:
+   - `POST /api/import/fournisseurs` — multipart file upload, returns `ImportReport`
+   - `POST /api/import/clients` — same shape
+   - `POST /api/import/produits` — same shape
+   
+   Each endpoint:
+   - Accepts multipart form-data with a `file` field (CSV or XLSX)
+   - Optionally accepts a `dry_run` query param (`?dry_run=true`) — if set, parse and validate but do NOT write to DB. Returns the report showing what would happen.
+   - Reads the uploaded file into a Buffer
+   - Detects encoding (prefer UTF-8; fall back to ISO-8859-1 / MacRoman if UTF-8 produces replacement characters in >5% of rows — heuristic)
+   - Dispatches to CSV or XLSX parser based on file extension
+   - Runs each row through the corresponding mapper
+   - For successful maps, inserts in a single transaction with the deduplication rules described above
+   - Returns `ImportReport`
+   - On DB-level failure (constraint violation on a row), rollback entire transaction, return a useful error
+
+3. OpenAPI spec additions in `lib/api-spec/openapi.yaml`:
+   - `POST /api/import/fournisseurs`, `/api/import/clients`, `/api/import/produits` — all accept `multipart/form-data` with a `file` binary field, return `ImportReport`
+   - New `ImportReport` schema
+
+4. Regenerate codegen.
+
+### Dependencies to add
+
+You'll likely need:
+- `multer` or `@fastify/multipart` (check which Express version is in use — Express 5 is per replit.md; use `multer` with its Express 5 compatible version) for multipart handling
+- `papaparse` for CSV (handles French decimal commas, trims whitespace, handles BOM)
+- `xlsx` or `exceljs` for XLSX (most FileMaker exports to Excel come out as `.xlsx`)
+- `iconv-lite` for encoding conversion
+
+**Flag these in your plan** with exact version numbers before installing. No new deps without my approval.
+
+### Validation rules (every mapper enforces these)
+
+- Trim all string fields
+- Convert French decimal commas to dots for numeric fields ("1,23" → 1.23)
+- Strip currency symbols ("€", " €") from numeric fields
+- Empty strings become `null`, not empty-string
+- For required fields, empty/null produces a mapper failure with specific reason ("Champ 'nom' manquant")
+- For enum fields, map common variants (e.g. `Vendu = "oui"` → true, `= "x"` → true, `= "non"` → false, `= ""` → false)
+- For fournisseur lookup in produits: try exact name+version match first, then exact name match (version null-tolerant), then case-insensitive name match. Report which match strategy succeeded in the report per row. If no match, skip with reason "Fournisseur 'X' non trouvé — importez d'abord les fournisseurs".
+
+### Deduplication — transaction safety
+
+Use a single transaction per import request. Within it:
+1. Query existing records that might collide (by the dedup keys above)
+2. Partition incoming rows into `to_insert` and `to_skip_existing`
+3. Bulk insert `to_insert`
+4. Report both sets in the response
+
+No "upsert" behavior. Imports only add. Skipping existing rows is the safe default because Thomas may have manually edited something in EncadrePro.
+
+---
+
+## Frontend — implementation
+
+### New UI in `/parametres`
+
+Add a new section below the existing workshop settings form, titled **"Importer depuis FileMaker"**. Structure:
+
+**Collapsible explanation block** (always visible):
+> *Importez vos données depuis FileMaker Pro. Exportez chaque liste (Fournisseurs, Clients, Produits) en format Excel ou CSV depuis FileMaker, puis chargez les fichiers ici. Les lignes en double seront automatiquement ignorées. Les fournisseurs doivent être importés avant les produits.*
+
+**Three import cards**, stacked vertically. Each card contains:
+
+1. **Title**: "Fournisseurs" / "Clients" / "Produits"
+2. **File input**: accepts `.csv, .xlsx`
+3. **Dropdown for Produits only**: "Tous les types dans un seul fichier" vs "Fichier pour un seul type" — if "single type" chosen, show a second select for VR/FA/AU/SD/EN
+4. **"Analyser" button (dry run)**: sends the file with `?dry_run=true`, shows the preview report without touching DB
+5. **"Importer" button (destructive)**: sends the file for real. Disabled until a file is selected. When clicked, requires confirmation via `window.confirm` or a modal: "Cette action va ajouter N lignes à la base de données. Continuer ?"
+6. **Report display area**: once an analysis or import completes, show:
+   - Total rows read
+   - Successfully imported / would-be-imported (green count)
+   - Skipped because already exists (gray count)
+   - Skipped because of errors (red count)
+   - If there are errors, an expandable list showing row number + reason + raw data (formatted as a small table)
+
+### UX behaviors
+
+- Upload state: show a spinner on the button while uploading
+- Do NOT automatically redirect after import — stay on the page so Thomas can see the report
+- If an error report is shown, provide a "Télécharger le rapport" button that downloads the report as JSON or CSV (useful for Thomas to review skipped rows offline)
+- The import cards should be visually clearly separated from the workshop settings form — they're a different category of action
+
+### File to create / modify
+
+- `artifacts/encadrepro/src/components/ImportCard.tsx` — reusable card component, props for which import type
+- Modify `artifacts/encadrepro/src/pages/parametres/index.tsx` — add the new section with 3 instances of ImportCard
+
+### Styling
+
+Match existing design language: dark glass-morphism, violet and gold accents, French labels throughout. Don't introduce new components beyond ImportCard. Use existing button, input, card patterns.
+
+---
+
+## Testing (during this task)
+
+1. Create 3 small test CSV files in `scripts/test-data/`:
+   - `test-fournisseurs.csv` — 5 rows covering: valid row, duplicate (same nom+version), missing required field, extra whitespace, French decimal comma in a text field (should pass through as-is).
+   - `test-clients.csv` — 5 rows covering similar edge cases.
+   - `test-produits.csv` — 15 rows, 3 per type (VR/FA/AU/SD/EN), covering: valid type-specific fields, missing optional fields, invalid type code, invalid fournisseur reference, duplicate ref_legacy.
+2. Run each file through the new endpoints via curl or the UI.
+3. Verify the import reports match expectations.
+4. For each successful test, query the DB to confirm rows landed with correct values (especially ref_legacy, fournisseur_id, type-specific fields).
+5. Run imports a second time — should report all rows as "already present" with 0 new.
+
+**In the final report**, paste the test CSVs' contents and the import reports they produced.
+
+---
+
+## Hard constraints
+
+1. **No schema changes in this task.** If a field you need doesn't exist, flag it — don't add it. Defer to a follow-up.
+2. **No edits to existing pages beyond `/parametres`** to add the import section.
+3. **Do not touch the devis composer, catalog browser, or product forms.** Their behavior remains identical.
+4. **Transactions are mandatory.** Never partial-write a batch. If any row in a batch fails at the DB level (post-validation), rollback and report.
+5. **No silent overwrites.** Deduplication is always skip-existing, never update.
+6. **All UI text in French.**
+7. **`pnpm -r typecheck` must be green** before final report.
+8. **No unrelated refactors.** If you find code smells outside the import flow, log them in the report's "out of scope findings" section — don't touch them.
+9. **File size limit**: accept files up to 10 MB. Reject larger with a friendly error. FileMaker exports of 5,000 rows are typically ~500KB–2MB, so this is plenty.
+10. **Security**: do not persist uploaded files to disk anywhere. Parse in memory, discard after processing. Do not log row contents in server logs (may contain client PII).
+
+---
+
+## Final report format
+
+```
+## TASK 07 (Phase B) REPORT — CSV Import Infrastructure
+
+### Baseline
+- HEAD commit before: [hash]
+- pnpm -r typecheck before: [GREEN/RED]
+
+### Files created
+- lib/import/... [list]
+- artifacts/api-server/src/routes/import.ts
+- artifacts/encadrepro/src/components/ImportCard.tsx
+- scripts/test-data/... [list]
+
+### Files modified
+- [list with one-line reason each]
+
+### Dependencies added
+- [library@version + reason]
+
+### OpenAPI changes
+- [summary]
+
+### Test data results
+**test-fournisseurs.csv:**
+[paste the import report]
+
+**test-clients.csv:**
+[paste the import report]
+
+**test-produits.csv:**
+[paste the import report]
+
+### DB verification
+- Sample queries and results confirming rows landed correctly with ref_legacy preserved
+
+### Final gate
+- pnpm -r typecheck: [GREEN/RED]
+- Dev preview loads /parametres with 3 import cards visible: [yes/no]
+- curl smoke test against each endpoint with --data-binary: [yes/no, summary]
+
+### Out-of-scope findings (noticed but not fixed)
+- [list]
+
+### Known limitations / notes for when Thomas's real files arrive
+- Column mapping assumes legacy names listed in spec. Adjustments likely needed in lib/import/src/mappers/ — central location.
+- Encoding detection is heuristic; if Thomas sends a file that parses as garbage text, encoding override parameter may need adding.
+- [other]
+
+### Suggested next task
+- [based on what you found or on the roadmap: Phase C PDF generation, or small follow-ups from this task]
+```
+
+Do not push to main without review.
+
+Post the orientation summary first, wait for confirmation, then post the plan, wait again, then code.
