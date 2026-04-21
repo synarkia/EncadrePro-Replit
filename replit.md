@@ -31,7 +31,8 @@ artifacts-monorepo/
 │   ├── api-spec/            # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/    # Generated React Query hooks
 │   ├── api-zod/             # Generated Zod schemas from OpenAPI
-│   └── db/                  # Drizzle ORM schema + DB connection
+│   ├── db/                  # Drizzle ORM schema + DB connection
+│   └── import/              # FileMaker CSV/XLSX import (parsers, mappers, normalizers)
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json
 └── replit.md
@@ -92,6 +93,7 @@ Single-row config (id=1). Always upsert, never insert a second row.
 - `devis.ts` — CRUD + save lignes (with nested faconnage/service) + convert to facture
 - `factures.ts` — CRUD + paiements (auto-recalculates statut)
 - `atelier.ts` — GET/PUT settings
+- `import.ts` — Bulk-import endpoints from FileMaker exports (CSV/XLSX, multipart, dry-run + real)
 
 ### Frontend Components (`artifacts/encadrepro/src/components/`)
 - `ProductSearchCombobox.tsx` — Autocomplete with 2+ char trigger, type filter, supplier pill
@@ -108,6 +110,7 @@ Single-row config (id=1). Always upsert, never insert a second row.
 - `factures/[id].tsx` — Invoice details + payment tracking
 - `catalogue/index.tsx` — Product catalogue with type tabs (Matière/Façonnage/Service)
 - `parametres/index.tsx` — Workshop settings form
+- `parametres/ImportSection.tsx` — FileMaker import UI (3 cards: Fournisseurs, Clients, Produits) with dry-run preview, dedup-skip-only, and >50% fournisseur-missing hint
 
 ## Important Notes
 

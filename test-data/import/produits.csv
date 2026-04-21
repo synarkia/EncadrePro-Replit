@@ -1,0 +1,10 @@
+Ref;Désignation;Type;Fournisseur;Réf Fournisseur;Catégorie;PAUHT;Coef marge;Épais;Majo épais;Mini fact TN;Mini fact TA;Coef marge TA;PlusValue TA;mm;Cadre ou accessoire;Vendu;Notes
+VR-001;Verre clair 2mm;VR;Verre Lyon;VL-200;Verre;12,50;2,00;2;1,20;0,30;0,25;1,90;15;;;;Standard
+VR-002;Plexi 3mm anti-UV;VR;Verre Lyon;PL-300;Plexi;28,90;1,80;3;1,50;0,30;0,25;1,90;18;;;;Anti-UV haute qualité
+FA-001;Façonnage cadre 30mm;FA;Larson-Juhl;LJ-FAC-30;Façonnage;8,50;2,00;;;;;;;30;;;
+EN-001;Baguette chêne 40mm;EN;Roma Moulding;RM-CH-40;Baguette;18,75;2,20;;;;;;;;Cadre;oui;Belle finition
+EN-002;Cadre vintage 50x70;EN;Roma Moulding;RM-VINT-5070;Cadre;45,00;1,00;;;;;;;;Cadre;x;Pièce unique
+AU-001;Carton plume 5mm;AU;Larson-Juhl;LJ-CP-5;Accessoire;3,50 €;2,50;;;;;;;;;non;
+SD-001;Livraison Lyon;SD;;;;15,00;1,00;;;;;;;;;;
+ZZ-001;Produit avec fournisseur fantôme;EN;Inexistant SARL;XX-1;;10,00;1,50;;;;;;;;;non;
+;Sans référence ni type;;;;;;;;;;;;;;;;

@@ -1,0 +1,6 @@
+Nom,Version,Email,Téléphone,Contact,Notes
+Larson-Juhl,02/2025,contact@larson-juhl.fr,01 23 45 67 89,Marie Dupont,Tarif valide jusqu'au 31/12/2025
+Nielsen Bainbridge,01/2025,sales@nielsen.com,01 98 76 54 32,John Smith,
+Roma Moulding,03/2025,info@romamoulding.fr,,Lucia Bianchi,Très bonnes baguettes en chêne
+,02/2025,empty@invalid.com,,,Cette ligne doit échouer (nom manquant)
+Verre Lyon,2025,verre@lyon.fr,04 78 11 22 33,,

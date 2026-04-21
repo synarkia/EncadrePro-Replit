@@ -1,0 +1,19 @@
+{
+  "name": "@workspace/import",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "iconv-lite": "^0.6.3",
+    "papaparse": "^5.5.3",
+    "xlsx": "^0.18.5",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/papaparse": "^5.3.16"
+  }
+}

@@ -21,6 +21,8 @@ tags:
     description: Invoice management
   - name: atelier
     description: Workshop settings
+  - name: import
+    description: Bulk data import from FileMaker exports (CSV / XLSX)
 paths:
   /healthz:
     get:
@@ -726,6 +728,92 @@ paths:
               schema:
                 $ref: "#/components/schemas/Atelier"
 
+  /import/fournisseurs:
+    post:
+      operationId: importFournisseurs
+      tags: [import]
+      summary: Bulk-import suppliers from a FileMaker CSV/XLSX export
+      parameters:
+        - in: query
+          name: dry_run
+          required: false
+          schema: { type: string, enum: ["true", "false"] }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+              required: [file]
+      responses:
+        "200":
+          description: Import report (real or dry-run)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportReport" }
+
+  /import/clients:
+    post:
+      operationId: importClients
+      tags: [import]
+      summary: Bulk-import clients from a FileMaker CSV/XLSX export
+      parameters:
+        - in: query
+          name: dry_run
+          required: false
+          schema: { type: string, enum: ["true", "false"] }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+              required: [file]
+      responses:
+        "200":
+          description: Import report (real or dry-run)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportReport" }
+
+  /import/produits:
+    post:
+      operationId: importProduits
+      tags: [import]
+      summary: Bulk-import products from a FileMaker CSV/XLSX export
+      description: |
+        If the file contains a `Type` column, all 5 product types may coexist in one file.
+        For per-type files (one type per export), pass `?type=VR|FA|AU|SD|EN` to force the type
+        for every row. Fournisseurs must already exist; rows whose Fournisseur cannot be resolved are skipped with a French diagnostic.
+      parameters:
+        - in: query
+          name: dry_run
+          required: false
+          schema: { type: string, enum: ["true", "false"] }
+        - in: query
+          name: type
+          required: false
+          schema: { type: string, enum: ["VR", "FA", "AU", "SD", "EN"] }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+              required: [file]
+      responses:
+        "200":
+          description: Import report (real or dry-run)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportReport" }
+
 components:
   schemas:
     HealthStatus:
@@ -741,6 +829,29 @@ components:
         success:
           type: boolean
       required: [success]
+
+    ImportSkippedRow:
+      type: object
+      properties:
+        row_number: { type: integer }
+        reason: { type: string }
+        raw_data: { type: object, additionalProperties: true }
+      required: [row_number, reason, raw_data]
+
+    ImportReport:
+      type: object
+      properties:
+        total: { type: integer }
+        imported: { type: integer }
+        skipped_existing: { type: integer }
+        skipped_error: { type: integer }
+        skipped_rows:
+          type: array
+          items: { $ref: "#/components/schemas/ImportSkippedRow" }
+        encoding: { type: string }
+        encoding_note: { type: string }
+        dry_run: { type: boolean }
+      required: [total, imported, skipped_existing, skipped_error, skipped_rows, dry_run]
 
     # ── DASHBOARD ──
     DashboardStats:

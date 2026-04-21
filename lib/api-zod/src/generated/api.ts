@@ -1083,3 +1083,92 @@ export const SaveAtelierResponse = zod.object({
   smtp_user: zod.string().nullish(),
   smtp_pass: zod.string().nullish(),
 });
+
+/**
+ * @summary Bulk-import suppliers from a FileMaker CSV/XLSX export
+ */
+export const ImportFournisseursQueryParams = zod.object({
+  dry_run: zod.enum(["true", "false"]).optional(),
+});
+
+export const ImportFournisseursBody = zod.object({
+  file: zod.instanceof(File),
+});
+
+export const ImportFournisseursResponse = zod.object({
+  total: zod.number(),
+  imported: zod.number(),
+  skipped_existing: zod.number(),
+  skipped_error: zod.number(),
+  skipped_rows: zod.array(
+    zod.object({
+      row_number: zod.number(),
+      reason: zod.string(),
+      raw_data: zod.record(zod.string(), zod.unknown()),
+    }),
+  ),
+  encoding: zod.string().optional(),
+  encoding_note: zod.string().optional(),
+  dry_run: zod.boolean(),
+});
+
+/**
+ * @summary Bulk-import clients from a FileMaker CSV/XLSX export
+ */
+export const ImportClientsQueryParams = zod.object({
+  dry_run: zod.enum(["true", "false"]).optional(),
+});
+
+export const ImportClientsBody = zod.object({
+  file: zod.instanceof(File),
+});
+
+export const ImportClientsResponse = zod.object({
+  total: zod.number(),
+  imported: zod.number(),
+  skipped_existing: zod.number(),
+  skipped_error: zod.number(),
+  skipped_rows: zod.array(
+    zod.object({
+      row_number: zod.number(),
+      reason: zod.string(),
+      raw_data: zod.record(zod.string(), zod.unknown()),
+    }),
+  ),
+  encoding: zod.string().optional(),
+  encoding_note: zod.string().optional(),
+  dry_run: zod.boolean(),
+});
+
+/**
+ * If the file contains a `Type` column, all 5 product types may coexist in one file.
+For per-type files (one type per export), pass `?type=VR|FA|AU|SD|EN` to force the type
+for every row. Fournisseurs must already exist; rows whose Fournisseur cannot be resolved are skipped with a French diagnostic.
+
+ * @summary Bulk-import products from a FileMaker CSV/XLSX export
+ */
+export const ImportProduitsQueryParams = zod.object({
+  dry_run: zod.enum(["true", "false"]).optional(),
+  type: zod.enum(["VR", "FA", "AU", "SD", "EN"]).optional(),
+});
+
+export const ImportProduitsBody = zod.object({
+  file: zod.instanceof(File),
+});
+
+export const ImportProduitsResponse = zod.object({
+  total: zod.number(),
+  imported: zod.number(),
+  skipped_existing: zod.number(),
+  skipped_error: zod.number(),
+  skipped_rows: zod.array(
+    zod.object({
+      row_number: zod.number(),
+      reason: zod.string(),
+      raw_data: zod.record(zod.string(), zod.unknown()),
+    }),
+  ),
+  encoding: zod.string().optional(),
+  encoding_note: zod.string().optional(),
+  dry_run: zod.boolean(),
+});

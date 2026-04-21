@@ -35,6 +35,13 @@ import type {
   FactureDetail,
   Fournisseur,
   HealthStatus,
+  ImportClientsBody,
+  ImportClientsParams,
+  ImportFournisseursBody,
+  ImportFournisseursParams,
+  ImportProduitsBody,
+  ImportProduitsParams,
+  ImportReport,
   ListClientsParams,
   ListDevisParams,
   ListFacturesParams,
@@ -3099,4 +3106,320 @@ export const useSaveAtelier = <
   TContext
 > => {
   return useMutation(getSaveAtelierMutationOptions(options));
+};
+
+/**
+ * @summary Bulk-import suppliers from a FileMaker CSV/XLSX export
+ */
+export const getImportFournisseursUrl = (params?: ImportFournisseursParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/import/fournisseurs?${stringifiedParams}`
+    : `/api/import/fournisseurs`;
+};
+
+export const importFournisseurs = async (
+  importFournisseursBody: ImportFournisseursBody,
+  params?: ImportFournisseursParams,
+  options?: RequestInit,
+): Promise<ImportReport> => {
+  const formData = new FormData();
+  formData.append(`file`, importFournisseursBody.file);
+
+  return customFetch<ImportReport>(getImportFournisseursUrl(params), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getImportFournisseursMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importFournisseurs>>,
+    TError,
+    {
+      data: BodyType<ImportFournisseursBody>;
+      params?: ImportFournisseursParams;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importFournisseurs>>,
+  TError,
+  { data: BodyType<ImportFournisseursBody>; params?: ImportFournisseursParams },
+  TContext
+> => {
+  const mutationKey = ["importFournisseurs"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importFournisseurs>>,
+    {
+      data: BodyType<ImportFournisseursBody>;
+      params?: ImportFournisseursParams;
+    }
+  > = (props) => {
+    const { data, params } = props ?? {};
+
+    return importFournisseurs(data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportFournisseursMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importFournisseurs>>
+>;
+export type ImportFournisseursMutationBody = BodyType<ImportFournisseursBody>;
+export type ImportFournisseursMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bulk-import suppliers from a FileMaker CSV/XLSX export
+ */
+export const useImportFournisseurs = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importFournisseurs>>,
+    TError,
+    {
+      data: BodyType<ImportFournisseursBody>;
+      params?: ImportFournisseursParams;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importFournisseurs>>,
+  TError,
+  { data: BodyType<ImportFournisseursBody>; params?: ImportFournisseursParams },
+  TContext
+> => {
+  return useMutation(getImportFournisseursMutationOptions(options));
+};
+
+/**
+ * @summary Bulk-import clients from a FileMaker CSV/XLSX export
+ */
+export const getImportClientsUrl = (params?: ImportClientsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/import/clients?${stringifiedParams}`
+    : `/api/import/clients`;
+};
+
+export const importClients = async (
+  importClientsBody: ImportClientsBody,
+  params?: ImportClientsParams,
+  options?: RequestInit,
+): Promise<ImportReport> => {
+  const formData = new FormData();
+  formData.append(`file`, importClientsBody.file);
+
+  return customFetch<ImportReport>(getImportClientsUrl(params), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getImportClientsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importClients>>,
+    TError,
+    { data: BodyType<ImportClientsBody>; params?: ImportClientsParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importClients>>,
+  TError,
+  { data: BodyType<ImportClientsBody>; params?: ImportClientsParams },
+  TContext
+> => {
+  const mutationKey = ["importClients"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importClients>>,
+    { data: BodyType<ImportClientsBody>; params?: ImportClientsParams }
+  > = (props) => {
+    const { data, params } = props ?? {};
+
+    return importClients(data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportClientsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importClients>>
+>;
+export type ImportClientsMutationBody = BodyType<ImportClientsBody>;
+export type ImportClientsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bulk-import clients from a FileMaker CSV/XLSX export
+ */
+export const useImportClients = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importClients>>,
+    TError,
+    { data: BodyType<ImportClientsBody>; params?: ImportClientsParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importClients>>,
+  TError,
+  { data: BodyType<ImportClientsBody>; params?: ImportClientsParams },
+  TContext
+> => {
+  return useMutation(getImportClientsMutationOptions(options));
+};
+
+/**
+ * If the file contains a `Type` column, all 5 product types may coexist in one file.
+For per-type files (one type per export), pass `?type=VR|FA|AU|SD|EN` to force the type
+for every row. Fournisseurs must already exist; rows whose Fournisseur cannot be resolved are skipped with a French diagnostic.
+
+ * @summary Bulk-import products from a FileMaker CSV/XLSX export
+ */
+export const getImportProduitsUrl = (params?: ImportProduitsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/import/produits?${stringifiedParams}`
+    : `/api/import/produits`;
+};
+
+export const importProduits = async (
+  importProduitsBody: ImportProduitsBody,
+  params?: ImportProduitsParams,
+  options?: RequestInit,
+): Promise<ImportReport> => {
+  const formData = new FormData();
+  formData.append(`file`, importProduitsBody.file);
+
+  return customFetch<ImportReport>(getImportProduitsUrl(params), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getImportProduitsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importProduits>>,
+    TError,
+    { data: BodyType<ImportProduitsBody>; params?: ImportProduitsParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importProduits>>,
+  TError,
+  { data: BodyType<ImportProduitsBody>; params?: ImportProduitsParams },
+  TContext
+> => {
+  const mutationKey = ["importProduits"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importProduits>>,
+    { data: BodyType<ImportProduitsBody>; params?: ImportProduitsParams }
+  > = (props) => {
+    const { data, params } = props ?? {};
+
+    return importProduits(data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportProduitsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importProduits>>
+>;
+export type ImportProduitsMutationBody = BodyType<ImportProduitsBody>;
+export type ImportProduitsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bulk-import products from a FileMaker CSV/XLSX export
+ */
+export const useImportProduits = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importProduits>>,
+    TError,
+    { data: BodyType<ImportProduitsBody>; params?: ImportProduitsParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importProduits>>,
+  TError,
+  { data: BodyType<ImportProduitsBody>; params?: ImportProduitsParams },
+  TContext
+> => {
+  return useMutation(getImportProduitsMutationOptions(options));
 };

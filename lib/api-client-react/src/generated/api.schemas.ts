@@ -13,6 +13,25 @@ export interface SuccessResponse {
   success: boolean;
 }
 
+export type ImportSkippedRowRawData = { [key: string]: unknown };
+
+export interface ImportSkippedRow {
+  row_number: number;
+  reason: string;
+  raw_data: ImportSkippedRowRawData;
+}
+
+export interface ImportReport {
+  total: number;
+  imported: number;
+  skipped_existing: number;
+  skipped_error: number;
+  skipped_rows: ImportSkippedRow[];
+  encoding?: string;
+  encoding_note?: string;
+  dry_run: boolean;
+}
+
 export type DashboardStatsDevisEnAttente = {
   n: number;
   montant: number;
@@ -468,4 +487,64 @@ export type ListDevisParams = {
 export type ListFacturesParams = {
   statut?: string;
   client_id?: number;
+};
+
+export type ImportFournisseursParams = {
+  dry_run?: ImportFournisseursDryRun;
+};
+
+export type ImportFournisseursDryRun =
+  (typeof ImportFournisseursDryRun)[keyof typeof ImportFournisseursDryRun];
+
+export const ImportFournisseursDryRun = {
+  true: "true",
+  false: "false",
+} as const;
+
+export type ImportFournisseursBody = {
+  file: Blob;
+};
+
+export type ImportClientsParams = {
+  dry_run?: ImportClientsDryRun;
+};
+
+export type ImportClientsDryRun =
+  (typeof ImportClientsDryRun)[keyof typeof ImportClientsDryRun];
+
+export const ImportClientsDryRun = {
+  true: "true",
+  false: "false",
+} as const;
+
+export type ImportClientsBody = {
+  file: Blob;
+};
+
+export type ImportProduitsParams = {
+  dry_run?: ImportProduitsDryRun;
+  type?: ImportProduitsType;
+};
+
+export type ImportProduitsDryRun =
+  (typeof ImportProduitsDryRun)[keyof typeof ImportProduitsDryRun];
+
+export const ImportProduitsDryRun = {
+  true: "true",
+  false: "false",
+} as const;
+
+export type ImportProduitsType =
+  (typeof ImportProduitsType)[keyof typeof ImportProduitsType];
+
+export const ImportProduitsType = {
+  VR: "VR",
+  FA: "FA",
+  AU: "AU",
+  SD: "SD",
+  EN: "EN",
+} as const;
+
+export type ImportProduitsBody = {
+  file: Blob;
 };

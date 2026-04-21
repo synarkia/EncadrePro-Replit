@@ -1,0 +1,6 @@
+Nom,Prénom,Adresse,CP,Ville,Téléphone,Email,Notes
+Atelier AGV,Thomas,12 rue de la République,69002,Lyon,04 78 12 34 56,thomas@atelier-agv.fr,Client historique
+Galerie Bellecour,,5 place Bellecour,69002,Lyon,04 78 99 88 77,contact@galerie-bellecour.fr,
+Maison Dupont,Sophie,8 cours Lafayette,69003,Lyon,,sophie.dupont@example.fr,
+,,12 rue ignorée,69001,Lyon,,,Cette ligne doit échouer (nom manquant)
+Musée des Beaux-Arts,,20 place des Terreaux,69001,Lyon,04 72 10 17 40,musee@mba-lyon.fr,Institution

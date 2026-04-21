@@ -1,0 +1,20 @@
+Plan approved. Your reading of the existing code is accurate and the approach is sound. Proceed with the implementation.
+Three small things to bake in as you code:
+1. Fournisseurs-before-produits UX. Your mapper correctly skips produits rows with unresolved fournisseur_id and returns a French reason. Good. Please also make the UI handle the "mostly-skipped-for-missing-fournisseur" case gracefully: if >50% of skipped rows have fournisseur-related reasons, the report should surface a prominent hint at the top — something like "Il semble que les fournisseurs n'ont pas encore été importés. Importez d'abord le fichier Fournisseurs, puis réessayez ce fichier." This turns a scary-looking error list into a helpful next-action.
+2. Dry-run must not consume DB connection time. Since dry-run is the first thing Thomas will click (to preview before committing), make sure the dry-run path doesn't open a transaction or touch the DB at all — parse and map only, then report. The DB is only touched on actual import.
+3. Encoding report surfacing. If the encoding detection falls back from UTF-8 to ISO-8859-1 (because the file came from an older FileMaker on macOS), include that fact in the report: "Encodage détecté : ISO-8859-1 (fichier Mac hérité)." Helps Thomas understand why his file worked and gives us diagnostic info if we later see weird characters in imported text.
+Everything else in your plan is good — approved dependencies, 10MB limit, skip-only dedup, multipart via direct fetch in UI, the order of operations.
+One reminder: per the original spec, post the final structured report with test CSV contents and their import reports when done. That's how I'll verify the round-trip works end-to-end without needing to manually test myself first.
+Proceed.
+
+What to expect next
+Timeline estimate: the agent estimated ~600-800 LOC across 12 files. Realistic execution time is probably 60-120 minutes of agent work in one sitting, maybe split across two sessions if it hits a snag.
+What the agent will produce: a new @workspace/import package, new import routes, new UI section in /parametres, three test CSVs with import reports demonstrating the feature works. Plus the structured final report I specified.
+When the report lands, paste it here. I'll do four verification checks:
+
+Read the test CSV contents and their reports. If the reports show realistic pass/skip/error breakdowns (not suspiciously all-green), the feature works.
+Verify dedup behavior. Second run of the same CSV should report 100% skipped-existing. This is the single biggest safety property.
+Verify fournisseur lookup. Produits test CSV should have some rows that resolve and some that skip — the skip reasons should be helpful.
+Verify French decimal handling. At least one numeric field in the test CSVs should use "1,23" format and parse as 1.23.
+
+If all four pass → Phase B is real. If any fail → we write a focused fix prompt.
