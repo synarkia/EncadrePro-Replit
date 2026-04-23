@@ -227,7 +227,7 @@
 @media print {
   @page {
     size: A4;
-    margin: 15mm 16mm;
+    margin: 12mm 14mm 14mm 14mm;
   }
 
   * {
@@ -259,15 +259,15 @@
     grid-template-columns: 1fr auto;
     gap: 24px;
     align-items: start;
-    padding-bottom: 10mm;
+    padding-bottom: 8mm;
     border-bottom: 0.5pt solid #1a1a1a;
   }
 
   .print-wordmark {
     font-family: 'EB Garamond', 'Garamond', Georgia, serif;
     font-weight: 500;
-    font-size: 26pt;
-    letter-spacing: 0.28em;
+    font-size: 34pt;
+    letter-spacing: 0.32em;
     color: #1a1a1a;
     text-transform: uppercase;
     line-height: 1;
@@ -276,18 +276,18 @@
   }
 
   .print-brand-rule {
-    width: 48px;
-    height: 0.5pt;
+    width: 72px;
+    height: 0.75pt;
     background: #9c7a3c;
-    margin: 10px 0 10px 2px;
+    margin: 12px 0 10px 2px;
     border: 0;
   }
 
   .print-tagline {
     font-family: 'EB Garamond', 'Garamond', Georgia, serif;
     font-style: italic;
-    font-size: 11pt;
-    color: #3a3a3a;
+    font-size: 12pt;
+    color: #2a2a2a;
     margin: 0;
     letter-spacing: 0.01em;
   }
