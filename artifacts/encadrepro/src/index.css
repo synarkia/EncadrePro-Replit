@@ -663,12 +663,144 @@
     color: #b9b3a6;
   }
 
+  /* ── Mode / Référence stripe (between totals & payment) ────────────── */
+  .print-mode-strip {
+    margin-top: 6mm;
+    padding: 6px 0 8px;
+    border-top: 0.5pt solid #1a1a1a;
+    border-bottom: 0.25pt solid #d9d3c6;
+  }
+  .print-mode-list {
+    display: grid;
+    grid-template-columns: max-content 1fr max-content 1fr;
+    column-gap: 14px;
+    row-gap: 4px;
+    font-size: 9pt;
+    margin: 0;
+  }
+  .print-mode-list dt {
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #6a665f;
+    align-self: center;
+  }
+  .print-mode-list dd { margin: 0; color: #1a1a1a; }
+
+  /* ── Bank transfer + signature row ─────────────────────────────────── */
+  .print-payment-row {
+    display: grid;
+    grid-template-columns: 1fr 82mm;
+    gap: 14mm;
+    margin-top: 6mm;
+    page-break-inside: avoid;
+  }
+
+  .print-block-title {
+    font-size: 7.5pt;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: #6a665f;
+    margin-bottom: 8px;
+  }
+
+  .print-virement-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: 16px;
+    row-gap: 4px;
+    font-size: 9pt;
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .print-virement-list dt {
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #6a665f;
+    align-self: center;
+  }
+  .print-virement-list dd { margin: 0; color: #1a1a1a; letter-spacing: 0.02em; }
+
+  .print-signature-box {
+    height: 22mm;
+    border: 0.5pt solid #d9d3c6;
+    background: transparent;
+  }
+  .print-signature-hint {
+    margin: 6px 0 0;
+    font-family: 'EB Garamond', 'Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 8.5pt;
+    color: #6a665f;
+    text-align: center;
+  }
+
+  /* ── 3-column legal mentions ───────────────────────────────────────── */
+  .print-legal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10mm;
+    margin-top: 8mm;
+    padding-top: 6mm;
+    border-top: 0.5pt solid #1a1a1a;
+    page-break-inside: avoid;
+  }
+  .print-legal-grid section { font-size: 7.5pt; line-height: 1.55; color: #3a3a3a; }
+  .print-legal-grid h4 {
+    font-family: 'Inter', Arial, sans-serif;
+    font-weight: 500;
+    font-size: 7.5pt;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #1a1a1a;
+    margin: 0 0 4px;
+  }
+  .print-legal-grid h4.print-legal-sub { margin-top: 8px; }
+  .print-legal-grid p { margin: 0 0 4px; }
+
+  /* ── Page running footer ───────────────────────────────────────────── */
+  .print-pagefooter {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 6mm;
+    padding-top: 4mm;
+    font-family: 'EB Garamond', 'Garamond', Georgia, serif;
+    font-size: 8.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #6a665f;
+  }
+  .print-pagefooter .print-pagefooter-mid {
+    font-style: italic;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: #6a665f;
+  }
+
+  /* Hide the legacy single-line .print-footer when the new legal-grid is used. */
+  .print-legal-grid + .print-pagefooter ~ .print-footer,
+  .print-legal-grid ~ .print-footer { display: none; }
+
   /* Avoid breaking rows across pages where possible. */
   .print-table tr,
   .print-summary,
-  .print-conditions {
+  .print-conditions,
+  .print-payment-row,
+  .print-legal-grid {
     page-break-inside: avoid;
   }
+
+  /* Tighten table cell padding so six columns fit comfortably. */
+  .print-table th,
+  .print-table td { padding-left: 6px; padding-right: 6px; }
+  .print-table td:first-child,
+  .print-table th:first-child { padding-left: 2px; }
+  .print-table td:last-child,
+  .print-table th:last-child { padding-right: 2px; }
+
+  .print-table .print-muted { color: #b9b3a6; }
 }
 
 @layer utilities {

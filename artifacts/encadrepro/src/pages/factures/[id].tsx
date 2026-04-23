@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDate, formatDateLong, formatDateTime } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { factureStatutColors } from "./index";
 import {
@@ -335,34 +335,25 @@ export default function FactureDetail() {
           </address>
         </div>
 
-        {/* ── Meta area ──────────────────────────────────────────────── */}
+        {/* ── Meta area: title left, client right ───────────────────── */}
         <div className="print-meta">
           <div>
             <div className="print-meta-label">Document</div>
             <h2 className="print-meta-title">Facture</h2>
             <p className="print-meta-number">N° {facture.numero}</p>
             <dl className="print-meta-list">
-              <dt>Émise le</dt><dd>{formatDate(facture.date_creation)}</dd>
+              <dt>Émise le</dt><dd>{formatDateLong(facture.date_creation)}</dd>
               {facture.prestation_periode && (
-                <>
-                  <dt>Prestation</dt><dd>{facture.prestation_periode}</dd>
-                </>
-              )}
-              {facture.date_echeance && (
-                <>
-                  <dt>Échéance</dt><dd>{formatDate(facture.date_echeance)}</dd>
-                </>
+                <><dt>Prestation</dt><dd>{facture.prestation_periode}</dd></>
               )}
               {facture.devis_id && (
                 <>
-                  <dt>Devis associé</dt>
-                  <dd>{facture.devis_numero ? `N° ${facture.devis_numero}` : `N° ${facture.devis_id}`}</dd>
+                  <dt>Devis</dt>
+                  <dd>{facture.devis_numero ?? `N° ${facture.devis_id}`}</dd>
                 </>
               )}
               {facture.bon_de_commande && (
-                <>
-                  <dt>Bon de cde</dt><dd>{facture.bon_de_commande}</dd>
-                </>
+                <><dt>Bon de cde</dt><dd>{facture.bon_de_commande}</dd></>
               )}
             </dl>
           </div>
@@ -372,25 +363,27 @@ export default function FactureDetail() {
               {[facture.client_prenom, facture.client_nom].filter(Boolean).join(" ") || "—"}
             </p>
             {(() => {
-              const lines: string[] = [];
-              if (facture.client_adresse) lines.push(...facture.client_adresse.split("\n"));
+              const addrLines: string[] = [];
+              if (facture.client_adresse) addrLines.push(...facture.client_adresse.split("\n"));
               const cityLine = [facture.client_code_postal, facture.client_ville].filter(Boolean).join(" ");
-              if (cityLine) lines.push(cityLine);
+              if (cityLine) addrLines.push(cityLine);
               const meta: string[] = [];
               if (facture.client_email) meta.push(facture.client_email);
               if (facture.client_telephone) meta.push(facture.client_telephone);
               return (
                 <>
-                  {lines.length > 0 && (
+                  {addrLines.length > 0 && (
                     <div className="print-client-lines">
-                      {lines.map((line, i) => <div key={i}>{line}</div>)}
+                      {addrLines.map((line, i) => <div key={i}>{line}</div>)}
                     </div>
                   )}
-                  {meta.length > 0 && <hr />}
                   {meta.length > 0 && (
-                    <div className="print-client-meta">
-                      {meta.map((m, i) => <div key={i}>{m}</div>)}
-                    </div>
+                    <>
+                      <hr />
+                      <div className="print-client-meta">
+                        {meta.map((m, i) => <div key={i}>{m}</div>)}
+                      </div>
+                    </>
                   )}
                 </>
               );
@@ -407,10 +400,11 @@ export default function FactureDetail() {
         <table className="print-table">
           <thead>
             <tr>
-              <th style={{ width: "55%" }}>Désignation</th>
-              <th className="text-right" style={{ width: "8%" }}>Qté</th>
-              <th style={{ width: "12%" }}>Unité</th>
+              <th style={{ width: "48%" }}>Désignation</th>
+              <th className="text-right" style={{ width: "7%" }}>Qté</th>
+              <th style={{ width: "11%" }}>Unité</th>
               <th className="text-right" style={{ width: "12%" }}>P.U. HT</th>
+              <th className="text-right" style={{ width: "9%" }}>Remise</th>
               <th className="text-right" style={{ width: "13%" }}>Total HT</th>
             </tr>
           </thead>
@@ -435,6 +429,7 @@ export default function FactureDetail() {
                   <td className="text-right">{q.toFixed(q % 1 === 0 ? 0 : 2)}</td>
                   <td>{unite}</td>
                   <td className="text-right">{formatCurrency(l.prix_unitaire_ht)}</td>
+                  <td className="text-right print-muted">—</td>
                   <td className="text-right">{formatCurrency(l.total_ht)}</td>
                 </tr>
               );
@@ -442,15 +437,18 @@ export default function FactureDetail() {
           </tbody>
         </table>
 
+        {/* ── Summary: conditions (left) + totals (right) ───────────── */}
         <div className="print-summary">
           <div className="print-conditions">
             <div className="print-meta-label">Conditions de règlement</div>
             {facture.date_echeance && (
               <div className="print-due">
-                Net à régler le <strong>{formatDate(facture.date_echeance)}</strong>
+                Net à régler le <strong>{formatDateLong(facture.date_echeance)}</strong>
               </div>
             )}
-            {atelier?.conditions_generales && <p>{atelier.conditions_generales}</p>}
+            {(facture.conditions || atelier?.conditions_generales) && (
+              <p>{facture.conditions || atelier?.conditions_generales}</p>
+            )}
           </div>
 
           <div className="print-totals">
@@ -460,13 +458,17 @@ export default function FactureDetail() {
             </div>
             {facture.total_tva_20 > 0 && (
               <div className="print-totals-row is-vat">
-                <span className="print-totals-label">TVA <small>20%</small></span>
+                <span className="print-totals-label">
+                  TVA <small>20 % sur {formatCurrency(facture.total_tva_20 / 0.20)}</small>
+                </span>
                 <span className="print-totals-value">{formatCurrency(facture.total_tva_20)}</span>
               </div>
             )}
             {facture.total_tva_10 > 0 && (
               <div className="print-totals-row is-vat">
-                <span className="print-totals-label">TVA <small>10%</small></span>
+                <span className="print-totals-label">
+                  TVA <small>10 % sur {formatCurrency(facture.total_tva_10 / 0.10)}</small>
+                </span>
                 <span className="print-totals-value">{formatCurrency(facture.total_tva_10)}</span>
               </div>
             )}
@@ -476,7 +478,7 @@ export default function FactureDetail() {
             </div>
             {facture.total_paye > 0 && (
               <div className="print-totals-row is-paid">
-                <span className="print-totals-label">Déjà réglé</span>
+                <span className="print-totals-label">Acompte versé</span>
                 <span className="print-totals-value">− {formatCurrency(facture.total_paye)}</span>
               </div>
             )}
@@ -489,14 +491,86 @@ export default function FactureDetail() {
           </div>
         </div>
 
-        <div className="print-footer">
-          {atelier?.nom && <span>{atelier.nom}</span>}
-          {atelier?.siret && <span>SIRET {atelier.siret}</span>}
-          {atelier?.tva_intracom && <span>TVA {atelier.tva_intracom}</span>}
-          {!atelier?.tva_intracom && (facture.total_tva_10 ?? 0) === 0 && (facture.total_tva_20 ?? 0) === 0 && (
-            <span>TVA non applicable, art. 293 B du CGI</span>
-          )}
-          {atelier?.mentions_legales && <span>{atelier.mentions_legales}</span>}
+        {/* ── Mode / Référence stripe ──────────────────────────────── */}
+        <div className="print-mode-strip">
+          <dl className="print-mode-list">
+            <dt>Mode</dt>
+            <dd>Virement · Chèque · Carte bancaire à l'atelier</dd>
+            <dt>Référence</dt>
+            <dd>À rappeler : {facture.numero}</dd>
+          </dl>
+        </div>
+
+        {/* ── Bank transfer + signature box ────────────────────────── */}
+        <div className="print-payment-row">
+          <div className="print-virement">
+            <div className="print-block-title">Règlement par virement</div>
+            <dl className="print-virement-list">
+              <dt>Banque</dt><dd>—</dd>
+              {atelier?.iban && (<><dt>IBAN</dt><dd>{atelier.iban}</dd></>)}
+              {atelier?.bic && (<><dt>BIC</dt><dd>{atelier.bic}</dd></>)}
+              {atelier?.nom && (<><dt>Tit.</dt><dd>{atelier.nom}</dd></>)}
+            </dl>
+          </div>
+          <div className="print-signature">
+            <div className="print-block-title">Cachet &amp; signature</div>
+            <div className="print-signature-box" />
+            <p className="print-signature-hint">Bon pour accord — date et signature du client.</p>
+          </div>
+        </div>
+
+        {/* ── Legal mentions footer (3 columns × 2 rows) ───────────── */}
+        <div className="print-legal-grid">
+          <section>
+            <h4>Pénalités &amp; recouvrement</h4>
+            <p>
+              En cas de retard de paiement, application d'un intérêt au taux légal en
+              vigueur, majoré de dix points, sans qu'un rappel ne soit nécessaire
+              (art. L.441-10 C. com.). Indemnité forfaitaire pour frais de recouvrement :
+              40 € (décret n° 2012-1115). Pas d'escompte pour paiement anticipé.
+            </p>
+            <h4 className="print-legal-sub">Réserve de propriété</h4>
+            <p>
+              Les marchandises restent la propriété de {atelier?.nom || "l'atelier"} jusqu'au
+              paiement intégral du prix.
+            </p>
+          </section>
+          <section>
+            <h4>TVA &amp; régime</h4>
+            <p>
+              TVA acquittée sur les débits. Taux appliqués :
+              {" "}{facture.total_tva_20 > 0 ? "20 % (prestations & fournitures), " : ""}
+              {facture.total_tva_10 > 0 ? "10 % (travaux d'entretien sur bien achevé depuis plus de deux ans), " : ""}
+              5,5 % le cas échéant.
+            </p>
+            <h4 className="print-legal-sub">Assurance professionnelle</h4>
+            <p>
+              {atelier?.mentions_legales || "Police n° — — à compléter, couvrant l'activité d'encadrement d'art, miroiterie et pose, zone géographique : France métropolitaine."}
+            </p>
+          </section>
+          <section>
+            <h4>Médiation de la consommation</h4>
+            <p>
+              Pour tout litige avec un consommateur, médiateur compétent : CM2C — Centre
+              de la médiation de la consommation, 14 rue Saint-Jean, 75017 Paris —
+              cm2c.net.
+            </p>
+            <h4 className="print-legal-sub">Identification</h4>
+            <p>
+              {atelier?.nom || "Atelier"}{atelier?.forme_juridique ? ` — ${atelier.forme_juridique}` : ""}
+              {atelier?.siret && <> · SIRET {atelier.siret}</>}
+              {atelier?.rcs && <> · RCS Paris {atelier.rcs}</>}
+              {atelier?.tva_intracom && <> · TVA {atelier.tva_intracom}</>}
+              .
+            </p>
+          </section>
+        </div>
+
+        {/* ── Page footer ─────────────────────────────────────────── */}
+        <div className="print-pagefooter">
+          <span>Facture {facture.numero}</span>
+          <span className="print-pagefooter-mid">{atelier?.nom || ""}{atelier?.adresse ? ` — ${atelier.adresse.split("\n").pop()}` : ""}</span>
+          <span>Page 1 / 1</span>
         </div>
       </div>
 
