@@ -9,7 +9,7 @@ import {
   getListDevisQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Save, ArrowRightLeft, FileCheck, Printer, Pencil, Trash2, Loader2, ChevronDown } from "lucide-react";
+import { ArrowLeft, Plus, Save, ArrowRightLeft, FileCheck, Printer, Pencil, Trash2, Loader2, ChevronDown, Download, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -106,6 +106,52 @@ export default function DevisDetail() {
   const [editDateCreation, setEditDateCreation] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [isEmailOpen, setIsEmailOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+
+  const handlePrint = useCallback(() => { window.print(); }, []);
+
+  const handleDownload = useCallback(() => {
+    toast({
+      title: "Téléchargement PDF",
+      description: "Choisissez « Enregistrer en PDF » dans la boîte de dialogue d'impression.",
+    });
+    setTimeout(() => window.print(), 350);
+  }, [toast]);
+
+  const openEmail = useCallback(() => {
+    if (!devis) return;
+    const fullName = [devis.client_prenom, devis.client_nom].filter(Boolean).join(" ").trim();
+    const greeting = fullName ? `Bonjour ${fullName},` : "Bonjour,";
+    const atelierNom = atelier?.nom || "l'atelier";
+    setEmailTo(devis.client_email || "");
+    setEmailSubject(`Devis ${devis.numero}${atelier?.nom ? ` — ${atelier.nom}` : ""}`);
+    setEmailBody(
+      `${greeting}\n\n` +
+      `Veuillez trouver ci-joint le devis ${devis.numero}` +
+      (devis.date_validite ? ` (valable jusqu'au ${formatDate(devis.date_validite)})` : "") +
+      ` d'un montant de ${formatCurrency(devis.total_ttc)} TTC.\n\n` +
+      `Pour acceptation, merci de nous le retourner daté et signé avec la mention « Bon pour accord ».\n\n` +
+      `N'hésitez pas à nous contacter pour toute question.\n\n` +
+      `Cordialement,\n${atelierNom}`
+    );
+    setIsEmailOpen(true);
+  }, [devis, atelier]);
+
+  const handleSendEmail = useCallback(() => {
+    const params = new URLSearchParams();
+    if (emailSubject) params.set("subject", emailSubject);
+    if (emailBody) params.set("body", emailBody);
+    const href = `mailto:${encodeURIComponent(emailTo)}?${params.toString()}`;
+    window.location.href = href;
+    setIsEmailOpen(false);
+    toast({
+      title: "Brouillon ouvert",
+      description: "Pensez à joindre le PDF avant d'envoyer (utilisez « Télécharger PDF »).",
+    });
+  }, [emailTo, emailSubject, emailBody, toast]);
 
   const [lignes, setLignes] = useState<QuoteLine[]>([]);
   const initRef = useRef<number | null>(null);
@@ -223,8 +269,6 @@ export default function DevisDetail() {
       }
     });
   };
-
-  const handlePrint = useCallback(() => window.print(), []);
 
   const openEdit = () => {
     setEditNotes(devis?.notes ?? "");
@@ -574,6 +618,12 @@ export default function DevisDetail() {
             <Button variant="outline" size="sm" className="glass-panel" onClick={handlePrint}>
               <Printer className="h-4 w-4 mr-1" /> Imprimer
             </Button>
+            <Button variant="outline" size="sm" className="glass-panel" onClick={handleDownload}>
+              <Download className="h-4 w-4 mr-1" /> Télécharger PDF
+            </Button>
+            <Button variant="outline" size="sm" className="glass-panel" onClick={openEmail}>
+              <Mail className="h-4 w-4 mr-1" /> Envoyer par email
+            </Button>
             <Button variant="outline" size="sm" className="glass-panel" onClick={openEdit}>
               <Pencil className="h-4 w-4 mr-1" /> Modifier
             </Button>
@@ -752,6 +802,41 @@ export default function DevisDetail() {
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>Annuler</Button>
             <Button onClick={handleEditSave} disabled={isSavingEdit}>
               {isSavingEdit ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Email dialog ─────────────────────────────────────────────── */}
+      <Dialog open={isEmailOpen} onOpenChange={setIsEmailOpen}>
+        <DialogContent className="glass-panel max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Envoyer le devis par email</DialogTitle>
+            <DialogDescription>
+              Le brouillon s'ouvrira dans votre logiciel de messagerie. Téléchargez d'abord le PDF si vous souhaitez le joindre.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Destinataire</label>
+              <Input type="email" value={emailTo} onChange={e => setEmailTo(e.target.value)} placeholder="client@exemple.fr" />
+              {!devis.client_email && (
+                <p className="text-xs text-muted-foreground">Aucun email enregistré pour ce client — saisissez-en un.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Objet</label>
+              <Input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Message</label>
+              <Textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} rows={8} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEmailOpen(false)}>Annuler</Button>
+            <Button onClick={handleSendEmail} disabled={!emailTo}>
+              <Mail className="h-4 w-4 mr-1" /> Ouvrir dans la messagerie
             </Button>
           </DialogFooter>
         </DialogContent>
