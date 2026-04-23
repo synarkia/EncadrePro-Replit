@@ -1,0 +1,328 @@
+# EncadrePro — Agent Task 08 (Phase C): Facture Template Wiring + Description Longue + PDF Export
+
+## Context
+
+A devis PDF renderer is already working (proof: the screenshot with DEV-2026-003 for Ryan O'CALLAGHAN-LOCKE rendered with the Atelier AGV design system — wordmark, laiton rule, serif/sans hierarchy, nested line sub-items, "Bon pour accord" signature zone, TVA art. 293 B footer). That's the foundation this task builds on.
+
+This task does three things:
+
+1. **Brings the facture renderer to full parity** with the `Facture_Atelier_AGV.html` template the user crafted (multi-rate TVA, acompte versé / net à payer block, cachet & signature, bank details, expanded legal footer).
+2. **Adds Option B — `description_longue`** — a new field on line items so Thomas can write poetic multi-line descriptions ("Bois tilleul teinté noyer foncé, verre musée anti-reflet, passe-partout conservation 2,5 mm") that appear as the `<small>` under each line's `<strong>` title. This is the single richness-upgrade that makes EncadrePro documents feel like artisan work.
+3. **Maps every `data-var` in the HTML template to the correct Drizzle query path** and implements server-side HTML → PDF rendering via Puppeteer, with "Télécharger PDF" and "Imprimer" buttons on devis and facture pages.
+
+**Multi-rate TVA is explicitly OUT OF SCOPE for this task** — the user chose to defer it. For now, keep the existing single-rate TVA per devis/facture. The template's `vat_10` and `vat_55` rows should be rendered with `—` (em dash) when only one rate is in use, which happens to match the template's own convention for the `vat_55: néant` row already. This means the template works correctly today for single-rate invoices and becomes incrementally richer when multi-rate lands later.
+
+---
+
+## Before you start
+
+1. Confirm HEAD commit and `pnpm -r typecheck` is green.
+2. Read:
+   - `lib/documents/` if it exists — the existing devis PDF renderer
+   - `artifacts/api-server/src/routes/devis.ts` and `factures.ts` — for the existing document endpoints
+   - `lib/db/src/schema/devis.ts` and `factures.ts` — especially `lignes_devis`, `lignes_devis_faconnage`, `lignes_devis_service`, `lignes_facture`, `acomptes`
+   - `lib/db/src/schema/atelier.ts` — the legal/banking fields already present
+   - `artifacts/encadrepro/src/pages/devis/[id].tsx` — to understand where the "Télécharger PDF" button goes
+3. Grep the codebase for the current template file(s) generating the devis PDF (the screenshot proves one exists). Identify:
+   - Which file renders the HTML
+   - Which library converts HTML → PDF (Puppeteer? Playwright? Another?)
+   - Where the download endpoint lives
+4. Locate the full `Facture_Atelier_AGV.html` reference template. If it's not yet in the repo, copy it from wherever the user provided it (likely `attached_assets/` or similar).
+
+**Post a short orientation in chat** covering:
+- Current devis renderer file path and PDF library in use
+- Whether `lignes_devis` already has a field that could serve as `description_longue` (e.g. `notes_ligne`, `description`) — if yes, we reuse it; if no, we add the column
+- Whether a `factures` PDF renderer exists yet, or if the facture page currently lacks a download button
+- Any significant deltas between the existing devis renderer and the `Facture_Atelier_AGV.html` template (the screenshot shows the devis already uses the design system, but the facture template has more sections — quantify what's missing)
+
+**Wait for confirmation before coding.**
+
+---
+
+## Step 1 — Add `description_longue` to line-item schema (Option B)
+
+Add a new column to the three line-item tables:
+
+- `lignes_devis.description_longue text` (nullable)
+- `lignes_devis_faconnage.description_longue text` (nullable)
+- `lignes_devis_service.description_longue text` (nullable)
+- Equivalent columns on the facture-side line tables if they exist (`lignes_facture` etc.)
+
+**Why nullable**: Thomas won't write a description for every line. A single-SKU catalog lookup (ref 420 Cadre Trafalia) often needs no extra text. But for a custom framing job, he types a few sentences. The field is optional, displayed when present, hidden when empty.
+
+### UI wiring in the devis composer
+
+In `QuoteLineCard.tsx`, below the existing designation input, add a small expandable section:
+- Collapsed state: a tiny pencil icon + "Ajouter une description" link (grey, discreet)
+- Expanded state: a multi-line textarea (3-4 rows visible, expands further) with placeholder `"Description détaillée pour le devis — matériaux, finitions, particularités (optionnel)"`
+- The textarea's content saves to `description_longue` on the line
+- If a line already has content, the section shows expanded by default with a "Masquer" toggle
+
+Match existing form patterns — React Hook Form binding, same visual language as the rest of the card.
+
+### OpenAPI update
+
+Add `description_longue` (nullable string) to `LigneDevis` and related schemas in `openapi.yaml`. Regenerate codegen.
+
+### Schema migration
+
+Generate migration, review SQL, apply cleanly. `pnpm -r typecheck` must stay green.
+
+---
+
+## Step 2 — Complete data-var mapping
+
+Below is the exhaustive mapping of every `data-var` in `Facture_Atelier_AGV.html` to its Drizzle query path. The agent MUST implement all of these. Missing mappings cause placeholder text to leak into final PDFs.
+
+### Atelier (issuer) — from `atelier` table, id=1 singleton
+
+| data-var | Source | Notes |
+|---|---|---|
+| `issuer_name` | `atelier.nom` | |
+| `issuer_addr_1` | first line of `atelier.adresse` (split on `\n`) | if adresse is single-line, use as-is |
+| `issuer_addr_2` | second+ lines of `atelier.adresse` joined with `" — "` | or empty |
+| `issuer_phone` | `atelier.tel` | |
+| `issuer_email` | `atelier.email` | |
+| `issuer_web` | `atelier.site_web` | if column doesn't exist, leave empty (don't add column in this task) |
+| `issuer_director` | `atelier.forme_juridique` + optionally a separate `directeur_publication` field | if no dedicated column, derive from forme_juridique: e.g. "SARL" → show forme_juridique value; if EI, show "Entreprise individuelle" |
+| `issuer_siret` | `atelier.siret` | format with spaces per French convention: "339 743 064 00018" — write a helper `formatSiret(raw)` that inserts spaces at positions 3, 6, 9 |
+| `issuer_rcs` | `atelier.rcs` | already formatted "Paris B 339 743 064" per user convention |
+| `issuer_vat` | `atelier.tva_intracom` | format "FR 55 339743064" with spaces |
+| `issuer_siret_foot` | same as `issuer_siret` | repeat in footer |
+| `issuer_rcs_foot` | same as `issuer_rcs` | |
+| `issuer_vat_foot` | same as `issuer_vat` | |
+
+### Document meta — from `factures` row being rendered
+
+| data-var | Source | Notes |
+|---|---|---|
+| `invoice_number` | `factures.ref` (e.g. "B35337") OR use a new `numero_facture` column if it exists — check schema | this is the sequential gapless number; **if the column is missing, use `factures.id` prefixed with "F-" + year** as a placeholder (flag that Phase D will replace this with real sequential numbering) |
+| `invoice_number_foot` | same as `invoice_number` | |
+| `invoice_number_ref` | same as `invoice_number` | shown in "À rappeler" field |
+| `invoice_date` | `factures.factured_at` (the date the facture was issued) | format as "22 avril 2026" (French long date); use `Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })` |
+| `service_date` | `factures.service_date_start` → `factures.service_date_end` if both exist, formatted "14 → 19 avril 2026"; if only start, show start; if neither, show invoice_date | if these columns don't exist, skip rendering the `<dt>Prestation</dt>` row in the metafields list (don't leave it blank with placeholder) |
+| `quote_ref` | `factures.devis_id` joined to `devis.ref` + `devis.created_at` formatted "D-2026-0042 du 03 avril 2026" | if no linked devis, skip the row |
+| `po_number` | `factures.bon_commande_ref` | if column doesn't exist or empty, skip the row |
+
+### Client — from `clients` table via `factures.client_id`
+
+| data-var | Source | Notes |
+|---|---|---|
+| `client_name` | `clients.nom` | |
+| `client_contact` | `clients.contact_nom` prefixed with "À l'attention de " | if null, skip this line entirely (don't show "À l'attention de [vide]") |
+| `client_addr_1` | first line of `clients.adresse` | |
+| `client_addr_2` | remaining lines of `clients.adresse` joined with `" — "`, append `" France"` if not present and country is implicit | |
+| `client_siret` | `clients.siret` | skip the entire `<span>SIRET...</span>` block if client has no SIRET (many of Thomas's clients are individuals, not companies) |
+| `client_vat` | `clients.tva_intracom` | skip block if null |
+| `client_job_ref` | `factures.reference_projet` if column exists, else skip | |
+
+### Line items — `factures.id` → `lignes_facture` (or derived from `devis.id` → `lignes_devis` + sub-items if facture lines aren't stored separately)
+
+Investigate: the schema may have separate `lignes_facture` that snapshot from `lignes_devis` at facture-creation time, OR facture may just display devis lines. Determine which and document in orientation.
+
+For each line:
+
+| data-var (inside `<tbody data-var="invoice_lines">`) | Source | Notes |
+|---|---|---|
+| `<strong>` title | `ligne.designation_snapshot` OR `produit.designation` | this is the product name |
+| `<small>` description | `ligne.description_longue` (new Step 1 column) + dimensions rendered from `largeur_cm`, `hauteur_cm`, `longueur_m` + nested façonnage/service sub-items inline | see "Line rendering details" below |
+| `Qté` | `ligne.quantite` | integer or decimal as appropriate |
+| `Unité` | derived from `ligne.pricing_mode` | `'unit'` → `"pièce"`, `'linear_meter'` → `"metre_lineaire"`, `'square_meter'` → `"metre_carre"`. For services: `"forfait"` or `"vacation"` based on category if available. **Match exactly the unit labels shown in the user's screenshot** (e.g. `metre_lineaire`, `metre_carre` — not `ml`, `m²`) |
+| `P. U. HT` | `ligne.pu_ht` formatted with French thousand separator `\u00a0` and `,` decimal, suffix `\u00a0€` | write a `formatEuro(n)` helper: `n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '\u00a0€'`; for values ≥ 1000, use narrow no-break space for thousand separator |
+| `Remise` | `ligne.remise_pct` formatted as `"−5 %"` with Unicode minus, or `ligne.remise_eur` formatted as `"−60,00 €"`, or `"—"` if neither | |
+| `Total HT` | `ligne.total_ht` | same `formatEuro` |
+
+### Line rendering details (the heart of Option B)
+
+Your template's line cell structure is:
+
+```html
+<td class="lines__desc">
+  <strong>[Product name / title]</strong>
+  <small>[Rich description, dimensions, sub-items]</small>
+</td>
+```
+
+The `<small>` section should be built by concatenating, in order, only the parts that have values:
+
+1. If `description_longue` is non-empty: its content (may be multi-line — wrap `\n` as `<br>`)
+2. If dimensions are set: append a line like `Format 280×0 cm` (for linear) or `Format 56,5×71 cm` (for surface) or nothing (for unit)
+3. For each façonnage sub-item of this line: `{designation} — {formatEuro(total_ht)}` on its own line
+4. For each service sub-item of this line: `{designation} — {formatEuro(total_ht)}` on its own line
+
+Match the screenshot's existing pattern — the devis renderer already does this well for sub-items. Verify the existing code handles `description_longue` being present (new) and falls back gracefully when null.
+
+### Totals — compute from facture lines
+
+| data-var | Source | Notes |
+|---|---|---|
+| `subtotal_ht` | sum of all lines' `total_ht` before global discount | |
+| `global_discount` | `factures.remise_eur` or `factures.remise_pct × subtotal_ht`, formatted with leading `−` | if no remise, skip rendering the row entirely (don't show "—") |
+| `vat_20` | compute TVA at 20% on lines flagged as 20% rate (or ALL lines, since multi-rate is deferred) | always render this row — it's the primary rate |
+| `vat_10` | compute TVA at 10% on lines flagged 10% | for now, always render as `—` since multi-rate is out of scope |
+| `vat_55` | compute TVA at 5.5% on lines flagged 5.5% | for now, always render as `—` |
+| `total_ttc` | subtotal_ht − global_discount + vat_20 + vat_10 + vat_55 | |
+| `deposit_paid` | sum of `acomptes.montant` where `regle_le` is not null, formatted with leading `−` | **only on factures, not devis** — devis template doesn't have this block |
+| `amount_due` | total_ttc − deposit_paid | the big "Net à payer" number |
+
+### Payment terms
+
+| data-var | Source | Notes |
+|---|---|---|
+| `due_date` | `factures.due_date` OR computed: `factured_at + 30 days` | French long date format |
+| `deposit_amount` | first acompte's montant | |
+| `deposit_date` | first acompte's `regle_le` | French long date |
+
+### Bank details — from `atelier` table
+
+| data-var | Source | Notes |
+|---|---|---|
+| `bank_name` | `atelier.banque_nom` — add column if missing (nullable text, can be added in this task's migration) | |
+| `bank_iban` | `atelier.iban` | format with spaces every 4 chars for readability |
+| `bank_bic` | `atelier.bic` | |
+| `bank_holder` | `atelier.banque_titulaire` OR fallback to `atelier.forme_juridique + " — " + atelier.nom` | |
+
+### Insurance + mediator — also atelier fields (add as needed)
+
+| data-var | Source | Notes |
+|---|---|---|
+| `insurance_policy` | `atelier.assurance_police` — add column if missing | nullable; if empty, show `—` |
+| `insurance_company` | `atelier.assurance_compagnie` — add column if missing | |
+| `mediator_name` | `atelier.mediateur_nom` — default to CM2C | |
+| `mediator_addr` | `atelier.mediateur_adresse` — default to CM2C's address | |
+| `mediator_web` | `atelier.mediateur_site` — default to cm2c.net | |
+
+### Pagination
+
+| data-var | Source | Notes |
+|---|---|---|
+| `page_current` | `1` | for MVP, assume single-page documents; Puppeteer PDF generation handles auto-pagination but the footer's page number should say "1 / 1" |
+| `page_total` | computed from Puppeteer page count or hardcoded "1" for MVP | hardcoded acceptable for this task |
+
+---
+
+## Step 3 — Devis template variant
+
+The devis renderer already exists and works (per screenshot). Verify it renders to the same visual language. Differences from facture template:
+
+1. **Kicker**: "Document / Devis" instead of "Document / Facture"
+2. **Number prefix**: `D-2026-NNN` instead of `F-2026-NNN` (or whatever the existing devis ref format is)
+3. **No "Acompte versé" / "Net à payer"** rows — devis doesn't have payments
+4. **No "Cachet & signature" sign box with hatching** — replaced with "Bon pour accord" block from existing devis (screenshot shows this)
+5. **No "Pénalités & recouvrement" footer section** — replaced with "Devis valable X jours" clause
+6. **Validity**: `devis.validite_jours` (default 30) — computes `valable_jusqu_au = devis.created_at + validite_jours` → shown in both conditions block and in the "à retourner... valable jusqu'au X" disclaimer
+
+Compare existing devis renderer output (screenshot) to `Facture_Atelier_AGV.html`. Where the existing devis renderer diverges from the template's visual language for shared sections (header, client block, line table, totals grid, legal footer), **update the devis renderer to match**. The goal is that devis and facture feel like variants of the same design system, not two different designs.
+
+---
+
+## Step 4 — PDF export + print flow
+
+### "Télécharger PDF" button
+
+On `pages/devis/[id].tsx` and `pages/factures/[id].tsx`, add a button "Télécharger PDF" near the existing action buttons. Clicking it:
+
+1. Calls `GET /api/devis/:id/pdf` or `GET /api/factures/:id/pdf`
+2. Server side:
+   - Renders the HTML template with the mapped data
+   - Uses Puppeteer (install if not already) to convert HTML → A4 PDF with `printBackground: true`, margins `0` (the `.sheet` class handles margins via CSS), format `A4`
+   - Returns PDF as download with filename `Devis-DEV-2026-003-OCallaghan-Locke.pdf` (sanitize special chars for filename)
+3. Browser downloads the PDF
+
+### "Imprimer" button
+
+Opens the rendered HTML in a new tab at `/devis/:id/print` (and `/factures/:id/print`). The print route serves the HTML standalone (no app chrome) with `<script>window.print()</script>` auto-triggering the print dialog. The existing `@media print` rules in the template handle A4 layout.
+
+### Dependencies
+
+- Install `puppeteer` (not puppeteer-core — we want the bundled Chromium for simplicity on Replit). Size warning: Chromium is ~170MB. If that's prohibitive on Replit's deployment, fall back to `@sparticuz/chromium-min` + `puppeteer-core` — flag the choice in the plan.
+- If Puppeteer already exists for some other purpose, reuse it.
+
+### Security
+
+- PDF generation routes require the user to have access to the devis/facture being rendered (not a concern yet since no auth exists, but structure the code so auth can drop in without refactor)
+- Sanitize all `data-var` values before injection to prevent HTML injection from malicious client names (escape `<`, `>`, `&`, `"`, `'`)
+- Do not log PDF contents in server logs — may contain PII
+
+---
+
+## Step 5 — Verification
+
+Before reporting done:
+
+1. Create a facture for an existing devis. Open `/factures/:id/pdf`. The downloaded PDF should:
+   - Open cleanly in any PDF viewer
+   - Match the `Facture_Atelier_AGV.html` template's visual design precisely (typography, spacing, laiton accent, hierarchy)
+   - Show real data in all mapped fields, no placeholder text leaking through
+   - Show `—` for currently-unsupported multi-rate TVA rows
+   - Include the acompte-versé and net-à-payer block with correct math
+   - Include bank details from atelier table
+   - Include full legal footer with SIRET, RCS, TVA repeated
+2. Create a devis. Open `/devis/:id/pdf`. Similar check against the existing devis screenshot design. Devis variant omits acompte/net/signature sections and shows "Devis valable 30 jours" conditions.
+3. For a line with `description_longue` populated, verify it renders in the `<small>` section below the product title, above the sub-items.
+4. For a line with no `description_longue`, verify no empty space appears (sub-items go directly under title).
+5. `pnpm -r typecheck` green.
+6. Print button opens the PDF view in a new tab and triggers the browser print dialog.
+
+---
+
+## Hard constraints
+
+1. **No multi-rate TVA implementation** in this task. Keep single-rate. Template shows em-dash placeholders for 10% and 5.5% rows.
+2. **No auth layer changes** — out of scope.
+3. **No refactoring unrelated to template mapping, description_longue, and PDF export.**
+4. **All UI text in French** including button labels, placeholders, error messages.
+5. **PDF filename sanitization** — strip accents (NFD normalization + stripping combining marks), replace spaces with `-`, keep only `[A-Za-z0-9-_]`.
+6. **Template file lives in the repo** — do not fetch HTML from an external URL at request time. Copy `Facture_Atelier_AGV.html` into `lib/documents/templates/` and bundle with the server.
+7. **If the existing devis renderer already uses a templating approach** (Handlebars, etc.), continue with that approach rather than switching libraries. If it uses raw string replacement, fine — keep it if it works; the template has explicit `data-var` attributes that are trivial to substitute.
+8. **Money math identical to on-screen totals.** The PDF must never show a number different from what the UI shows. Reuse the same `computeLigneTotalHT` function that drives the live preview.
+9. **No new schema columns beyond what's listed** in Steps 1 and the atelier extensions in Step 2. If another column feels "necessary," flag it in your orientation, don't add it silently.
+
+---
+
+## Final report format
+
+```
+## TASK 08 (Phase C) REPORT — Template Wiring + description_longue + PDF
+
+### Orientation findings
+- Current devis renderer: [file path + library]
+- Existing facture renderer: [exists / doesn't exist]
+- PDF library chosen: [puppeteer / puppeteer-core + chromium-min / other]
+- Deltas between existing devis and facture template: [list]
+
+### Step 1 — description_longue
+- Migration file: [name]
+- Tables modified: [list]
+- UI integration: [yes/no + where]
+
+### Step 2 — Data-var mapping
+- All 35+ vars mapped: [yes/list any skipped with reason]
+- Atelier columns added (banque_nom, banque_titulaire, assurance_*, mediateur_*): [list what was added]
+- formatSiret, formatEuro, formatFrenchDate helpers: [location]
+
+### Step 3 — Devis variant
+- Existing renderer updated for visual parity: [yes/no + what changed]
+- Devis-specific sections (no acompte block, validity clause): [yes]
+
+### Step 4 — PDF + Print
+- GET /api/devis/:id/pdf: [works with sample data]
+- GET /api/factures/:id/pdf: [works]
+- /devis/:id/print route: [works]
+- PDF filename format: [Devis-DEV-2026-003-OCallaghan-Locke.pdf]
+
+### Step 5 — Verification
+- Test facture PDF matches template design: [pass/fail + screenshot or notes]
+- Test devis PDF renders cleanly: [pass/fail]
+- description_longue renders when present, hides when null: [pass]
+- pnpm -r typecheck: [green]
+
+### Out-of-scope findings
+- [list]
+
+### Suggested next task
+- Phase D (legal compliance: sequential numbering, Avoir, immutability) now unblocked
+- Multi-rate TVA deferred work, if/when needed
+```
+
+Do not push to main without review. Post orientation, wait, post plan, wait, then code. Each step committed separately.
