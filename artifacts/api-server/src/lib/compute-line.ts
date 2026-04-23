@@ -23,23 +23,12 @@ export interface ComputeLigneTotalHTInput {
   plus_value_ta_pct?: number | null;
 }
 
+/**
+ * Matière line total = quantite × prix_unitaire_ht for every product type.
+ * The legacy V1 VR/Plexi rules (mini_fact_tn, majo_epaisseur, TA legacy
+ * formula) are intentionally NOT applied — see the matching note in
+ * artifacts/encadrepro/src/lib/compute-line.ts.
+ */
 export function computeLigneTotalHT(p: ComputeLigneTotalHTInput): number {
-  const isVerre = p.type_code === "VR";
-  const isSurface = p.unite_calcul === "m²" || p.unite_calcul === "metre_carre" || p.unite_calcul === "m2";
-  const surface = p.surface_m2 ?? p.quantite;
-
-  if (isVerre && isSurface && p.regime === "TA"
-      && p.prix_achat_ht != null && p.majo_epaisseur != null && p.coef_marge_ta != null) {
-    const billable = Math.max(surface, p.mini_fact_ta ?? 0);
-    const pv = (p.plus_value_ta_pct ?? 0) / 100;
-    return Number((billable * p.prix_achat_ht * p.majo_epaisseur * p.coef_marge_ta * (1 + pv)).toFixed(2));
-  }
-
-  if (isVerre && isSurface && (p.regime ?? "TN") === "TN" && p.mini_fact_tn != null) {
-    const billable = Math.max(surface, p.mini_fact_tn);
-    const epais = p.majo_epaisseur ?? 1;
-    return Number((billable * p.prix_unitaire_ht * epais).toFixed(2));
-  }
-
   return Number((p.quantite * p.prix_unitaire_ht).toFixed(2));
 }

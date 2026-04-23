@@ -57,33 +57,17 @@ export interface ComputeLigneTotalHTInput {
 /**
  * Computes the line total HT for a devis line.
  *
- * Legacy V1 formula for VR + TA + surface pricing (m²):
- *   total = max(surface, mini_fact_ta) × pauht × majo_epaisseur × coef_marge_ta × (1 + plus_value_ta_pct/100)
+ * The matière total is simply `quantite × prix_unitaire_ht` for every product
+ * type — what the user types in PU HT is what the customer pays per unit.
  *
- * For VR + TN + surface pricing the V1 minimum-billing rule still applies:
- *   total = max(surface, mini_fact_tn) × prix_unitaire_ht
- *
- * Otherwise falls back to the standard quantite × prix_unitaire_ht.
+ * The legacy V1 VR/Plexi rules (mini_fact_tn minimum-billing, majo_epaisseur
+ * thickness markup, TA legacy formula) used to silently inflate this total.
+ * They are intentionally NOT applied here so the line card, document totals,
+ * persisted total_ht and the printed PDF all show `qty × PU HT`. The
+ * `mini_fact_*`, `majo_epaisseur`, `coef_marge_ta`, `plus_value_ta_pct` and
+ * `prix_achat_ht` columns remain on the products table and on this input
+ * shape so the rule can be re-introduced later without a refactor.
  */
 export function computeLigneTotalHT(p: ComputeLigneTotalHTInput): number {
-  const isVerre = p.type_code === ("VR" as ProductTypeCode);
-  const isSurface = p.unite_calcul === "m²" || p.unite_calcul === "metre_carre" || p.unite_calcul === "m2";
-  const surface = p.surface_m2 ?? p.quantite;
-
-  if (isVerre && isSurface && p.regime === "TA"
-      && p.prix_achat_ht != null && p.majo_epaisseur != null && p.coef_marge_ta != null) {
-    const billable = Math.max(surface, p.mini_fact_ta ?? 0);
-    const pv = (p.plus_value_ta_pct ?? 0) / 100;
-    return Number((billable * p.prix_achat_ht * p.majo_epaisseur * p.coef_marge_ta * (1 + pv)).toFixed(2));
-  }
-
-  if (isVerre && isSurface && (p.regime ?? "TN") === "TN" && p.mini_fact_tn != null) {
-    const billable = Math.max(surface, p.mini_fact_tn);
-    // Apply thickness markup (majo_epaisseur) — defaults to 1 when absent so the
-    // formula still degrades gracefully for old products without the coefficient.
-    const epais = p.majo_epaisseur ?? 1;
-    return Number((billable * p.prix_unitaire_ht * epais).toFixed(2));
-  }
-
   return Number((p.quantite * p.prix_unitaire_ht).toFixed(2));
 }
