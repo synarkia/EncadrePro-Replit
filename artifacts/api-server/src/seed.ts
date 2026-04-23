@@ -14,7 +14,7 @@ import { eq, and, sql } from "drizzle-orm";
 async function seedAtelier() {
   const data = {
     nom: "Atelier AGV",
-    adresse: "Lyon, France",
+    adresse: "152 rue de Tolbiac, 75013 Paris",
     telephone: "06 23 80 15 27",
     email: "contact@atelier-agv.fr",
     siret: "12345678900010",
