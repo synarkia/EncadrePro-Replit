@@ -1,0 +1,27 @@
+Fix matière price missing from devis/facture total
+What & Why
+On a devis line, the matière (e.g. a Plexi/Verre product priced per m²) can show a non-zero amount on the line card (via computeLigneTotalHT, which honors mini_fact_tn minimum-billing and majo_epaisseur thickness markup) while contributing 0 to the document Sous-total HT. The bottom-right total uses a simpler qCalc × prix_unitaire_ht formula that ignores those rules, so the document total disagrees with the per-line total and undercharges the customer. The same mismatch exists in the printed PDF and in the backend persistence of sous_total_ht/total_ttc, and the equivalent code path for factures has the same bug.
+
+Reproduction (matches the user's screenshot): pick a Verre/Plexi product (TN regime, m² unit) with a mini_fact_tn set, leave L/H empty, set Qté > 0, add a façonnage and a service. The line shows e.g. 160,43 € HT but the document subtotal shows only the façonnage + service amounts.
+
+Done looks like
+The document Sous-total HT, TVA, and Total TTC shown at the bottom of a devis (and facture) match the sum of what each line card displays, including for Verre/Plexi lines that fall back on mini_fact_tn and majo_epaisseur.
+Same totals appear correctly on the printed/PDF version.
+Saving a devis (or facture) persists a sous_total_ht / total_ttc consistent with the on-screen total; reopening the document shows the same numbers.
+No regression for non-Verre lines or for Verre lines where L/H are entered normally.
+Out of scope
+Changing the Verre/Plexi pricing rules themselves (mini_fact_tn, majo_epaisseur, TA formulas) — only routing the existing helper consistently.
+UI changes to the line card or the totals box layout.
+Per-line discount semantics (already applied), façonnage/service formulas, and TVA rounding behavior.
+Steps
+Replace the inline qCalc × prix_unitaire_ht matière calculation in the devis live preview totals with a call to the shared computeLigneTotalHT helper (same arguments QuoteLineCard already passes), then apply the per-line remise_pct on top, so the bottom-of-page totals match each line card.
+Apply the same replacement in the devis print/PDF render path so the printed Sous-total HT, TVA, and Total TTC agree with the on-screen values and with each printed line's Total HT.
+Update the backend devis line save to compute total_ht (and the rolled-up sous_total_ht / total_ttc in recalcDevis) via the same helper, so persisted totals stay in sync with what the UI shows. Keep the existing quantite_calculee field as-is for traceability.
+Mirror the backend fix in the factures route, where the same qCalc × prix_unitaire_ht pattern exists, so converted/edited factures also reflect the correct matière amount.
+Manual smoke test the original repro (Plexi m² with empty L/H + façonnage + service), plus a normal m² line with L/H entered, a non-Verre line, and a line with a per-line remise, to confirm the line card total equals the document subtotal contribution and matches what the backend persists.
+Relevant files
+artifacts/encadrepro/src/lib/compute-line.ts
+artifacts/encadrepro/src/components/QuoteLineCard.tsx:160-192
+artifacts/encadrepro/src/pages/devis/[id].tsx:45-62,319-348,461-499
+artifacts/api-server/src/routes/devis.ts:34-101,320-400
+artifacts/api-server/src/routes/factures.ts:300-320
