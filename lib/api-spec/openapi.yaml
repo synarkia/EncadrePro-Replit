@@ -1324,6 +1324,8 @@ components:
         telephone: { type: string, nullable: true }
         email: { type: string, nullable: true }
         logo_path: { type: string, nullable: true }
+        iban: { type: string, nullable: true }
+        bic: { type: string, nullable: true }
         conditions_generales: { type: string, nullable: true }
         prefixe_devis: { type: string }
         prefixe_facture: { type: string }
@@ -1351,6 +1353,8 @@ components:
         adresse: { type: string, nullable: true }
         telephone: { type: string, nullable: true }
         email: { type: string, nullable: true }
+        iban: { type: string, nullable: true }
+        bic: { type: string, nullable: true }
         conditions_generales: { type: string, nullable: true }
         prefixe_devis: { type: string }
         prefixe_facture: { type: string }

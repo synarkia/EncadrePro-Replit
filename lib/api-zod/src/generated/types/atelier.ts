@@ -20,6 +20,8 @@ export interface Atelier {
   telephone?: string | null;
   email?: string | null;
   logo_path?: string | null;
+  iban?: string | null;
+  bic?: string | null;
   conditions_generales?: string | null;
   prefixe_devis: string;
   prefixe_facture: string;

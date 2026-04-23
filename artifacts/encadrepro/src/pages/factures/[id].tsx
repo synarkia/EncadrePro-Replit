@@ -502,16 +502,17 @@ export default function FactureDetail() {
         </div>
 
         {/* ── Bank transfer + signature box ────────────────────────── */}
-        <div className="print-payment-row">
-          <div className="print-virement">
-            <div className="print-block-title">Règlement par virement</div>
-            <dl className="print-virement-list">
-              <dt>Banque</dt><dd>—</dd>
-              {atelier?.iban && (<><dt>IBAN</dt><dd>{atelier.iban}</dd></>)}
-              {atelier?.bic && (<><dt>BIC</dt><dd>{atelier.bic}</dd></>)}
-              {atelier?.nom && (<><dt>Tit.</dt><dd>{atelier.nom}</dd></>)}
-            </dl>
-          </div>
+        <div className={`print-payment-row${(atelier?.iban || atelier?.bic) ? "" : " is-signature-only"}`}>
+          {(atelier?.iban || atelier?.bic) && (
+            <div className="print-virement print-payment">
+              <div className="print-block-title">Coordonnées bancaires — IBAN / BIC</div>
+              <dl className="print-virement-list">
+                {atelier?.iban && (<><dt>IBAN</dt><dd>{atelier.iban}</dd></>)}
+                {atelier?.bic && (<><dt>BIC</dt><dd>{atelier.bic}</dd></>)}
+                {atelier?.nom && (<><dt>Tit.</dt><dd>{atelier.nom}</dd></>)}
+              </dl>
+            </div>
+          )}
           <div className="print-signature">
             <div className="print-block-title">Cachet &amp; signature</div>
             <div className="print-signature-box" />

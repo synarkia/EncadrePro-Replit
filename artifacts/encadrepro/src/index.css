@@ -695,6 +695,16 @@
     margin-top: 6mm;
     page-break-inside: avoid;
   }
+  .print-payment-row.is-signature-only {
+    grid-template-columns: 1fr 82mm;
+  }
+  .print-payment-row.is-signature-only > .print-signature {
+    grid-column: 2;
+  }
+  .print-payment {
+    border-top: 0.5pt solid #d9d3c6;
+    padding-top: 6px;
+  }
 
   .print-block-title {
     font-size: 7.5pt;
