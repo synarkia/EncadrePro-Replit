@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useGetAtelier, getGetAtelierQueryKey, useSaveAtelier } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Save, Building2, Receipt, Mail } from "lucide-react";
+import { Save, Building2, Receipt, Mail, Upload, Image as ImageIcon, Trash2 } from "lucide-react";
+import { useUpload } from "@workspace/object-storage-web";
 import { ImportSection } from "./ImportSection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,6 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
+const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+
+function logoUrl(logoPath: string | null | undefined): string | null {
+  if (!logoPath) return null;
+  return `${BASE_URL}/api/storage${logoPath}`;
+}
+
 const atelierSchema = z.object({
   nom: z.string().min(1, "Requis"),
   tagline: z.string().optional().or(z.literal("")),
@@ -22,6 +30,7 @@ const atelierSchema = z.object({
   adresse: z.string().optional().or(z.literal("")),
   telephone: z.string().optional().or(z.literal("")),
   email: z.string().email("Invalide").optional().or(z.literal("")),
+  logo_path: z.string().nullable().optional(),
   prefixe_devis: z.string().min(1, "Requis"),
   prefixe_facture: z.string().min(1, "Requis"),
   tva_defaut: z.coerce.number().min(0).max(100),
@@ -43,7 +52,7 @@ export default function Parametres() {
   const form = useForm<AtelierFormValues>({
     resolver: zodResolver(atelierSchema),
     defaultValues: {
-      nom: "", tagline: "", subtitre: "", siret: "", adresse: "", telephone: "", email: "",
+      nom: "", tagline: "", subtitre: "", siret: "", adresse: "", telephone: "", email: "", logo_path: null,
       prefixe_devis: "DEV-", prefixe_facture: "FAC-", tva_defaut: 20,
       conditions_generales: "", smtp_host: "", smtp_port: 587, smtp_user: "", smtp_pass: ""
     }
@@ -59,6 +68,7 @@ export default function Parametres() {
         adresse: atelier.adresse || "",
         telephone: atelier.telephone || "",
         email: atelier.email || "",
+        logo_path: atelier.logo_path ?? null,
         prefixe_devis: atelier.prefixe_devis,
         prefixe_facture: atelier.prefixe_facture,
         tva_defaut: atelier.tva_defaut,
@@ -70,6 +80,55 @@ export default function Parametres() {
       });
     }
   }, [atelier, form]);
+
+  const { uploadFile, isUploading } = useUpload();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFilePicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Format non supporté", description: "Choisissez une image (PNG, JPG, SVG, WebP).", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Fichier trop volumineux", description: "Taille maximum : 5 Mo.", variant: "destructive" });
+      return;
+    }
+    const result = await uploadFile(file);
+    if (!result) {
+      toast({ title: "Échec de l'envoi", description: "Le logo n'a pas pu être téléversé.", variant: "destructive" });
+      return;
+    }
+    handleLogoUploaded(result.objectPath);
+  };
+
+  const handleLogoUploaded = (objectPath: string) => {
+    form.setValue("logo_path", objectPath, { shouldDirty: true });
+    saveAtelier.mutate({ data: { logo_path: objectPath } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetAtelierQueryKey() });
+        toast({ title: "Logo enregistré", description: "Votre logo apparaîtra sur les documents imprimés." });
+      },
+      onError: () => {
+        toast({ title: "Erreur", description: "Impossible d'enregistrer le logo.", variant: "destructive" });
+      },
+    });
+  };
+
+  const handleRemoveLogo = () => {
+    form.setValue("logo_path", null, { shouldDirty: true });
+    saveAtelier.mutate({ data: { logo_path: null } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetAtelierQueryKey() });
+        toast({ title: "Logo supprimé" });
+      },
+      onError: () => {
+        toast({ title: "Erreur", description: "Impossible de supprimer le logo.", variant: "destructive" });
+      },
+    });
+  };
 
   const onSubmit = (data: AtelierFormValues) => {
     // Prevent sending dummy password string if unchanged
@@ -107,6 +166,53 @@ export default function Parametres() {
               <CardDescription>Ces informations apparaîtront sur vos devis et factures.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <FormField control={form.control} name="logo_path" render={({ field }) => {
+                const url = logoUrl(field.value);
+                return (
+                  <FormItem>
+                    <FormLabel>Logo de l'atelier</FormLabel>
+                    <div className="flex items-center gap-4 rounded-md border border-border/50 bg-background/40 p-4">
+                      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/50 bg-white">
+                        {url ? (
+                          <img src={url} alt="Logo" className="h-full w-full object-contain" />
+                        ) : (
+                          <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground">
+                          {url ? "Le logo sera affiché en en-tête des devis et factures imprimés." : "Aucun logo. Le nom de l'atelier sera utilisé en en-tête."}
+                        </p>
+                        <p className="text-xs text-muted-foreground/70 mt-1">PNG, JPG, SVG ou WebP — 5 Mo max.</p>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                          className="hidden"
+                          onChange={handleFilePicked}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploading}
+                        >
+                          <Upload className="h-4 w-4 mr-1" />
+                          {isUploading ? "Envoi..." : url ? "Changer" : "Téléverser"}
+                        </Button>
+                        {url && (
+                          <Button type="button" variant="ghost" size="sm" onClick={handleRemoveLogo} disabled={isUploading}>
+                            <Trash2 className="h-4 w-4 mr-1" /> Retirer
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }} />
               <div className="grid grid-cols-2 gap-6">
                 <FormField control={form.control} name="nom" render={({ field }) => (
                   <FormItem><FormLabel>Nom de l'atelier *</FormLabel><FormControl><Input {...field} className="bg-background/50" /></FormControl><FormMessage /></FormItem>

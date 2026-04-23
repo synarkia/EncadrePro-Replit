@@ -13,6 +13,27 @@ export interface SuccessResponse {
   success: boolean;
 }
 
+export interface ErrorResponse {
+  error: string;
+}
+
+export interface UploadRequestBody {
+  /** Original file name (informational) */
+  name: string;
+  /** File size in bytes (informational) */
+  size?: number;
+  /** MIME type the client will PUT with */
+  contentType: string;
+}
+
+export interface UploadRequestResponse {
+  /** Short-lived signed PUT URL the client uploads the file to. */
+  uploadURL: string;
+  /** Canonical object entity path (e.g. `/objects/uploads/<uuid>`) to persist on the owning resource. */
+  objectPath: string;
+  metadata: UploadRequestBody;
+}
+
 export type ImportSkippedRowRawData = { [key: string]: unknown };
 
 export interface ImportSkippedRow {
@@ -472,6 +493,7 @@ export interface SaveAtelierBody {
   adresse?: string | null;
   telephone?: string | null;
   email?: string | null;
+  logo_path?: string | null;
   iban?: string | null;
   bic?: string | null;
   conditions_generales?: string | null;

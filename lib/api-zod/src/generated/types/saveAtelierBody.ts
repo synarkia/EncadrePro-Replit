@@ -18,6 +18,7 @@ export interface SaveAtelierBody {
   adresse?: string | null;
   telephone?: string | null;
   email?: string | null;
+  logo_path?: string | null;
   iban?: string | null;
   bic?: string | null;
   conditions_generales?: string | null;

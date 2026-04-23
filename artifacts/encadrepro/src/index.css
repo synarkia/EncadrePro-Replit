@@ -275,6 +275,16 @@
     padding-left: 2px;
   }
 
+  .print-logo {
+    display: block;
+    max-height: 22mm;
+    max-width: 60mm;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    margin: 0 0 6mm 0;
+  }
+
   .print-brand-rule {
     width: 72px;
     height: 0.75pt;

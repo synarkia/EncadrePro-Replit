@@ -23,6 +23,8 @@ tags:
     description: Workshop settings
   - name: import
     description: Bulk data import from FileMaker exports (CSV / XLSX)
+  - name: storage
+    description: Object storage helpers (presigned uploads, asset serving)
 paths:
   /healthz:
     get:
@@ -814,6 +816,34 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ImportReport" }
 
+  # ──────────────── STORAGE ────────────────
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a presigned URL for direct-to-storage file upload
+      description: |
+        Returns a short-lived signed PUT URL the client uses to upload the file
+        directly to object storage, plus the canonical `objectPath` (e.g.
+        `/objects/uploads/<uuid>`) that should be persisted on the owning
+        resource (such as `atelier.logo_path`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UploadRequestBody" }
+      responses:
+        "200":
+          description: Signed upload URL and canonical object path
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UploadRequestResponse" }
+        "400":
+          description: Missing or invalid required fields
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
 components:
   schemas:
     HealthStatus:
@@ -829,6 +859,33 @@ components:
         success:
           type: boolean
       required: [success]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error: { type: string }
+      required: [error]
+
+    UploadRequestBody:
+      type: object
+      properties:
+        name: { type: string, description: "Original file name (informational)" }
+        size: { type: integer, description: "File size in bytes (informational)" }
+        contentType: { type: string, description: "MIME type the client will PUT with" }
+      required: [name, contentType]
+
+    UploadRequestResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+          description: Short-lived signed PUT URL the client uploads the file to.
+        objectPath:
+          type: string
+          description: Canonical object entity path (e.g. `/objects/uploads/<uuid>`) to persist on the owning resource.
+        metadata:
+          $ref: "#/components/schemas/UploadRequestBody"
+      required: [uploadURL, objectPath, metadata]
 
     ImportSkippedRow:
       type: object
@@ -1353,6 +1410,7 @@ components:
         adresse: { type: string, nullable: true }
         telephone: { type: string, nullable: true }
         email: { type: string, nullable: true }
+        logo_path: { type: string, nullable: true }
         iban: { type: string, nullable: true }
         bic: { type: string, nullable: true }
         conditions_generales: { type: string, nullable: true }

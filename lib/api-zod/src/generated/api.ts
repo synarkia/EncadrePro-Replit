@@ -1120,6 +1120,7 @@ export const SaveAtelierBody = zod.object({
   adresse: zod.string().nullish(),
   telephone: zod.string().nullish(),
   email: zod.string().nullish(),
+  logo_path: zod.string().nullish(),
   iban: zod.string().nullish(),
   bic: zod.string().nullish(),
   conditions_generales: zod.string().nullish(),
@@ -1249,4 +1250,37 @@ export const ImportProduitsResponse = zod.object({
   encoding: zod.string().optional(),
   encoding_note: zod.string().optional(),
   dry_run: zod.boolean(),
+});
+
+/**
+ * Returns a short-lived signed PUT URL the client uses to upload the file
+directly to object storage, plus the canonical `objectPath` (e.g.
+`/objects/uploads/<uuid>`) that should be persisted on the owning
+resource (such as `atelier.logo_path`).
+
+ * @summary Request a presigned URL for direct-to-storage file upload
+ */
+export const RequestUploadUrlBody = zod.object({
+  name: zod.string().describe("Original file name (informational)"),
+  size: zod.number().optional().describe("File size in bytes (informational)"),
+  contentType: zod.string().describe("MIME type the client will PUT with"),
+});
+
+export const RequestUploadUrlResponse = zod.object({
+  uploadURL: zod
+    .string()
+    .describe("Short-lived signed PUT URL the client uploads the file to."),
+  objectPath: zod
+    .string()
+    .describe(
+      "Canonical object entity path (e.g. `\/objects\/uploads\/<uuid>`) to persist on the owning resource.",
+    ),
+  metadata: zod.object({
+    name: zod.string().describe("Original file name (informational)"),
+    size: zod
+      .number()
+      .optional()
+      .describe("File size in bytes (informational)"),
+    contentType: zod.string().describe("MIME type the client will PUT with"),
+  }),
 });

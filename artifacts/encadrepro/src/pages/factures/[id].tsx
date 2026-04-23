@@ -307,6 +307,13 @@ export default function FactureDetail() {
         {/* ── Header: wordmark left, contact + legal right ─────────────── */}
         <div className="print-header">
           <div>
+            {atelier?.logo_path && (
+              <img
+                src={`${BASE_URL}/api/storage${atelier.logo_path}`}
+                alt={atelier?.nom || "Logo"}
+                className="print-logo"
+              />
+            )}
             <h1 className="print-wordmark">{atelier?.nom || "Atelier"}</h1>
             <hr className="print-brand-rule" />
             {atelier?.tagline && <p className="print-tagline">{atelier.tagline}</p>}
