@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 
 const atelierSchema = z.object({
   nom: z.string().min(1, "Requis"),
+  tagline: z.string().optional().or(z.literal("")),
+  subtitre: z.string().optional().or(z.literal("")),
   siret: z.string().optional().or(z.literal("")),
   adresse: z.string().optional().or(z.literal("")),
   telephone: z.string().optional().or(z.literal("")),
@@ -41,7 +43,7 @@ export default function Parametres() {
   const form = useForm<AtelierFormValues>({
     resolver: zodResolver(atelierSchema),
     defaultValues: {
-      nom: "", siret: "", adresse: "", telephone: "", email: "",
+      nom: "", tagline: "", subtitre: "", siret: "", adresse: "", telephone: "", email: "",
       prefixe_devis: "DEV-", prefixe_facture: "FAC-", tva_defaut: 20,
       conditions_generales: "", smtp_host: "", smtp_port: 587, smtp_user: "", smtp_pass: ""
     }
@@ -51,6 +53,8 @@ export default function Parametres() {
     if (atelier) {
       form.reset({
         nom: atelier.nom,
+        tagline: atelier.tagline || "",
+        subtitre: atelier.subtitre || "",
         siret: atelier.siret || "",
         adresse: atelier.adresse || "",
         telephone: atelier.telephone || "",
@@ -111,6 +115,12 @@ export default function Parametres() {
                   <FormItem><FormLabel>SIRET</FormLabel><FormControl><Input {...field} className="bg-background/50" /></FormControl><FormMessage /></FormItem>
                 )} />
               </div>
+              <FormField control={form.control} name="tagline" render={({ field }) => (
+                <FormItem><FormLabel>Tagline (italique)</FormLabel><FormControl><Input {...field} placeholder="Encadrement d'art & Miroiterie artisanale" className="bg-background/50" /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="subtitre" render={({ field }) => (
+                <FormItem><FormLabel>Sous-titre</FormLabel><FormControl><Input {...field} placeholder="Maison familiale · Paris 13e · Depuis quatre générations" className="bg-background/50" /></FormControl><FormMessage /></FormItem>
+              )} />
               <FormField control={form.control} name="adresse" render={({ field }) => (
                 <FormItem><FormLabel>Adresse complète</FormLabel><FormControl><Textarea {...field} className="bg-background/50 resize-none h-20" /></FormControl><FormMessage /></FormItem>
               )} />
