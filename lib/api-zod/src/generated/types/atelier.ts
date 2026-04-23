@@ -9,8 +9,13 @@
 export interface Atelier {
   id: number;
   nom: string;
+  tagline?: string | null;
+  subtitre?: string | null;
   siret?: string | null;
   tva_intracom?: string | null;
+  rcs?: string | null;
+  forme_juridique?: string | null;
+  mentions_legales?: string | null;
   adresse?: string | null;
   telephone?: string | null;
   email?: string | null;

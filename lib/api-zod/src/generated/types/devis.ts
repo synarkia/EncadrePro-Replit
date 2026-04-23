@@ -12,6 +12,11 @@ export interface Devis {
   client_id: number;
   client_nom?: string | null;
   client_prenom?: string | null;
+  client_adresse?: string | null;
+  client_code_postal?: string | null;
+  client_ville?: string | null;
+  client_email?: string | null;
+  client_telephone?: string | null;
   date_creation: string;
   date_validite?: string | null;
   statut: string;

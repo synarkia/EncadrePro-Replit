@@ -313,37 +313,101 @@ export default function DevisDetail() {
           PRINT LAYOUT (hidden on screen)
       ════════════════════════════════════════════════════════════════════ */}
       <div className="print-document hidden print:block">
+        {/* ── Header: wordmark left, contact + legal right ─────────────── */}
         <div className="print-header">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{atelier?.nom || "Atelier"}</h2>
-            {atelier?.adresse && <p className="text-sm text-gray-600">{atelier.adresse}</p>}
-            {atelier?.telephone && <p className="text-sm text-gray-600">Tél. {atelier.telephone}</p>}
-            {atelier?.email && <p className="text-sm text-gray-600">{atelier.email}</p>}
-            {atelier?.siret && <p className="text-xs text-gray-500 mt-1">SIRET : {atelier.siret}</p>}
+            <h1 className="print-wordmark">{atelier?.nom || "Atelier"}</h1>
+            {atelier?.tagline && <p className="print-tagline">{atelier.tagline}</p>}
+            {atelier?.subtitre && (
+              <p className="print-subtags">
+                {atelier.subtitre.split(/\s*[·•|]\s*|\s*\n\s*/).filter(Boolean).map((tag, i) => (
+                  <span key={i}>{tag}</span>
+                ))}
+              </p>
+            )}
           </div>
-          <div className="text-right">
-            <h1 className="text-3xl font-bold text-gray-900">DEVIS</h1>
-            <p className="text-lg font-semibold text-gray-700 mt-1">{devis.numero}</p>
-            <p className="text-sm text-gray-500 mt-1">Émis le {formatDate(devis.date_creation)}</p>
-            {devis.date_validite && <p className="text-sm text-gray-500">Valable jusqu'au {formatDate(devis.date_validite)}</p>}
+          <div className="print-contact-block">
+            {atelier?.nom && <div className="print-contact-name">.{atelier.nom}.</div>}
+            {atelier?.adresse && atelier.adresse.split("\n").map((line, i) => (
+              <div key={i} className="print-muted">{line}</div>
+            ))}
+            {atelier?.telephone && <div className="print-muted">{atelier.telephone}</div>}
+            {atelier?.email && <div className="print-muted">{atelier.email}</div>}
+            {(atelier?.siret || atelier?.rcs || atelier?.tva_intracom || atelier?.forme_juridique) && <hr />}
+            <div className="print-legal-block">
+              {atelier?.forme_juridique && <div>{atelier.forme_juridique}{atelier?.nom ? ` — ${atelier.nom}` : ""}</div>}
+              {atelier?.siret && <div>SIRET {atelier.siret}</div>}
+              {atelier?.rcs && <div>RCS {atelier.rcs}</div>}
+              {atelier?.tva_intracom && <div>TVA {atelier.tva_intracom}</div>}
+            </div>
           </div>
         </div>
 
-        <div className="print-client-box">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Client</p>
-          <p className="font-bold text-gray-900 text-base">{devis.client_prenom} {devis.client_nom}</p>
+        <hr className="print-divider" />
+
+        {/* ── Meta area: document/title left, client right ─────────────── */}
+        <div className="print-meta">
+          <div>
+            <div className="print-meta-label">Document</div>
+            <h2 className="print-meta-title">Devis</h2>
+            <p className="print-meta-number">N° {devis.numero}</p>
+            <dl className="print-meta-list">
+              <dt>Émis le</dt><dd>{formatDate(devis.date_creation)}</dd>
+              {devis.date_validite && (
+                <>
+                  <dt>Valable jusqu'au</dt><dd>{formatDate(devis.date_validite)}</dd>
+                </>
+              )}
+            </dl>
+          </div>
+          <div className="print-client-block">
+            <div className="print-meta-label">Adressée à</div>
+            <p className="print-client-name">
+              {[devis.client_prenom, devis.client_nom].filter(Boolean).join(" ") || "—"}
+            </p>
+            {/* Address lines + a hairline-separated reference block, populated
+                from the typed client fields returned by GET /devis/:id. */}
+            {(() => {
+              const lines: string[] = [];
+              if (devis.client_adresse) lines.push(...devis.client_adresse.split("\n"));
+              const cityLine = [devis.client_code_postal, devis.client_ville].filter(Boolean).join(" ");
+              if (cityLine) lines.push(cityLine);
+              const meta: string[] = [];
+              if (devis.client_email) meta.push(devis.client_email);
+              if (devis.client_telephone) meta.push(devis.client_telephone);
+              return (
+                <>
+                  {lines.length > 0 && (
+                    <div className="print-client-lines">
+                      {lines.map((line, i) => <div key={i}>{line}</div>)}
+                    </div>
+                  )}
+                  {meta.length > 0 && <hr />}
+                  {meta.length > 0 && (
+                    <div className="print-client-meta">
+                      {meta.map((m, i) => <div key={i}>{m}</div>)}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* ── Section title ─────────────────────────────────────────── */}
+        <div className="print-section-title">
+          <h2>Prestations &amp; fournitures</h2>
+          <span className="print-currency-note">Montants en euros</span>
         </div>
 
         <table className="print-table">
           <thead>
             <tr>
-              <th style={{ width: "40%" }}>Désignation</th>
-              <th>Unité</th>
-              <th>Dimensions</th>
-              <th className="text-right">Qté calc.</th>
-              <th className="text-right">PU HT</th>
-              <th className="text-right">TVA</th>
-              <th className="text-right">Total HT</th>
+              <th style={{ width: "55%" }}>Désignation</th>
+              <th className="text-right" style={{ width: "8%" }}>Qté</th>
+              <th style={{ width: "12%" }}>Unité</th>
+              <th className="text-right" style={{ width: "12%" }}>P.U. HT</th>
+              <th className="text-right" style={{ width: "13%" }}>Total HT</th>
             </tr>
           </thead>
           <tbody>
@@ -351,45 +415,39 @@ export default function DevisDetail() {
               const wCm = l.width_cm ?? (l.largeur_m != null ? l.largeur_m * 100 : 0);
               const hCm = l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : 0);
               const q = calcQ(l.unite_calcul, wCm, hCm, l.quantite);
-              const totalHt = q * l.prix_unitaire_ht;
+              const lineHT = q * l.prix_unitaire_ht;
+              const facHT = (l.faconnage ?? []).reduce((s, f) => {
+                const fLong = (f as { longueur_m?: number | null }).longueur_m ?? null;
+                const eff = fLong != null && fLong > 0 ? fLong : 1;
+                return s + f.quantite * eff * f.prix_unitaire_ht;
+              }, 0);
+              const serviceHT = (l.service ?? []).reduce((s, sv) => s + sv.quantite * sv.prix_unitaire_ht, 0);
+              const totalHt = lineHT + facHT + serviceHT;
+
+              const descParts: string[] = [];
+              if (wCm > 0 || hCm > 0) descParts.push(`Format ${wCm}×${hCm} cm`);
+              (l.faconnage ?? []).forEach(f => {
+                const fLong = (f as { longueur_m?: number | null }).longueur_m ?? null;
+                const subTotal = f.quantite * (fLong != null && fLong > 0 ? fLong : 1) * f.prix_unitaire_ht;
+                descParts.push(`${f.designation} — ${formatCurrency(subTotal)}`);
+              });
+              (l.service ?? []).forEach(s => {
+                descParts.push(`${s.designation} — ${formatCurrency(s.quantite * s.prix_unitaire_ht)}`);
+              });
+
               return (
-                <React.Fragment key={i}>
-                  <tr>
-                    <td>{l.designation}</td>
-                    <td>{l.unite_calcul}</td>
-                    <td>{wCm > 0 || hCm > 0 ? `${wCm}×${hCm} cm` : "-"}</td>
-                    <td className="text-right">{q.toFixed(3)}</td>
-                    <td className="text-right">{formatCurrency(l.prix_unitaire_ht)}</td>
-                    <td className="text-right">{l.taux_tva}%</td>
-                    <td className="text-right font-semibold">{formatCurrency(totalHt)}</td>
-                  </tr>
-                  {(l.faconnage ?? []).map((f, fi) => {
-                    const fLong = (f as { longueur_m?: number | null }).longueur_m ?? null;
-                    const eff = fLong != null && fLong > 0 ? fLong : 1;
-                    return (
-                      <tr key={`f-${fi}`} className="text-gray-500 text-xs">
-                        <td className="pl-4 italic">↳ {f.designation}</td>
-                        <td>{fLong != null && fLong > 0 ? "ml" : "unité"}</td>
-                        <td>{fLong != null && fLong > 0 ? `${fLong.toFixed(2)} m` : "-"}</td>
-                        <td className="text-right">{f.quantite}</td>
-                        <td className="text-right">{formatCurrency(f.prix_unitaire_ht)}</td>
-                        <td className="text-right">{f.taux_tva}%</td>
-                        <td className="text-right">{formatCurrency(f.quantite * eff * f.prix_unitaire_ht)}</td>
-                      </tr>
-                    );
-                  })}
-                  {(l.service ?? []).map((s, si) => (
-                    <tr key={`s-${si}`} className="text-gray-500 text-xs">
-                      <td className="pl-4 italic">↳ {s.designation}</td>
-                      <td>{s.heures ? "heure" : "unité"}</td>
-                      <td>-</td>
-                      <td className="text-right">{s.quantite}</td>
-                      <td className="text-right">{formatCurrency(s.prix_unitaire_ht)}</td>
-                      <td className="text-right">{s.taux_tva}%</td>
-                      <td className="text-right">{formatCurrency(s.quantite * s.prix_unitaire_ht)}</td>
-                    </tr>
-                  ))}
-                </React.Fragment>
+                <tr key={i}>
+                  <td>
+                    <div className="print-designation">{l.designation}</div>
+                    {descParts.length > 0 && (
+                      <div className="print-description">{descParts.join("\n")}</div>
+                    )}
+                  </td>
+                  <td className="text-right">{q.toFixed(q % 1 === 0 ? 0 : 2)}</td>
+                  <td>{l.unite_calcul}</td>
+                  <td className="text-right">{formatCurrency(l.prix_unitaire_ht)}</td>
+                  <td className="text-right">{formatCurrency(totalHt)}</td>
+                </tr>
               );
             })}
           </tbody>
@@ -408,13 +466,19 @@ export default function DevisDetail() {
 
         {atelier?.conditions_generales && (
           <div className="print-conditions">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Conditions</p>
-            <p className="text-xs text-gray-600">{atelier.conditions_generales}</p>
+            <div className="print-meta-label">Conditions</div>
+            <p>{atelier.conditions_generales}</p>
           </div>
         )}
+
         <div className="print-footer">
-          {atelier?.siret && <span>SIRET : {atelier.siret}</span>}
-          {atelier?.tva_intracom && <span>TVA Intracomm. : {atelier.tva_intracom}</span>}
+          {atelier?.nom && <span>{atelier.nom}</span>}
+          {atelier?.siret && <span>SIRET {atelier.siret}</span>}
+          {atelier?.tva_intracom && <span>TVA {atelier.tva_intracom}</span>}
+          {!atelier?.tva_intracom && (devis.total_tva_10 ?? 0) === 0 && (devis.total_tva_20 ?? 0) === 0 && (
+            <span>TVA non applicable, art. 293 B du CGI</span>
+          )}
+          {atelier?.mentions_legales && <span>{atelier.mentions_legales}</span>}
         </div>
       </div>
 

@@ -98,6 +98,11 @@ export interface Devis {
   client_id: number;
   client_nom?: string | null;
   client_prenom?: string | null;
+  client_adresse?: string | null;
+  client_code_postal?: string | null;
+  client_ville?: string | null;
+  client_email?: string | null;
+  client_telephone?: string | null;
   date_creation: string;
   date_validite?: string | null;
   statut: string;
@@ -116,9 +121,15 @@ export interface Facture {
   id: number;
   numero: string;
   devis_id?: number | null;
+  devis_numero?: string | null;
   client_id: number;
   client_nom?: string | null;
   client_prenom?: string | null;
+  client_adresse?: string | null;
+  client_code_postal?: string | null;
+  client_ville?: string | null;
+  client_email?: string | null;
+  client_telephone?: string | null;
   date_creation: string;
   date_echeance?: string | null;
   statut: string;
@@ -130,6 +141,8 @@ export interface Facture {
   solde_restant: number;
   notes?: string | null;
   conditions?: string | null;
+  prestation_periode?: string | null;
+  bon_de_commande?: string | null;
   cree_le: string;
   modifie_le: string;
 }
@@ -421,8 +434,13 @@ export interface CreatePaiementBody {
 export interface Atelier {
   id: number;
   nom: string;
+  tagline?: string | null;
+  subtitre?: string | null;
   siret?: string | null;
   tva_intracom?: string | null;
+  rcs?: string | null;
+  forme_juridique?: string | null;
+  mentions_legales?: string | null;
   adresse?: string | null;
   telephone?: string | null;
   email?: string | null;
@@ -442,8 +460,13 @@ export interface Atelier {
 
 export interface SaveAtelierBody {
   nom?: string;
+  tagline?: string | null;
+  subtitre?: string | null;
   siret?: string | null;
   tva_intracom?: string | null;
+  rcs?: string | null;
+  forme_juridique?: string | null;
+  mentions_legales?: string | null;
   adresse?: string | null;
   telephone?: string | null;
   email?: string | null;

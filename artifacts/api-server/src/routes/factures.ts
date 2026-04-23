@@ -22,17 +22,28 @@ const parseNum = (v: unknown) => parseFloat(String(v ?? "0"));
 
 // ─── Type helpers ─────────────────────────────────────────────────────────────
 type FactureWithClient = {
-  id: number; numero: string; devis_id: number; client_id: number;
-  client_nom: string; client_prenom: string; date_creation: string; date_echeance: string;
+  id: number; numero: string; devis_id: number; devis_numero: string | null; client_id: number;
+  client_nom: string; client_prenom: string;
+  client_adresse: string | null; client_code_postal: string | null; client_ville: string | null;
+  client_email: string | null; client_telephone: string | null;
+  date_creation: string; date_echeance: string;
   statut: string; sous_total_ht: string; total_tva_10: string; total_tva_20: string;
   total_ttc: string; total_paye: string; solde_restant: string; notes: string;
-  conditions: string; cree_le: string; modifie_le: string;
+  conditions: string; prestation_periode: string | null; bon_de_commande: string | null;
+  cree_le: string; modifie_le: string;
 };
 
 async function getFactureWithClient(id: number): Promise<FactureWithClient | undefined> {
   const rows = await execRows<FactureWithClient>(
-    sql`SELECT f.*, c.nom as client_nom, c.prenom as client_prenom
-        FROM factures f LEFT JOIN clients c ON c.id = f.client_id WHERE f.id = ${id}`
+    sql`SELECT f.*,
+               c.nom as client_nom, c.prenom as client_prenom,
+               c.adresse as client_adresse, c.code_postal as client_code_postal,
+               c.ville as client_ville, c.email as client_email, c.telephone as client_telephone,
+               d.numero as devis_numero
+        FROM factures f
+        LEFT JOIN clients c ON c.id = f.client_id
+        LEFT JOIN devis d ON d.id = f.devis_id
+        WHERE f.id = ${id}`
   );
   return rows[0];
 }
@@ -40,14 +51,20 @@ async function getFactureWithClient(id: number): Promise<FactureWithClient | und
 function mapFacture(f: FactureWithClient) {
   const s = serializeDates(f as unknown as Record<string, unknown>);
   return {
-    id: f.id, numero: f.numero, devis_id: f.devis_id ?? null,
+    id: f.id, numero: f.numero, devis_id: f.devis_id ?? null, devis_numero: f.devis_numero ?? null,
     client_id: f.client_id, client_nom: f.client_nom ?? null,
-    client_prenom: f.client_prenom ?? null, date_creation: f.date_creation,
+    client_prenom: f.client_prenom ?? null,
+    client_adresse: f.client_adresse ?? null, client_code_postal: f.client_code_postal ?? null,
+    client_ville: f.client_ville ?? null, client_email: f.client_email ?? null,
+    client_telephone: f.client_telephone ?? null,
+    date_creation: f.date_creation,
     date_echeance: f.date_echeance ?? null, statut: f.statut,
     sous_total_ht: parseNum(f.sous_total_ht), total_tva_10: parseNum(f.total_tva_10),
     total_tva_20: parseNum(f.total_tva_20), total_ttc: parseNum(f.total_ttc),
     total_paye: parseNum(f.total_paye), solde_restant: parseNum(f.solde_restant),
     notes: f.notes ?? null, conditions: f.conditions ?? null,
+    prestation_periode: f.prestation_periode ?? null,
+    bon_de_commande: f.bon_de_commande ?? null,
     cree_le: s.cree_le as string, modifie_le: s.modifie_le as string,
   };
 }
@@ -90,8 +107,15 @@ router.get("/factures", async (req, res): Promise<void> => {
   const statut = typeof req.query.statut === "string" ? req.query.statut : null;
   const clientId = typeof req.query.client_id === "string" ? parseInt(req.query.client_id, 10) : null;
 
-  let query = sql`SELECT f.*, c.nom as client_nom, c.prenom as client_prenom
-      FROM factures f LEFT JOIN clients c ON c.id = f.client_id WHERE 1=1`;
+  let query = sql`SELECT f.*,
+        c.nom as client_nom, c.prenom as client_prenom,
+        c.adresse as client_adresse, c.code_postal as client_code_postal,
+        c.ville as client_ville, c.email as client_email, c.telephone as client_telephone,
+        d.numero as devis_numero
+      FROM factures f
+      LEFT JOIN clients c ON c.id = f.client_id
+      LEFT JOIN devis d ON d.id = f.devis_id
+      WHERE 1=1`;
 
   if (statut) query = sql`${query} AND f.statut = ${statut}`;
   if (clientId) query = sql`${query} AND f.client_id = ${clientId}`;
@@ -184,11 +208,16 @@ router.put("/factures/:id", async (req, res): Promise<void> => {
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { notes, date_echeance } = req.body as { notes?: string; date_echeance?: string };
+  const { notes, date_echeance, prestation_periode, bon_de_commande } = req.body as {
+    notes?: string; date_echeance?: string;
+    prestation_periode?: string | null; bon_de_commande?: string | null;
+  };
   await db.update(facturesTable)
     .set({
       ...(notes !== undefined && { notes }),
       ...(date_echeance !== undefined && { date_echeance: date_echeance ?? null }),
+      ...(prestation_periode !== undefined && { prestation_periode: prestation_periode ?? null }),
+      ...(bon_de_commande !== undefined && { bon_de_commande: bon_de_commande ?? null }),
     })
     .where(eq(facturesTable.id, id));
 

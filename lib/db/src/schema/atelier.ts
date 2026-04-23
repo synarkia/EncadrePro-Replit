@@ -7,6 +7,8 @@ import { z } from "zod/v4";
 export const atelierTable = pgTable("atelier", {
   id: integer("id").primaryKey().default(1),
   nom: text("nom").notNull().default("Mon Atelier"),
+  tagline: text("tagline"),
+  subtitre: text("subtitre"),
 
   // ── Identity / legal ──────────────────────────────────────────────────────
   siret: text("siret"),

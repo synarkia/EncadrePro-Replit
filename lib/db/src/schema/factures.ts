@@ -22,6 +22,8 @@ export const facturesTable = pgTable("factures", {
   solde_restant: numeric("solde_restant", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
   notes: text("notes"),
   conditions: text("conditions"),
+  prestation_periode: text("prestation_periode"),
+  bon_de_commande: text("bon_de_commande"),
   cree_le: timestamp("cree_le", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   modifie_le: timestamp("modifie_le", { withTimezone: true, mode: "string" }).notNull().defaultNow().$onUpdate(() => new Date().toISOString()),
 });

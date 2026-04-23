@@ -1179,6 +1179,11 @@ components:
         client_id: { type: integer }
         client_nom: { type: string, nullable: true }
         client_prenom: { type: string, nullable: true }
+        client_adresse: { type: string, nullable: true }
+        client_code_postal: { type: string, nullable: true }
+        client_ville: { type: string, nullable: true }
+        client_email: { type: string, nullable: true }
+        client_telephone: { type: string, nullable: true }
         date_creation: { type: string }
         date_validite: { type: string, nullable: true }
         statut: { type: string }
@@ -1245,9 +1250,15 @@ components:
         id: { type: integer }
         numero: { type: string }
         devis_id: { type: integer, nullable: true }
+        devis_numero: { type: string, nullable: true }
         client_id: { type: integer }
         client_nom: { type: string, nullable: true }
         client_prenom: { type: string, nullable: true }
+        client_adresse: { type: string, nullable: true }
+        client_code_postal: { type: string, nullable: true }
+        client_ville: { type: string, nullable: true }
+        client_email: { type: string, nullable: true }
+        client_telephone: { type: string, nullable: true }
         date_creation: { type: string }
         date_echeance: { type: string, nullable: true }
         statut: { type: string }
@@ -1259,6 +1270,8 @@ components:
         solde_restant: { type: number }
         notes: { type: string, nullable: true }
         conditions: { type: string, nullable: true }
+        prestation_periode: { type: string, nullable: true }
+        bon_de_commande: { type: string, nullable: true }
         cree_le: { type: string }
         modifie_le: { type: string }
       required: [id, numero, client_id, date_creation, statut, sous_total_ht, total_tva_10, total_tva_20, total_ttc, total_paye, solde_restant, cree_le, modifie_le]
@@ -1300,8 +1313,13 @@ components:
       properties:
         id: { type: integer }
         nom: { type: string }
+        tagline: { type: string, nullable: true }
+        subtitre: { type: string, nullable: true }
         siret: { type: string, nullable: true }
         tva_intracom: { type: string, nullable: true }
+        rcs: { type: string, nullable: true }
+        forme_juridique: { type: string, nullable: true }
+        mentions_legales: { type: string, nullable: true }
         adresse: { type: string, nullable: true }
         telephone: { type: string, nullable: true }
         email: { type: string, nullable: true }
@@ -1323,8 +1341,13 @@ components:
       type: object
       properties:
         nom: { type: string }
+        tagline: { type: string, nullable: true }
+        subtitre: { type: string, nullable: true }
         siret: { type: string, nullable: true }
         tva_intracom: { type: string, nullable: true }
+        rcs: { type: string, nullable: true }
+        forme_juridique: { type: string, nullable: true }
+        mentions_legales: { type: string, nullable: true }
         adresse: { type: string, nullable: true }
         telephone: { type: string, nullable: true }
         email: { type: string, nullable: true }
