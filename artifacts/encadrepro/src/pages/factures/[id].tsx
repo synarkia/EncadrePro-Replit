@@ -9,7 +9,7 @@ import {
   getListFacturesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle, CreditCard, Clock, FileText, Plus, Trash2, Save, Printer, Pencil, ChevronDown } from "lucide-react";
+import { ArrowLeft, CheckCircle, CreditCard, Clock, FileText, Plus, Trash2, Save, Printer, Pencil, ChevronDown, Download, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +85,10 @@ export default function FactureDetail() {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isEmailOpen, setIsEmailOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editDate, setEditDate] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -216,6 +220,47 @@ export default function FactureDetail() {
 
   const handlePrint = useCallback(() => { window.print(); }, []);
 
+  const handleDownload = useCallback(() => {
+    toast({
+      title: "Téléchargement PDF",
+      description: "Choisissez « Enregistrer en PDF » dans la boîte de dialogue d'impression.",
+    });
+    setTimeout(() => window.print(), 350);
+  }, [toast]);
+
+  const openEmail = useCallback(() => {
+    if (!facture) return;
+    const fullName = [facture.client_prenom, facture.client_nom].filter(Boolean).join(" ").trim();
+    const greeting = fullName ? `Bonjour ${fullName},` : "Bonjour,";
+    const atelierNom = atelier?.nom || "l'atelier";
+    setEmailTo(facture.client_email || "");
+    setEmailSubject(`Facture ${facture.numero}${atelier?.nom ? ` — ${atelier.nom}` : ""}`);
+    setEmailBody(
+      `${greeting}\n\n` +
+      `Veuillez trouver ci-joint la facture ${facture.numero}` +
+      (facture.date_echeance ? ` (échéance le ${formatDate(facture.date_echeance)})` : "") +
+      ` d'un montant de ${formatCurrency(facture.total_ttc)} TTC` +
+      (facture.solde_restant > 0.01 ? `, dont ${formatCurrency(facture.solde_restant)} restant à régler` : "") +
+      `.\n\n` +
+      `N'hésitez pas à nous contacter pour toute question.\n\n` +
+      `Cordialement,\n${atelierNom}`
+    );
+    setIsEmailOpen(true);
+  }, [facture, atelier]);
+
+  const handleSendEmail = useCallback(() => {
+    const params = new URLSearchParams();
+    if (emailSubject) params.set("subject", emailSubject);
+    if (emailBody) params.set("body", emailBody);
+    const href = `mailto:${encodeURIComponent(emailTo)}?${params.toString()}`;
+    window.location.href = href;
+    setIsEmailOpen(false);
+    toast({
+      title: "Brouillon ouvert",
+      description: "Pensez à joindre le PDF avant d'envoyer (utilisez « Télécharger PDF »).",
+    });
+  }, [emailTo, emailSubject, emailBody, toast]);
+
   const openEdit = () => {
     setEditNotes(facture?.notes ?? "");
     setEditDate(facture?.date_echeance ? facture.date_echeance.slice(0, 10) : "");
@@ -262,6 +307,7 @@ export default function FactureDetail() {
         <div className="print-header">
           <div>
             <h1 className="print-wordmark">{atelier?.nom || "Atelier"}</h1>
+            <hr className="print-brand-rule" />
             {atelier?.tagline && <p className="print-tagline">{atelier.tagline}</p>}
             {atelier?.subtitre && (
               <p className="print-subtags">
@@ -271,24 +317,23 @@ export default function FactureDetail() {
               </p>
             )}
           </div>
-          <div className="print-contact-block">
-            {atelier?.nom && <div className="print-contact-name">.{atelier.nom}.</div>}
+          <address className="print-contact-block not-italic">
+            {atelier?.nom && <div className="print-contact-name">{atelier.nom}</div>}
             {atelier?.adresse && atelier.adresse.split("\n").map((line: string, i: number) => (
               <div key={i} className="print-muted">{line}</div>
             ))}
             {atelier?.telephone && <div className="print-muted">{atelier.telephone}</div>}
             {atelier?.email && <div className="print-muted">{atelier.email}</div>}
-            {(atelier?.siret || atelier?.rcs || atelier?.tva_intracom || atelier?.forme_juridique) && <hr />}
-            <div className="print-legal-block">
-              {atelier?.forme_juridique && <div>{atelier.forme_juridique}{atelier?.nom ? ` — ${atelier.nom}` : ""}</div>}
-              {atelier?.siret && <div>SIRET {atelier.siret}</div>}
-              {atelier?.rcs && <div>RCS {atelier.rcs}</div>}
-              {atelier?.tva_intracom && <div>TVA {atelier.tva_intracom}</div>}
-            </div>
-          </div>
+            {(atelier?.siret || atelier?.rcs || atelier?.tva_intracom || atelier?.forme_juridique) && (
+              <div className="print-legal-block">
+                {atelier?.forme_juridique && <div>{atelier.forme_juridique}{atelier?.nom ? ` — ${atelier.nom}` : ""}</div>}
+                {atelier?.siret && <div>SIRET {atelier.siret}</div>}
+                {atelier?.rcs && <div>RCS Paris {atelier.rcs}</div>}
+                {atelier?.tva_intracom && <div>TVA {atelier.tva_intracom}</div>}
+              </div>
+            )}
+          </address>
         </div>
-
-        <hr className="print-divider" />
 
         {/* ── Meta area ──────────────────────────────────────────────── */}
         <div className="print-meta">
@@ -397,29 +442,52 @@ export default function FactureDetail() {
           </tbody>
         </table>
 
-        <div className="print-totals">
-          <table>
-            <tbody>
-              <tr><td>Sous-total HT</td><td>{formatCurrency(facture.sous_total_ht)}</td></tr>
-              {facture.total_tva_10 > 0 && <tr><td>TVA 10%</td><td>{formatCurrency(facture.total_tva_10)}</td></tr>}
-              {facture.total_tva_20 > 0 && <tr><td>TVA 20%</td><td>{formatCurrency(facture.total_tva_20)}</td></tr>}
-              <tr className="print-total-row"><td>Total TTC</td><td>{formatCurrency(facture.total_ttc)}</td></tr>
-              {facture.total_paye > 0 && (
-                <tr className="print-total-paid"><td>Déjà réglé</td><td>− {formatCurrency(facture.total_paye)}</td></tr>
-              )}
-              {facture.solde_restant > 0.01 && (
-                <tr className="print-total-row"><td>Solde restant dû</td><td>{formatCurrency(facture.solde_restant)}</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {atelier?.conditions_generales && (
+        <div className="print-summary">
           <div className="print-conditions">
             <div className="print-meta-label">Conditions de règlement</div>
-            <p>{atelier.conditions_generales}</p>
+            {facture.date_echeance && (
+              <div className="print-due">
+                Net à régler le <strong>{formatDate(facture.date_echeance)}</strong>
+              </div>
+            )}
+            {atelier?.conditions_generales && <p>{atelier.conditions_generales}</p>}
           </div>
-        )}
+
+          <div className="print-totals">
+            <div className="print-totals-row is-sub">
+              <span className="print-totals-label">Sous-total HT</span>
+              <span className="print-totals-value">{formatCurrency(facture.sous_total_ht)}</span>
+            </div>
+            {facture.total_tva_20 > 0 && (
+              <div className="print-totals-row is-vat">
+                <span className="print-totals-label">TVA <small>20%</small></span>
+                <span className="print-totals-value">{formatCurrency(facture.total_tva_20)}</span>
+              </div>
+            )}
+            {facture.total_tva_10 > 0 && (
+              <div className="print-totals-row is-vat">
+                <span className="print-totals-label">TVA <small>10%</small></span>
+                <span className="print-totals-value">{formatCurrency(facture.total_tva_10)}</span>
+              </div>
+            )}
+            <div className="print-totals-row is-grand">
+              <span className="print-totals-label">Total TTC</span>
+              <span className="print-totals-value">{formatCurrency(facture.total_ttc)}</span>
+            </div>
+            {facture.total_paye > 0 && (
+              <div className="print-totals-row is-paid">
+                <span className="print-totals-label">Déjà réglé</span>
+                <span className="print-totals-value">− {formatCurrency(facture.total_paye)}</span>
+              </div>
+            )}
+            {facture.solde_restant > 0.01 && (
+              <div className="print-totals-row is-net">
+                <span className="print-totals-label">Net à payer</span>
+                <span className="print-totals-value">{formatCurrency(facture.solde_restant)}</span>
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="print-footer">
           {atelier?.nom && <span>{atelier.nom}</span>}
@@ -479,6 +547,12 @@ export default function FactureDetail() {
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" className="glass-panel" onClick={handlePrint}>
               <Printer className="h-4 w-4 mr-1" /> Imprimer
+            </Button>
+            <Button variant="outline" size="sm" className="glass-panel" onClick={handleDownload}>
+              <Download className="h-4 w-4 mr-1" /> Télécharger PDF
+            </Button>
+            <Button variant="outline" size="sm" className="glass-panel" onClick={openEmail}>
+              <Mail className="h-4 w-4 mr-1" /> Envoyer par email
             </Button>
             <Button variant="outline" size="sm" className="glass-panel" onClick={openEdit}>
               <Pencil className="h-4 w-4 mr-1" /> Modifier
@@ -790,6 +864,41 @@ export default function FactureDetail() {
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>Annuler</Button>
             <Button onClick={handleEditSave} disabled={isSavingEdit}>
               {isSavingEdit ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Email dialog ─────────────────────────────────────── */}
+      <Dialog open={isEmailOpen} onOpenChange={setIsEmailOpen}>
+        <DialogContent className="glass-panel max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Envoyer la facture par email</DialogTitle>
+            <DialogDescription>
+              Le brouillon s'ouvrira dans votre logiciel de messagerie. Téléchargez d'abord le PDF si vous souhaitez le joindre.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Destinataire</label>
+              <Input type="email" value={emailTo} onChange={e => setEmailTo(e.target.value)} placeholder="client@exemple.fr" />
+              {!facture.client_email && (
+                <p className="text-xs text-muted-foreground">Aucun email enregistré pour ce client — saisissez-en un.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Objet</label>
+              <Input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Message</label>
+              <Textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} rows={8} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEmailOpen(false)}>Annuler</Button>
+            <Button onClick={handleSendEmail} disabled={!emailTo}>
+              <Mail className="h-4 w-4 mr-1" /> Ouvrir dans la messagerie
             </Button>
           </DialogFooter>
         </DialogContent>

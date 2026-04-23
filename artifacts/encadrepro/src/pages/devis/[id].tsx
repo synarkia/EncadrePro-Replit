@@ -317,6 +317,7 @@ export default function DevisDetail() {
         <div className="print-header">
           <div>
             <h1 className="print-wordmark">{atelier?.nom || "Atelier"}</h1>
+            <hr className="print-brand-rule" />
             {atelier?.tagline && <p className="print-tagline">{atelier.tagline}</p>}
             {atelier?.subtitre && (
               <p className="print-subtags">
@@ -326,24 +327,23 @@ export default function DevisDetail() {
               </p>
             )}
           </div>
-          <div className="print-contact-block">
-            {atelier?.nom && <div className="print-contact-name">.{atelier.nom}.</div>}
+          <address className="print-contact-block not-italic">
+            {atelier?.nom && <div className="print-contact-name">{atelier.nom}</div>}
             {atelier?.adresse && atelier.adresse.split("\n").map((line, i) => (
               <div key={i} className="print-muted">{line}</div>
             ))}
             {atelier?.telephone && <div className="print-muted">{atelier.telephone}</div>}
             {atelier?.email && <div className="print-muted">{atelier.email}</div>}
-            {(atelier?.siret || atelier?.rcs || atelier?.tva_intracom || atelier?.forme_juridique) && <hr />}
-            <div className="print-legal-block">
-              {atelier?.forme_juridique && <div>{atelier.forme_juridique}{atelier?.nom ? ` — ${atelier.nom}` : ""}</div>}
-              {atelier?.siret && <div>SIRET {atelier.siret}</div>}
-              {atelier?.rcs && <div>RCS {atelier.rcs}</div>}
-              {atelier?.tva_intracom && <div>TVA {atelier.tva_intracom}</div>}
-            </div>
-          </div>
+            {(atelier?.siret || atelier?.rcs || atelier?.tva_intracom || atelier?.forme_juridique) && (
+              <div className="print-legal-block">
+                {atelier?.forme_juridique && <div>{atelier.forme_juridique}{atelier?.nom ? ` — ${atelier.nom}` : ""}</div>}
+                {atelier?.siret && <div>SIRET {atelier.siret}</div>}
+                {atelier?.rcs && <div>RCS Paris {atelier.rcs}</div>}
+                {atelier?.tva_intracom && <div>TVA {atelier.tva_intracom}</div>}
+              </div>
+            )}
+          </address>
         </div>
-
-        <hr className="print-divider" />
 
         {/* ── Meta area: document/title left, client right ─────────────── */}
         <div className="print-meta">
@@ -453,23 +453,40 @@ export default function DevisDetail() {
           </tbody>
         </table>
 
-        <div className="print-totals">
-          <table>
-            <tbody>
-              <tr><td>Sous-total HT</td><td>{formatCurrency(devis.sous_total_ht)}</td></tr>
-              {(devis.total_tva_10 ?? 0) > 0 && <tr><td>TVA 10%</td><td>{formatCurrency(devis.total_tva_10)}</td></tr>}
-              {(devis.total_tva_20 ?? 0) > 0 && <tr><td>TVA 20%</td><td>{formatCurrency(devis.total_tva_20)}</td></tr>}
-              <tr className="print-total-row"><td>Total TTC</td><td>{formatCurrency(devis.total_ttc)}</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        {atelier?.conditions_generales && (
+        <div className="print-summary">
           <div className="print-conditions">
             <div className="print-meta-label">Conditions</div>
-            <p>{atelier.conditions_generales}</p>
+            {devis.date_validite && (
+              <div className="print-due">
+                Valable jusqu'au <strong>{formatDate(devis.date_validite)}</strong>
+              </div>
+            )}
+            {atelier?.conditions_generales && <p>{atelier.conditions_generales}</p>}
           </div>
-        )}
+
+          <div className="print-totals">
+            <div className="print-totals-row is-sub">
+              <span className="print-totals-label">Sous-total HT</span>
+              <span className="print-totals-value">{formatCurrency(devis.sous_total_ht)}</span>
+            </div>
+            {(devis.total_tva_20 ?? 0) > 0 && (
+              <div className="print-totals-row is-vat">
+                <span className="print-totals-label">TVA <small>20%</small></span>
+                <span className="print-totals-value">{formatCurrency(devis.total_tva_20)}</span>
+              </div>
+            )}
+            {(devis.total_tva_10 ?? 0) > 0 && (
+              <div className="print-totals-row is-vat">
+                <span className="print-totals-label">TVA <small>10%</small></span>
+                <span className="print-totals-value">{formatCurrency(devis.total_tva_10)}</span>
+              </div>
+            )}
+            <div className="print-totals-row is-grand">
+              <span className="print-totals-label">Total TTC</span>
+              <span className="print-totals-value">{formatCurrency(devis.total_ttc)}</span>
+            </div>
+          </div>
+        </div>
 
         <div className="print-footer">
           {atelier?.nom && <span>{atelier.nom}</span>}

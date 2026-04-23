@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Facture — Atelier AGV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* =========================================================================
+   ATELIER AGV — Template de facture A4
+   Aesthetic : papeterie d'atelier / menu gastronomique
+   Type      : EB Garamond (wordmark, mentions) + Inter (corps, tableau)
+   Couleurs  : ivoire #faf7f2, encre #1a1a1a, laiton #9c7a3c (accent discret)
+   ======================================================================== */
+
+/* -------- Reset minimal & variables -------- */
+:root {
+  --ink:        #1a1a1a;
+  --ink-soft:   #3a3a3a;
+  --ink-mute:   #6a665f;
+  --rule:       #d9d3c6;
+  --rule-soft:  #ebe6da;
+  --paper:      #ffffff;
+  --ivoire:     #faf7f2;
+  --laiton:     #9c7a3c;
+
+  --serif:      "EB Garamond", "Times New Roman", Georgia, serif;
+  --sans:       "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+
+  --page-w:     210mm;
+  --page-h:     297mm;
+  --margin-x:   16mm;
+  --margin-y:   15mm;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: #e8e5dd;          /* gris doux autour de la feuille pour le preview écran */
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 10pt;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* -------- Feuille A4 -------- */
+.sheet {
+  width: var(--page-w);
+  min-height: var(--page-h);
+  margin: 24px auto;
+  padding: var(--margin-y) var(--margin-x);
+  background: var(--paper);
+  box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 24px 48px -24px rgba(0,0,0,.18);
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  position: relative;
+}
+
+/* =========================================================================
+   1. EN-TÊTE — Wordmark, baseline, coordonnées
+   ======================================================================== */
+.masthead {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 24px;
+  padding-bottom: 10mm;
+  border-bottom: 0.5pt solid var(--ink);
+}
+
+.brand__mark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 26pt;
+  letter-spacing: 0.28em;
+  line-height: 1;
+  color: var(--ink);
+  padding-left: 2px;          /* compense le letter-spacing à gauche */
+}
+.brand__rule {
+  width: 48px;
+  height: 0.5pt;
+  background: var(--laiton);
+  margin: 10px 0 10px 2px;
+}
+.brand__baseline {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 11pt;
+  color: var(--ink-soft);
+  letter-spacing: 0.01em;
+}
+.brand__since {
+  margin-top: 6px;
+  font-family: var(--sans);
+  font-size: 7.5pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.issuer {
+  text-align: right;
+  font-size: 8.5pt;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  min-width: 60mm;
+}
+.issuer__name {
+  font-family: var(--serif);
+  font-size: 10pt;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+.issuer__legal {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 0.25pt solid var(--rule);
+  font-size: 7pt;
+  letter-spacing: 0.02em;
+  color: var(--ink-mute);
+  line-height: 1.6;
+}
+
+/* =========================================================================
+   2. META FACTURE + CLIENT
+   ======================================================================== */
+.docmeta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14mm;
+  padding: 10mm 0 8mm;
+  border-bottom: 0.25pt solid var(--rule);
+}
+
+/* — Bloc titre facture + numéros — */
+.doctitle {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.doctitle__kicker {
+  font-family: var(--sans);
+  font-size: 7.5pt;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.doctitle__main {
+  font-family: var(--serif);
+  font-size: 30pt;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--ink);
+}
+.doctitle__number {
+  font-family: var(--sans);
+  font-size: 11pt;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  margin-top: 2px;
+}
+
+.metafields {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  font-size: 9pt;
+}
+.metafields dt {
+  font-size: 7.5pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  align-self: center;
+}
+.metafields dd {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* — Bloc client — */
+.client {
+  padding-left: 14mm;
+  border-left: 0.25pt solid var(--rule);
+}
+.client__label {
+  font-size: 7.5pt;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 10px;
+}
+.client__name {
+  font-family: var(--serif);
+  font-size: 14pt;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  margin-bottom: 6px;
+}
+.client__addr {
+  font-size: 9pt;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+.client__legal {
+  font-size: 7.5pt;
+  letter-spacing: 0.04em;
+  color: var(--ink-mute);
+  line-height: 1.7;
+  padding-top: 6px;
+  border-top: 0.25pt dotted var(--rule);
+}
+.client__legal span + span::before {
+  content: " · ";
+  color: var(--rule);
+}
+
+/* =========================================================================
+   3. TABLEAU PRESTATIONS
+   ======================================================================== */
+.lines {
+  margin-top: 10mm;
+}
+.lines__intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.lines__intro h2 {
+  font-family: var(--serif);
+  font-size: 13pt;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+.lines__intro small {
+  font-size: 7.5pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+table.lines__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+  font-variant-numeric: tabular-nums;
+}
+.lines__table thead th {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 7.5pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  text-align: left;
+  padding: 8px 8px;
+  border-top: 0.5pt solid var(--ink);
+  border-bottom: 0.5pt solid var(--ink);
+}
+.lines__table th.num,
+.lines__table td.num { text-align: right; }
+.lines__table th.ctr,
+.lines__table td.ctr { text-align: center; }
+
+.lines__table tbody td {
+  padding: 10px 8px;
+  vertical-align: top;
+  border-bottom: 0.25pt solid var(--rule-soft);
+  color: var(--ink);
+}
+.lines__table tbody tr:last-child td { border-bottom: 0.5pt solid var(--ink); }
+
+.lines__desc  { width: 44%; }
+.lines__desc strong {
+  font-weight: 500;
+  color: var(--ink);
+  display: block;
+  margin-bottom: 2px;
+  font-size: 9.5pt;
+}
+.lines__desc small {
+  font-size: 8pt;
+  color: var(--ink-mute);
+  line-height: 1.5;
+  display: block;
+}
+
+.col-qty   { width: 8%; }
+.col-unit  { width: 10%; }
+.col-pu    { width: 14%; }
+.col-rem   { width: 10%; }
+.col-total { width: 14%; }
+
+/* =========================================================================
+   4. TOTAUX + CONDITIONS
+   ======================================================================== */
+.summary {
+  display: grid;
+  grid-template-columns: 1fr 82mm;
+  gap: 14mm;
+  margin-top: 8mm;
+}
+
+/* — Colonne gauche : conditions de règlement & échéance — */
+.terms {
+  font-size: 8.5pt;
+  line-height: 1.6;
+}
+.terms__label {
+  font-size: 7.5pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 8px;
+}
+.terms__due {
+  font-family: var(--serif);
+  font-size: 13pt;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+.terms__due strong { font-weight: 500; }
+.terms__note {
+  color: var(--ink-soft);
+  max-width: 72mm;
+}
+
+.terms__pay {
+  margin-top: 10mm;
+  padding-top: 6mm;
+  border-top: 0.25pt solid var(--rule);
+}
+.terms__pay dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 14px;
+  font-size: 8.5pt;
+}
+.terms__pay dt {
+  font-size: 7.5pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  align-self: center;
+}
+.terms__pay dd { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* — Colonne droite : totaux — */
+.totals { font-size: 9pt; }
+.totals__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  padding: 5px 0;
+  border-bottom: 0.25pt solid var(--rule-soft);
+  font-variant-numeric: tabular-nums;
+}
+.totals__row.sub  { border-bottom: 0.5pt solid var(--ink); padding-top: 8px; }
+.totals__row.vat  { color: var(--ink-soft); }
+.totals__row.vat small {
+  font-size: 7.5pt;
+  color: var(--ink-mute);
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+}
+
+.totals__row.grand {
+  margin-top: 6px;
+  padding: 14px 0 12px;
+  border-top: 0.5pt solid var(--ink);
+  border-bottom: 2pt double var(--ink);
+  font-family: var(--serif);
+  font-size: 14pt;
+  letter-spacing: 0.03em;
+}
+.totals__row.grand .totals__label { color: var(--ink); }
+
+.totals__row.net {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--ivoire);
+  border: 0.25pt solid var(--rule);
+  border-bottom: 0.25pt solid var(--rule);
+  font-family: var(--serif);
+  font-size: 15pt;
+  color: var(--ink);
+  letter-spacing: 0.03em;
+}
+.totals__row.net .totals__value { font-weight: 500; }
+
+.totals__label {
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 9pt;
+  letter-spacing: 0.02em;
+}
+.totals__row.grand .totals__label,
+.totals__row.net   .totals__label { font-family: var(--serif); font-size: inherit; }
+.totals__value { text-align: right; }
+
+/* =========================================================================
+   5. SIGNATURE + IBAN
+   ======================================================================== */
+.closing {
+  display: grid;
+  grid-template-columns: 1fr 82mm;
+  gap: 14mm;
+  margin-top: 8mm;
+  padding-top: 6mm;
+  border-top: 0.25pt solid var(--rule);
+}
+
+.bank {
+  font-size: 8.5pt;
+  line-height: 1.6;
+}
+.bank__label {
+  font-size: 7.5pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 6px;
+}
+.bank__row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  font-variant-numeric: tabular-nums;
+}
+.bank__row dt {
+  font-size: 7.5pt;
+  letter-spacing: 0.12em;
+  color: var(--ink-mute);
+  text-transform: uppercase;
+}
+.bank__row dd { color: var(--ink); letter-spacing: 0.04em; }
+
+.sign {
+  text-align: left;
+}
+.sign__label {
+  font-size: 7.5pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 6px;
+}
+.sign__box {
+  height: 32mm;
+  border: 0.25pt solid var(--rule);
+  background:
+    repeating-linear-gradient( -45deg,
+      transparent 0 6px,
+      rgba(0,0,0,.015) 6px 7px);
+}
+.sign__cap {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 9pt;
+  color: var(--ink-mute);
+  margin-top: 4px;
+}
+
+/* =========================================================================
+   6. PIED — Mentions légales + pagination
+   ======================================================================== */
+.legal {
+  margin-top: 10mm;
+  padding-top: 6mm;
+  border-top: 0.5pt solid var(--ink);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10mm;
+  font-size: 7pt;
+  line-height: 1.55;
+  color: var(--ink-mute);
+  letter-spacing: 0.01em;
+}
+.legal h3 {
+  font-family: var(--sans);
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.legal p + h3 { margin-top: 8px; }
+
+.pageinfo {
+  margin-top: 8mm;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 6.5pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.pageinfo__brand {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 8.5pt;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  color: var(--ink-soft);
+}
+
+/* =========================================================================
+   7. IMPRESSION
+   ======================================================================== */
+@page { size: A4; margin: 0; }
+
+@media print {
+  html, body { background: #fff; }
+  .sheet {
+    margin: 0;
+    box-shadow: none;
+    width: 210mm;
+    min-height: 297mm;
+    page-break-after: always;
+  }
+  /* Rendu N&B propre : le laiton vire gris foncé via WebKit-print-color */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* =========================================================================
+   8. CHAMPS DYNAMIQUES — affichage discret du {{placeholder}} dans le preview
+      Astuce : chaque valeur dynamique est contenue dans <span data-var="...">
+      afin que l'app EncadrePro puisse cibler et remplacer via querySelector.
+   ======================================================================== */
+[data-var] { /* aucun style visible : le contenu fait foi */ }
+</style>
+</head>
+<body>
+
+<main class="sheet" data-screen-label="Facture Atelier AGV">
+
+  <!-- ====================================================================
+       EN-TÊTE
+       ==================================================================== -->
+  <header class="masthead">
+    <div class="brand">
+      <div class="brand__mark">ATELIER&nbsp;AGV</div>
+      <div class="brand__rule"></div>
+      <div class="brand__baseline">Encadrement d’art &amp; Miroiterie artisanale</div>
+      <div class="brand__since">Maison familiale &nbsp;·&nbsp; Paris 13ᵉ &nbsp;·&nbsp; Depuis quatre générations</div>
+    </div>
+
+    <address class="issuer">
+      <div class="issuer__name"><span data-var="issuer_name">Atelier AGV</span></div>
+      <span data-var="issuer_addr_1">152 rue de Tolbiac</span><br>
+      <span data-var="issuer_addr_2">75013 Paris — France</span><br>
+      <span data-var="issuer_phone">01 45 80 80 07</span><br>
+      <span data-var="issuer_email">contact@atelieragv.fr</span><br>
+      <span data-var="issuer_web">atelieragv.fr</span>
+
+      <div class="issuer__legal">
+        Entreprise individuelle — <span data-var="issuer_director">Virginie Pillard</span><br>
+        SIRET <span data-var="issuer_siret">339 743 064 00018</span><br>
+        RCS Paris <span data-var="issuer_rcs">339 743 064</span>
+        &nbsp;·&nbsp; TVA <span data-var="issuer_vat">FR 55 339743064</span>
+      </div>
+    </address>
+  </header>
+
+
+  <!-- ====================================================================
+       META FACTURE + CLIENT
+       ==================================================================== -->
+  <section class="docmeta">
+
+    <div class="doctitle">
+      <div class="doctitle__kicker">Document</div>
+      <div class="doctitle__main">Facture</div>
+      <div class="doctitle__number">N° <span data-var="invoice_number">F-2026-0001</span></div>
+
+      <dl class="metafields">
+        <dt>Émise le</dt>
+        <dd><span data-var="invoice_date">22 avril 2026</span></dd>
+
+        <dt>Prestation</dt>
+        <dd><span data-var="service_date">14 &rarr; 19 avril 2026</span></dd>
+
+        <dt>Devis</dt>
+        <dd><span data-var="quote_ref">D-2026-0042 du 03 avril 2026</span></dd>
+
+        <dt>Bon de cde</dt>
+        <dd><span data-var="po_number">BC-2026/117</span></dd>
+      </dl>
+    </div>
+
+    <div class="client">
+      <div class="client__label">Adressée à</div>
+      <div class="client__name"><span data-var="client_name">Galerie Jeanne Bucher Jaeger</span></div>
+      <div class="client__addr">
+        <span data-var="client_contact">À l’attention de Mme Véronique Jaeger</span><br>
+        <span data-var="client_addr_1">5 &amp; 9 rue de Saintonge</span><br>
+        <span data-var="client_addr_2">75003 Paris — France</span>
+      </div>
+      <div class="client__legal">
+        <span>SIRET <span data-var="client_siret">000 000 000 00000</span></span>
+        <span>TVA <span data-var="client_vat">FR00 000000000</span></span>
+        <span>Réf. projet <span data-var="client_job_ref">Accrochage exposition printemps</span></span>
+      </div>
+    </div>
+
+  </section>
+
+
+  <!-- ====================================================================
+       PRESTATIONS
+       ==================================================================== -->
+  <section class="lines">
+    <div class="lines__intro">
+      <h2>Prestations &amp; fournitures</h2>
+      <small>Montants en euros</small>
+    </div>
+
+    <table class="lines__table">
+      <thead>
+        <tr>
+          <th class="lines__desc">Désignation</th>
+          <th class="col-qty ctr">Qté</th>
+          <th class="col-unit ctr">Unité</th>
+          <th class="col-pu num">P. U. HT</th>
+          <th class="col-rem num">Remise</th>
+          <th class="col-total num">Total HT</th>
+        </tr>
+      </thead>
+      <tbody data-var="invoice_lines">
+
+        <tr>
+          <td class="lines__desc">
+            <strong>Encadrement sur mesure — caisse américaine</strong>
+            <small>Bois tilleul teinté noyer foncé, verre musée anti-reflet, passe-partout conservation 2,5&nbsp;mm.<br>Format 60 × 80 cm — aquarelle &laquo;&nbsp;Toits de Paris&nbsp;&raquo;.</small>
+          </td>
+          <td class="col-qty ctr">2</td>
+          <td class="col-unit ctr">pièce</td>
+          <td class="col-pu num">420,00&nbsp;€</td>
+          <td class="col-rem num">—</td>
+          <td class="col-total num">840,00&nbsp;€</td>
+        </tr>
+
+        <tr>
+          <td class="lines__desc">
+            <strong>Pose de survitrage isolant</strong>
+            <small>Verre feuilleté 33.2, cadre laiton brossé sur mesure, joint néoprène. Fenêtre salle Est, dépose et repose comprises.</small>
+          </td>
+          <td class="col-qty ctr">1</td>
+          <td class="col-unit ctr">forfait</td>
+          <td class="col-pu num">1&nbsp;180,00&nbsp;€</td>
+          <td class="col-rem num">−5&nbsp;%</td>
+          <td class="col-total num">1&nbsp;121,00&nbsp;€</td>
+        </tr>
+
+        <tr>
+          <td class="lines__desc">
+            <strong>Prise de mesure &amp; étude d’accrochage</strong>
+            <small>Intervention sur site, relevé laser, plan d’accrochage annoté — livré au format A3.</small>
+          </td>
+          <td class="col-qty ctr">1</td>
+          <td class="col-unit ctr">vacation</td>
+          <td class="col-pu num">180,00&nbsp;€</td>
+          <td class="col-rem num">—</td>
+          <td class="col-total num">180,00&nbsp;€</td>
+        </tr>
+
+        <tr>
+          <td class="lines__desc">
+            <strong>Restauration de miroir ancien</strong>
+            <small>Ré-étamage partiel, nettoyage du tain, reprise de la dorure du cadre Louis-Philippe. TVA réduite 10&nbsp;% (travaux d’entretien).</small>
+          </td>
+          <td class="col-qty ctr">1</td>
+          <td class="col-unit ctr">pièce</td>
+          <td class="col-pu num">640,00&nbsp;€</td>
+          <td class="col-rem num">—</td>
+          <td class="col-total num">640,00&nbsp;€</td>
+        </tr>
+
+        <tr>
+          <td class="lines__desc">
+            <strong>Déplacement &amp; livraison</strong>
+            <small>Paris intra-muros, véhicule atelier, manutention à deux personnes.</small>
+          </td>
+          <td class="col-qty ctr">2</td>
+          <td class="col-unit ctr">course</td>
+          <td class="col-pu num">45,00&nbsp;€</td>
+          <td class="col-rem num">—</td>
+          <td class="col-total num">90,00&nbsp;€</td>
+        </tr>
+
+      </tbody>
+    </table>
+  </section>
+
+
+  <!-- ====================================================================
+       TOTAUX + CONDITIONS DE RÈGLEMENT
+       ==================================================================== -->
+  <section class="summary">
+
+    <div class="terms">
+      <div class="terms__label">Conditions de règlement</div>
+      <div class="terms__due">Net à régler le <strong><span data-var="due_date">22 mai 2026</span></strong></div>
+      <div class="terms__note">
+        Paiement à réception de facture, sous 30 jours date de facture.
+        Acompte de <span data-var="deposit_amount">600,00&nbsp;€</span> versé
+        à la commande le <span data-var="deposit_date">03 avril 2026</span>.
+      </div>
+
+      <div class="terms__pay">
+        <dl>
+          <dt>Mode</dt><dd>Virement · Chèque · Carte bancaire à l’atelier</dd>
+          <dt>Référence</dt><dd>À rappeler : <span data-var="invoice_number_ref">F-2026-0001</span></dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="totals">
+
+      <div class="totals__row sub">
+        <span class="totals__label">Sous-total HT</span>
+        <span class="totals__value" data-var="subtotal_ht">2&nbsp;871,00&nbsp;€</span>
+      </div>
+
+      <div class="totals__row">
+        <span class="totals__label">Remise globale</span>
+        <span class="totals__value" data-var="global_discount">−59,00&nbsp;€</span>
+      </div>
+
+      <div class="totals__row vat">
+        <span class="totals__label">TVA <small>20&nbsp;% sur 2&nbsp;172,00&nbsp;€</small></span>
+        <span class="totals__value" data-var="vat_20">434,40&nbsp;€</span>
+      </div>
+
+      <div class="totals__row vat">
+        <span class="totals__label">TVA <small>10&nbsp;% sur 640,00&nbsp;€</small></span>
+        <span class="totals__value" data-var="vat_10">64,00&nbsp;€</span>
+      </div>
+
+      <div class="totals__row vat">
+        <span class="totals__label">TVA <small>5,5&nbsp;% — néant</small></span>
+        <span class="totals__value" data-var="vat_55">—</span>
+      </div>
+
+      <div class="totals__row grand">
+        <span class="totals__label">Total TTC</span>
+        <span class="totals__value" data-var="total_ttc">3&nbsp;310,40&nbsp;€</span>
+      </div>
+
+      <div class="totals__row">
+        <span class="totals__label">Acompte versé</span>
+        <span class="totals__value" data-var="deposit_paid">−600,00&nbsp;€</span>
+      </div>
+
+      <div class="totals__row net">
+        <span class="totals__label">Net à payer</span>
+        <span class="totals__value" data-var="amount_due">2&nbsp;710,40&nbsp;€</span>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ====================================================================
+       IBAN + SIGNATURE
+       ==================================================================== -->
+  <section class="closing">
+
+    <div class="bank">
+      <div class="bank__label">Règlement par virement</div>
+      <dl class="bank__row">
+        <dt>Banque</dt><dd><span data-var="bank_name">Crédit Coopératif — Agence Opéra</span></dd>
+        <dt>IBAN</dt>  <dd><span data-var="bank_iban">FR76 0000 0000 0000 0000 0000 000</span></dd>
+        <dt>BIC</dt>   <dd><span data-var="bank_bic">CCOPFRPPXXX</span></dd>
+        <dt>Tit.</dt>  <dd><span data-var="bank_holder">SARL Atelier AGV</span></dd>
+      </dl>
+    </div>
+
+    <div class="sign">
+      <div class="sign__label">Cachet &amp; signature</div>
+      <div class="sign__box" aria-hidden="true"></div>
+      <div class="sign__cap">Bon pour accord — date et signature du client.</div>
+    </div>
+
+  </section>
+
+
+  <!-- ====================================================================
+       MENTIONS LÉGALES + PIED DE PAGE
+       ==================================================================== -->
+  <footer>
+    <div class="legal">
+      <div>
+        <h3>Pénalités &amp; recouvrement</h3>
+        <p>
+          En cas de retard de paiement, application d’un intérêt au taux légal en vigueur,
+          majoré de dix points, sans qu’un rappel ne soit nécessaire (art. L.441-10 C. com.).
+          Indemnité forfaitaire pour frais de recouvrement : <strong>40&nbsp;€</strong>
+          (décret n°&nbsp;2012-1115). Pas d’escompte pour paiement anticipé.
+        </p>
+        <h3>Réserve de propriété</h3>
+        <p>Les marchandises restent la propriété de l’Atelier AGV jusqu’au paiement intégral du prix.</p>
+      </div>
+
+      <div>
+        <h3>TVA &amp; régime</h3>
+        <p>
+          TVA acquittée sur les <strong>débits</strong>. Taux appliqués&nbsp;: 20&nbsp;%
+          (prestations &amp; fournitures), 10&nbsp;% (travaux d’entretien sur bien achevé
+          depuis plus de deux ans), 5,5&nbsp;% le cas échéant.
+        </p>
+        <h3>Assurance professionnelle</h3>
+        <p>
+          Police n° <span data-var="insurance_policy">—</span> —
+          <span data-var="insurance_company">à compléter</span>, couvrant l’activité d’encadrement d’art,
+          miroiterie et pose, zone géographique : France métropolitaine.
+        </p>
+      </div>
+
+      <div>
+        <h3>Médiation de la consommation</h3>
+        <p>
+          Pour tout litige avec un consommateur, médiateur compétent&nbsp;:
+          <span data-var="mediator_name">CM2C — Centre de la médiation de la consommation</span>,
+          <span data-var="mediator_addr">14 rue Saint-Jean, 75017 Paris</span> —
+          <span data-var="mediator_web">cm2c.net</span>.
+        </p>
+        <h3>Identification</h3>
+        <p>
+          Atelier AGV — Entreprise individuelle · SIRET <span data-var="issuer_siret_foot">339 743 064 00018</span> ·
+          RCS Paris <span data-var="issuer_rcs_foot">339 743 064</span> ·
+          TVA <span data-var="issuer_vat_foot">FR 55 339743064</span>. Directrice de la publication : Virginie Pillard.
+        </p>
+      </div>
+    </div>
+
+    <div class="pageinfo">
+      <span>Facture <span data-var="invoice_number_foot">F-2026-0001</span></span>
+      <span class="pageinfo__brand">Atelier AGV — Paris</span>
+      <span>Page <span data-var="page_current">1</span> / <span data-var="page_total">1</span></span>
+    </div>
+  </footer>
+
+</main>
+
+</body>
+</html>

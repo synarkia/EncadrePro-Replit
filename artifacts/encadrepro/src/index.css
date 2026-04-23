@@ -221,12 +221,13 @@
 }
 
 /* ── Print styles ─────────────────────────────────────────────────────────── */
-/* Atelier-AGV inspired editorial stationery: serif wordmark, bronze accent,
-   hairline rules, no filled table headers. */
+/* Atelier-AGV editorial stationery: serif wordmark, bronze accent rule,
+   hairline tables, ivoire "Net à payer" box, centered legal footer.
+   Mirrors the reference template at attached_assets/Facture_Atelier_AGV_*.html */
 @media print {
   @page {
     size: A4;
-    margin: 18mm 18mm;
+    margin: 15mm 16mm;
   }
 
   * {
@@ -240,6 +241,7 @@
     font-family: 'Inter', Arial, sans-serif;
     font-size: 10pt;
     line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
   }
 
   .print-document {
@@ -251,40 +253,51 @@
     font-family: 'EB Garamond', 'Garamond', Georgia, serif;
   }
 
-  /* ── Header ────────────────────────────────────────────────────────── */
+  /* ── Header / masthead ─────────────────────────────────────────────── */
   .print-header {
     display: grid;
     grid-template-columns: 1fr auto;
-    gap: 32px;
+    gap: 24px;
     align-items: start;
-    margin-bottom: 18px;
+    padding-bottom: 10mm;
+    border-bottom: 0.5pt solid #1a1a1a;
   }
 
   .print-wordmark {
     font-family: 'EB Garamond', 'Garamond', Georgia, serif;
     font-weight: 500;
     font-size: 26pt;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.28em;
     color: #1a1a1a;
     text-transform: uppercase;
-    line-height: 1.05;
+    line-height: 1;
     margin: 0;
+    padding-left: 2px;
+  }
+
+  .print-brand-rule {
+    width: 48px;
+    height: 0.5pt;
+    background: #9c7a3c;
+    margin: 10px 0 10px 2px;
+    border: 0;
   }
 
   .print-tagline {
     font-family: 'EB Garamond', 'Garamond', Georgia, serif;
     font-style: italic;
-    font-size: 10pt;
-    color: #1a1a1a;
-    margin: 6px 0 0 0;
+    font-size: 11pt;
+    color: #3a3a3a;
+    margin: 0;
+    letter-spacing: 0.01em;
   }
 
   .print-subtags {
     font-size: 7.5pt;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     color: #6a665f;
-    margin-top: 4px;
+    margin-top: 6px;
   }
 
   .print-subtags span + span::before {
@@ -296,82 +309,80 @@
   .print-contact-block {
     text-align: right;
     font-size: 8.5pt;
-    color: #1a1a1a;
+    color: #3a3a3a;
     line-height: 1.55;
-    min-width: 200px;
+    min-width: 60mm;
   }
 
   .print-contact-block .print-contact-name {
     font-family: 'EB Garamond', 'Garamond', Georgia, serif;
-    font-style: italic;
-    font-size: 9pt;
+    font-size: 10pt;
+    font-weight: 500;
     color: #1a1a1a;
+    letter-spacing: 0.04em;
     margin-bottom: 2px;
   }
 
   .print-contact-block .print-muted {
-    color: #6a665f;
-  }
-
-  .print-contact-block hr {
-    border: 0;
-    border-top: 1px solid #d9d3c3;
-    margin: 8px 0;
-    width: 60%;
-    margin-left: auto;
+    color: #3a3a3a;
   }
 
   .print-legal-block {
-    font-size: 7.5pt;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 0.25pt solid #d9d3c6;
+    font-size: 7pt;
+    letter-spacing: 0.02em;
     color: #6a665f;
-    line-height: 1.55;
+    line-height: 1.6;
   }
 
-  /* Full-width hairline divider under the header. */
-  .print-divider {
-    border: 0;
-    border-top: 1px solid #d9d3c3;
-    margin: 12px 0 24px 0;
-  }
+  /* No standalone divider needed — masthead has its own border. */
+  .print-divider { display: none; }
 
   /* ── Meta area (document title + client) ───────────────────────────── */
   .print-meta {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 48px;
-    margin-bottom: 28px;
+    gap: 14mm;
+    padding: 10mm 0 8mm;
+    border-bottom: 0.25pt solid #d9d3c6;
   }
 
   .print-meta-label {
     font-size: 7.5pt;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.28em;
     text-transform: uppercase;
     color: #6a665f;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
 
   .print-meta-title {
     font-family: 'EB Garamond', 'Garamond', Georgia, serif;
     font-weight: 500;
-    font-size: 28pt;
+    font-size: 30pt;
+    letter-spacing: 0.08em;
     color: #1a1a1a;
     line-height: 1;
-    margin: 0 0 6px 0;
+    margin: 8px 0 2px 0;
   }
 
   .print-meta-number {
-    font-size: 10pt;
-    font-weight: 600;
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 11pt;
+    font-weight: 500;
+    letter-spacing: 0.06em;
     color: #1a1a1a;
-    margin: 0 0 18px 0;
+    margin: 0 0 10px 0;
   }
 
   .print-meta-list {
     display: grid;
     grid-template-columns: max-content 1fr;
-    column-gap: 20px;
-    row-gap: 6px;
+    column-gap: 16px;
+    row-gap: 4px;
     font-size: 9pt;
+    margin-top: 10px;
   }
 
   .print-meta-list dt {
@@ -385,6 +396,12 @@
   .print-meta-list dd {
     margin: 0;
     color: #1a1a1a;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .print-client-block {
+    padding-left: 14mm;
+    border-left: 0.25pt solid #d9d3c6;
   }
 
   .print-client-name {
@@ -392,13 +409,16 @@
     font-size: 14pt;
     font-weight: 500;
     color: #1a1a1a;
-    margin: 0 0 4px 0;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+    margin: 0 0 6px 0;
   }
 
   .print-client-lines {
     font-size: 9pt;
-    color: #1a1a1a;
-    line-height: 1.5;
+    color: #3a3a3a;
+    line-height: 1.55;
+    margin-bottom: 8px;
   }
 
   .print-client-lines .print-muted {
@@ -407,15 +427,15 @@
 
   .print-client-block hr {
     border: 0;
-    border-top: 1px solid #d9d3c3;
-    margin: 10px 0;
-    width: 60%;
+    border-top: 0.25pt dotted #d9d3c6;
+    margin: 8px 0 6px 0;
   }
 
   .print-client-meta {
     font-size: 7.5pt;
+    letter-spacing: 0.04em;
     color: #6a665f;
-    line-height: 1.55;
+    line-height: 1.7;
   }
 
   /* ── Section title ─────────────────────────────────────────────────── */
@@ -423,15 +443,15 @@
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    border-bottom: 1px solid #d9d3c3;
-    padding-bottom: 6px;
-    margin-bottom: 0;
+    margin-top: 10mm;
+    margin-bottom: 6px;
   }
 
   .print-section-title h2 {
     font-family: 'EB Garamond', 'Garamond', Georgia, serif;
     font-weight: 500;
-    font-size: 14pt;
+    font-size: 13pt;
+    letter-spacing: 0.02em;
     color: #1a1a1a;
     margin: 0;
   }
@@ -447,151 +467,205 @@
   .print-table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 20px;
+    margin-bottom: 4mm;
     font-size: 9pt;
+    font-variant-numeric: tabular-nums;
   }
 
   .print-table thead tr {
     background: transparent !important;
-    border-bottom: 1px solid #d9d3c3;
   }
 
   .print-table th {
     color: #6a665f !important;
+    font-family: 'Inter', Arial, sans-serif;
     font-weight: 500;
-    padding: 10px 8px 8px 8px;
+    padding: 8px 8px;
     text-align: left;
     font-size: 7.5pt;
     text-transform: uppercase;
     letter-spacing: 0.18em;
     background: transparent !important;
+    border-top: 0.5pt solid #1a1a1a;
+    border-bottom: 0.5pt solid #1a1a1a;
   }
 
   .print-table td {
-    padding: 12px 8px;
-    border-bottom: 1px solid #ece7da;
+    padding: 10px 8px;
+    border-bottom: 0.25pt solid #ebe6da;
     color: #1a1a1a;
     vertical-align: top;
     background: transparent !important;
+  }
+
+  .print-table tbody tr:last-child td {
+    border-bottom: 0.5pt solid #1a1a1a;
   }
 
   .print-table tbody tr:nth-child(even) td {
     background: transparent !important;
   }
 
-  .print-table .text-right {
-    text-align: right;
-  }
+  .print-table .text-right { text-align: right; }
+  .print-table .text-center { text-align: center; }
 
   .print-table .print-designation {
-    font-family: 'EB Garamond', 'Garamond', Georgia, serif;
-    font-size: 11pt;
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 9.5pt;
     font-weight: 500;
     color: #1a1a1a;
-    line-height: 1.25;
+    line-height: 1.3;
+    display: block;
+    margin-bottom: 2px;
   }
 
   .print-table .print-description {
-    font-size: 8.5pt;
+    font-size: 8pt;
     color: #6a665f;
-    line-height: 1.45;
-    margin-top: 4px;
+    line-height: 1.5;
+    margin-top: 2px;
     white-space: pre-line;
+    display: block;
   }
 
-  /* ── Totals ────────────────────────────────────────────────────────── */
+  /* ── Summary: conditions (left) + totals (right) ───────────────────── */
+  .print-summary {
+    display: grid;
+    grid-template-columns: 1fr 82mm;
+    gap: 14mm;
+    margin-top: 8mm;
+  }
+
+  .print-conditions {
+    font-size: 8.5pt;
+    color: #3a3a3a;
+    line-height: 1.6;
+  }
+
+  .print-conditions .print-meta-label { margin-bottom: 8px; }
+
+  .print-conditions .print-due {
+    font-family: 'EB Garamond', 'Garamond', Georgia, serif;
+    font-size: 13pt;
+    color: #1a1a1a;
+    letter-spacing: 0.02em;
+    margin-bottom: 4px;
+  }
+
+  .print-conditions .print-due strong { font-weight: 500; }
+
+  .print-conditions p {
+    color: #3a3a3a;
+    margin: 0;
+    max-width: 80mm;
+  }
+
+  /* ── Totals (right column) ─────────────────────────────────────────── */
   .print-totals {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 24px;
-    margin-top: 8px;
+    font-size: 9pt;
   }
 
-  .print-totals table {
-    border-collapse: collapse;
-    min-width: 280px;
+  .print-totals .print-totals-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    padding: 5px 0;
+    border-bottom: 0.25pt solid #ebe6da;
+    font-variant-numeric: tabular-nums;
   }
 
-  .print-totals td {
-    padding: 6px 0 6px 24px;
-    font-size: 10pt;
+  .print-totals .print-totals-row.is-sub {
+    border-top: 0.5pt solid #1a1a1a;
+    border-bottom: 0;
+    padding-top: 8px;
+  }
+
+  .print-totals .print-totals-row.is-vat {
+    color: #3a3a3a;
+  }
+  .print-totals .print-totals-row.is-vat small {
+    font-size: 7.5pt;
+    color: #6a665f;
+    letter-spacing: 0.04em;
+    margin-left: 6px;
+  }
+
+  .print-totals .print-totals-label {
+    color: #3a3a3a;
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 9pt;
+    letter-spacing: 0.02em;
+  }
+
+  .print-totals .print-totals-value {
+    text-align: right;
+  }
+
+  /* Grand total — Total TTC */
+  .print-totals .print-totals-row.is-grand {
+    margin-top: 6px;
+    padding: 12px 0 10px;
+    border-top: 0.5pt solid #1a1a1a;
+    border-bottom: 2pt double #1a1a1a;
+    font-family: 'EB Garamond', 'Garamond', Georgia, serif;
+    font-size: 14pt;
+    letter-spacing: 0.03em;
+    color: #1a1a1a;
+  }
+  .print-totals .print-totals-row.is-grand .print-totals-label {
+    font-family: 'EB Garamond', 'Garamond', Georgia, serif;
+    font-size: inherit;
     color: #1a1a1a;
   }
 
-  .print-totals td:first-child {
+  /* "Déjà réglé" — discreet */
+  .print-totals .print-totals-row.is-paid {
     color: #6a665f;
-    font-size: 8.5pt;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
+    border-bottom: 0.25pt solid #ebe6da;
   }
+  .print-totals .print-totals-row.is-paid .print-totals-label { color: #6a665f; }
 
-  .print-totals td:last-child {
-    text-align: right;
+  /* Net à payer — ivoire highlight box */
+  .print-totals .print-totals-row.is-net {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: #faf7f2;
+    border: 0.25pt solid #d9d3c6;
     font-family: 'EB Garamond', 'Garamond', Georgia, serif;
-    font-size: 11pt;
+    font-size: 15pt;
+    color: #1a1a1a;
+    letter-spacing: 0.03em;
   }
+  .print-totals .print-totals-row.is-net .print-totals-label {
+    font-family: 'EB Garamond', 'Garamond', Georgia, serif;
+    font-size: inherit;
+    color: #1a1a1a;
+  }
+  .print-totals .print-totals-row.is-net .print-totals-value { font-weight: 500; }
 
-  .print-total-row td {
-    font-weight: 600 !important;
-    border-top: 1.5px solid #9c7a3c !important;
-    padding-top: 10px !important;
-  }
-
-  .print-total-row td:first-child {
-    color: #1a1a1a !important;
-    font-size: 9pt !important;
-    letter-spacing: 0.2em !important;
-  }
-
-  .print-total-row td:last-child {
-    color: #1a1a1a !important;
-    font-family: 'EB Garamond', 'Garamond', Georgia, serif !important;
-    font-size: 16pt !important;
-    font-weight: 500 !important;
-  }
-
-  .print-total-paid td {
-    color: #6a665f !important;
-  }
-  .print-total-paid td:last-child {
-    color: #6a665f !important;
-  }
-
-  /* ── Conditions / footer ───────────────────────────────────────────── */
-  .print-conditions {
-    margin-top: 24px;
-    margin-bottom: 16px;
-    font-size: 8.5pt;
-    color: #6a665f;
-    line-height: 1.55;
-  }
-
-  .print-conditions .print-meta-label {
-    margin-bottom: 6px;
-  }
-
+  /* ── Footer / mentions légales ─────────────────────────────────────── */
   .print-footer {
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
-    gap: 6px 16px;
-    font-size: 7.5pt;
+    gap: 4px 14px;
+    font-size: 7pt;
+    letter-spacing: 0.04em;
     color: #6a665f;
-    border-top: 1px solid #d9d3c3;
+    border-top: 0.5pt solid #1a1a1a;
     padding-top: 10px;
-    margin-top: 20px;
+    margin-top: 14mm;
     text-align: center;
   }
 
   .print-footer span + span::before {
     content: "·";
-    margin-right: 16px;
+    margin-right: 14px;
     color: #b9b3a6;
   }
 
   /* Avoid breaking rows across pages where possible. */
   .print-table tr,
-  .print-totals,
+  .print-summary,
   .print-conditions {
     page-break-inside: avoid;
   }
