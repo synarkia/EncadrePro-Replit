@@ -9,7 +9,9 @@ import {
   atelierTable,
   facturesTable,
   lignesFactureTable,
+  produitsTable,
 } from "@workspace/db";
+import { computeLigneTotalHT, type RegimePricing } from "../lib/compute-line";
 import { execRows, serializeDates } from "../lib/db-utils";
 import {
   ListDevisResponse,
@@ -330,6 +332,17 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
   // Cascade deletes via FK constraints (faconnage/service tables have onDelete: cascade)
   await db.delete(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devisId));
 
+  // Pre-fetch all referenced products in one query so we can apply the V1
+  // matière formula (mini_fact_tn / majo_epaisseur / TA legacy) consistently
+  // with what the UI's QuoteLineCard shows.
+  const produitIds = parsed.data.lignes
+    .map(l => l.produit_id)
+    .filter((id): id is number => id != null);
+  const produits = produitIds.length
+    ? await db.select().from(produitsTable).where(inArray(produitsTable.id, produitIds))
+    : [];
+  const produitsById = new Map(produits.map(p => [p.id, p]));
+
   for (let i = 0; i < parsed.data.lignes.length; i++) {
     const l = parsed.data.lignes[i];
 
@@ -340,9 +353,25 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
     const hauteurM = heightCm != null ? heightCm / 100 : (l.hauteur_m ?? null);
 
     const qCalc = calcLigne(l.unite_calcul, widthCm, heightCm, l.quantite);
-    // Apply per-line discount (percentage) to the gross line total.
+    const isSurface = l.unite_calcul === "m²" || l.unite_calcul === "metre_carre" || l.unite_calcul === "m2";
+    const prod = l.produit_id != null ? produitsById.get(l.produit_id) : undefined;
+    const regime = ((l as { regime_pricing?: string | null }).regime_pricing ?? null) as RegimePricing | null;
+    const grossHT = computeLigneTotalHT({
+      type_code: prod?.type_code ?? null,
+      unite_calcul: l.unite_calcul,
+      quantite: qCalc,
+      surface_m2: isSurface ? qCalc : null,
+      prix_unitaire_ht: l.prix_unitaire_ht,
+      regime,
+      prix_achat_ht: prod?.prix_achat_ht ?? null,
+      majo_epaisseur: prod?.majo_epaisseur ?? null,
+      mini_fact_tn: prod?.mini_fact_tn ?? null,
+      mini_fact_ta: prod?.mini_fact_ta ?? null,
+      coef_marge_ta: prod?.coef_marge_ta ?? null,
+      plus_value_ta_pct: prod?.plus_value_ta_pct ?? null,
+    });
+    // Apply per-line discount (percentage) to the gross matière total.
     const remisePct = Math.max(0, Math.min(100, (l as { remise_pct?: number | null }).remise_pct ?? 0));
-    const grossHT = qCalc * l.prix_unitaire_ht;
     const totalHT = grossHT * (1 - remisePct / 100);
     const totalTTC = totalHT * (1 + l.taux_tva / 100);
 

@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
-import { db, facturesTable, lignesFactureTable, acomptesTable, atelierTable } from "@workspace/db";
+import { eq, sql, inArray } from "drizzle-orm";
+import { db, facturesTable, lignesFactureTable, acomptesTable, atelierTable, produitsTable } from "@workspace/db";
+import { computeLigneTotalHT, type RegimePricing } from "../lib/compute-line";
 import { execRows, serializeDates } from "../lib/db-utils";
 import {
   ListFacturesResponse,
@@ -297,14 +298,43 @@ router.put("/factures/:id/lignes", async (req, res): Promise<void> => {
   await db.delete(lignesFactureTable).where(eq(lignesFactureTable.facture_id, factureId));
 
   if (lignes.length > 0) {
+    // Pre-fetch products so VR / mini_fact_tn / TA legacy formula stays in
+    // lock-step with the QuoteLineCard preview shown in the UI.
+    const produitIds = lignes
+      .map(l => l.produit_id)
+      .filter((id): id is number => id != null);
+    const produits = produitIds.length
+      ? await db.select().from(produitsTable).where(inArray(produitsTable.id, produitIds))
+      : [];
+    const produitsById = new Map(produits.map(p => [p.id, p]));
+
     const toInsert = lignes.map((l) => {
       let qCalc = l.quantite;
       const w = l.largeur_m ?? 0;
       const h = l.hauteur_m ?? 0;
+      // NOTE: this route's metre_lineaire uses the legacy ×2 perimeter formula
+      // (different from devis where dimensions are summed without doubling).
+      // Preserved as-is to avoid a behaviour change on existing factures.
       if (l.unite_calcul === "metre_lineaire") qCalc = (w + h) * 2 * l.quantite;
       else if (l.unite_calcul === "metre_carre") qCalc = w * h * l.quantite;
+      const isSurface = l.unite_calcul === "m²" || l.unite_calcul === "metre_carre" || l.unite_calcul === "m2";
+      const prod = l.produit_id != null ? produitsById.get(l.produit_id) : undefined;
+      const regime = ((l as { regime_pricing?: string | null }).regime_pricing ?? null) as RegimePricing | null;
+      const grossHt = computeLigneTotalHT({
+        type_code: prod?.type_code ?? null,
+        unite_calcul: l.unite_calcul,
+        quantite: qCalc,
+        surface_m2: isSurface ? qCalc : null,
+        prix_unitaire_ht: l.prix_unitaire_ht,
+        regime,
+        prix_achat_ht: prod?.prix_achat_ht ?? null,
+        majo_epaisseur: prod?.majo_epaisseur ?? null,
+        mini_fact_tn: prod?.mini_fact_tn ?? null,
+        mini_fact_ta: prod?.mini_fact_ta ?? null,
+        coef_marge_ta: prod?.coef_marge_ta ?? null,
+        plus_value_ta_pct: prod?.plus_value_ta_pct ?? null,
+      });
       const remisePct = Math.max(0, Math.min(100, l.remise_pct ?? 0));
-      const grossHt = qCalc * l.prix_unitaire_ht;
       const totalHt = grossHt * (1 - remisePct / 100);
       const totalTtc = totalHt * (1 + l.taux_tva / 100);
       return {

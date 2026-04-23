@@ -19,6 +19,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { statutColors } from "./index";
 import { QuoteLineCard, type QuoteLine } from "@/components/QuoteLineCard";
+import { computeLigneTotalHT } from "@/lib/compute-line";
 import { QuickAddProductModal } from "@/components/QuickAddProductModal";
 import { ClientContactCard } from "@/components/ClientContactCard";
 import {
@@ -323,7 +324,25 @@ export default function DevisDetail() {
       const wCm = l.width_cm ?? 0;
       const hCm = l.height_cm ?? 0;
       const qCalc = calcQ(l.unite_calcul, wCm, hCm, l.quantite);
-      const lineHT = qCalc * l.prix_unitaire_ht;
+      const isSurface = l.unite_calcul === "m²" || l.unite_calcul === "metre_carre";
+      // Use the shared helper so VR / mini_fact_tn / TA legacy formula stays
+      // in lock-step with QuoteLineCard and the persisted backend total.
+      const grossHT = computeLigneTotalHT({
+        type_code: l.type_code,
+        unite_calcul: l.unite_calcul,
+        quantite: qCalc,
+        surface_m2: isSurface ? qCalc : null,
+        prix_unitaire_ht: l.prix_unitaire_ht,
+        regime: l.regime_pricing,
+        prix_achat_ht: l.prix_achat_ht,
+        majo_epaisseur: l.majo_epaisseur,
+        mini_fact_tn: l.mini_fact_tn,
+        mini_fact_ta: l.mini_fact_ta,
+        coef_marge_ta: l.coef_marge_ta,
+        plus_value_ta_pct: l.plus_value_ta_pct,
+      });
+      const remisePct = Math.max(0, Math.min(100, l.remise_pct ?? 0));
+      const lineHT = grossHT * (1 - remisePct / 100);
       const facHT = (l.faconnage ?? []).reduce((s, f) => s + faconnageHT(f), 0);
       const serviceHT = (l.service ?? []).reduce((s, sv) => s + sv.quantite * sv.prix_unitaire_ht, 0);
       const totalLineHT = lineHT + facHT + serviceHT;
@@ -475,8 +494,10 @@ export default function DevisDetail() {
               const hCm = l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : 0);
               const q = calcQ(l.unite_calcul, wCm, hCm, l.quantite);
               const lineRemisePct = (l as { remise_pct?: number | null }).remise_pct ?? 0;
-              const grossLineHT = q * l.prix_unitaire_ht;
-              const lineHT = grossLineHT * (1 - lineRemisePct / 100);
+              // Use the persisted matière total (already factors in mini_fact_tn /
+              // majo_epaisseur / TA legacy formula and the per-line remise) so the
+              // printed Total HT agrees with the on-screen QuoteLineCard total.
+              const lineHT = Number(l.total_ht ?? 0);
               const facHT = (l.faconnage ?? []).reduce((s, f) => {
                 const fLong = (f as { longueur_m?: number | null }).longueur_m ?? null;
                 const eff = fLong != null && fLong > 0 ? fLong : 1;
