@@ -221,6 +221,7 @@ router.get("/devis/:id", async (req, res): Promise<void> => {
       devis_id: l.devis_id,
       produit_id: l.produit_id ?? null,
       designation: l.designation,
+      description_longue: l.description_longue ?? null,
       unite_calcul: l.unite_calcul,
       largeur_m: l.largeur_m ?? null,
       hauteur_m: l.hauteur_m ?? null,
@@ -229,6 +230,7 @@ router.get("/devis/:id", async (req, res): Promise<void> => {
       quantite: l.quantite,
       quantite_calculee: l.quantite_calculee ?? null,
       prix_unitaire_ht: l.prix_unitaire_ht,
+      remise_pct: l.remise_pct ?? 0,
       taux_tva: l.taux_tva,
       total_ht: l.total_ht,
       total_ttc: l.total_ttc,
@@ -338,13 +340,17 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
     const hauteurM = heightCm != null ? heightCm / 100 : (l.hauteur_m ?? null);
 
     const qCalc = calcLigne(l.unite_calcul, widthCm, heightCm, l.quantite);
-    const totalHT = qCalc * l.prix_unitaire_ht;
+    // Apply per-line discount (percentage) to the gross line total.
+    const remisePct = Math.max(0, Math.min(100, (l as { remise_pct?: number | null }).remise_pct ?? 0));
+    const grossHT = qCalc * l.prix_unitaire_ht;
+    const totalHT = grossHT * (1 - remisePct / 100);
     const totalTTC = totalHT * (1 + l.taux_tva / 100);
 
     const [inserted] = await db.insert(lignesDevisTable).values({
       devis_id: devisId,
       produit_id: l.produit_id ?? null,
       designation: l.designation,
+      description_longue: (l as { description_longue?: string | null }).description_longue ?? null,
       unite_calcul: l.unite_calcul,
       largeur_m: largeurM,
       hauteur_m: hauteurM,
@@ -353,6 +359,7 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
       quantite: l.quantite,
       quantite_calculee: qCalc,
       prix_unitaire_ht: l.prix_unitaire_ht,
+      remise_pct: remisePct,
       taux_tva: l.taux_tva,
       total_ht: totalHT,
       total_ttc: totalTTC,
@@ -443,12 +450,14 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
       facture_id: facture.id,
       produit_id: l.produit_id,
       designation: l.designation,
+      description_longue: l.description_longue ?? null,
       unite_calcul: l.unite_calcul,
       largeur_m: l.largeur_m,
       hauteur_m: l.hauteur_m,
       quantite: l.quantite,
       quantite_calculee: l.quantite_calculee,
       prix_unitaire_ht: l.prix_unitaire_ht,
+      remise_pct: l.remise_pct ?? 0,
       taux_tva: l.taux_tva,
       total_ht: l.total_ht,
       total_ttc: l.total_ttc,

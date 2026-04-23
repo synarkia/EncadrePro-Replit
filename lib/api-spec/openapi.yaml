@@ -1155,6 +1155,7 @@ components:
         devis_id: { type: integer }
         produit_id: { type: integer, nullable: true }
         designation: { type: string }
+        description_longue: { type: string, nullable: true }
         unite_calcul: { type: string }
         largeur_m: { type: number, nullable: true }
         hauteur_m: { type: number, nullable: true }
@@ -1163,6 +1164,7 @@ components:
         quantite: { type: number }
         quantite_calculee: { type: number, nullable: true }
         prix_unitaire_ht: { type: number }
+        remise_pct: { type: number }
         taux_tva: { type: number }
         total_ht: { type: number }
         total_ttc: { type: number }
@@ -1208,6 +1210,7 @@ components:
       properties:
         produit_id: { type: integer, nullable: true }
         designation: { type: string }
+        description_longue: { type: string, nullable: true }
         unite_calcul: { type: string }
         largeur_m: { type: number, nullable: true }
         hauteur_m: { type: number, nullable: true }
@@ -1215,6 +1218,7 @@ components:
         height_cm: { type: number, nullable: true }
         quantite: { type: number }
         prix_unitaire_ht: { type: number }
+        remise_pct: { type: number }
         taux_tva: { type: number }
         ordre: { type: integer }
         regime_pricing: { type: string, nullable: true }

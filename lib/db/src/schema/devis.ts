@@ -29,6 +29,8 @@ export const lignesDevisTable = pgTable("lignes_devis", {
   devis_id: integer("devis_id").notNull().references(() => devisTable.id, { onDelete: "cascade" }),
   produit_id: integer("produit_id"),
   designation: text("designation").notNull(),
+  // ── Optional long-form description shown under the designation on print
+  description_longue: text("description_longue"),
   unite_calcul: text("unite_calcul").notNull(),
   // ── legacy meter fields (kept for backward compat) ─────────────────────
   largeur_m: real("largeur_m"),
@@ -40,6 +42,8 @@ export const lignesDevisTable = pgTable("lignes_devis", {
   quantite: real("quantite").notNull().default(1),
   quantite_calculee: real("quantite_calculee"),
   prix_unitaire_ht: numeric("prix_unitaire_ht", { precision: 12, scale: 2, mode: "number" }).notNull(),
+  // ── Per-line discount expressed as a percentage (0–100). 0 = no discount.
+  remise_pct: numeric("remise_pct", { precision: 5, scale: 2, mode: "number" }).notNull().default(0),
   taux_tva: numeric("taux_tva", { precision: 5, scale: 2, mode: "number" }).notNull(),
   total_ht: numeric("total_ht", { precision: 12, scale: 2, mode: "number" }).notNull(),
   total_ttc: numeric("total_ttc", { precision: 12, scale: 2, mode: "number" }).notNull(),

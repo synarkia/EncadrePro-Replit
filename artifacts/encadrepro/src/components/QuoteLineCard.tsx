@@ -47,6 +47,8 @@ export type QuoteLine = {
   id: number | string;
   produit_id: number | null;
   designation: string;
+  description_longue: string | null;
+  remise_pct: number;
   unite_calcul: string;
   width_cm: number | null;
   height_cm: number | null;
@@ -164,7 +166,8 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
   const wCm = line.width_cm ?? 0;
   const hCm = line.height_cm ?? 0;
   const qCalc = calcQuantite(line.unite_calcul, wCm, hCm, line.quantite);
-  const lineHT = computeLigneTotalHT({
+  const remisePct = Math.max(0, Math.min(100, line.remise_pct ?? 0));
+  const grossLineHT = computeLigneTotalHT({
     type_code: line.type_code,
     unite_calcul: line.unite_calcul,
     quantite: qCalc,
@@ -178,6 +181,8 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
     coef_marge_ta: line.coef_marge_ta,
     plus_value_ta_pct: line.plus_value_ta_pct,
   });
+  // Apply per-line discount on the matière subtotal only (sub-items keep their price).
+  const lineHT = grossLineHT * (1 - remisePct / 100);
 
   const totalFaconnageHT = (line.faconnage ?? []).reduce((s, f) => {
     const eff = f.longueur_m != null && f.longueur_m > 0 ? f.longueur_m : 1;
@@ -368,6 +373,22 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
                 <p className="text-sm text-muted-foreground pl-2">{line.designation || "—"}</p>
               )}
 
+              {/* Optional long-form description (multi-line, shown under the
+                  désignation on printed devis & factures). */}
+              {isEditable ? (
+                <textarea
+                  value={line.description_longue ?? ""}
+                  onChange={e => update({ description_longue: e.target.value || null })}
+                  placeholder="Description détaillée (facultatif, affichée sur le document imprimé)..."
+                  rows={2}
+                  className="w-full text-xs bg-background/30 border border-border/40 rounded-md px-2 py-1.5 text-foreground/80 placeholder:text-muted-foreground/50 resize-y min-h-[2rem]"
+                />
+              ) : (
+                line.description_longue && (
+                  <p className="text-xs text-muted-foreground/80 pl-2 whitespace-pre-line italic">{line.description_longue}</p>
+                )
+              )}
+
               {/* Dimensions + Qty + Price + TVA row */}
               <div className="flex flex-wrap items-center gap-2">
                 {/* Unit */}
@@ -438,6 +459,14 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
                       className="h-8 w-24 text-right text-sm font-semibold bg-background/50 border-border/50"
                     />
                     <span className="text-[10px] text-muted-foreground">€</span>
+                    {/* Per-line discount (percentage). 0 = no discount. */}
+                    <span className="text-[10px] text-muted-foreground ml-2" title="Remise sur cette ligne en %">Remise</span>
+                    <Input type="number" step="1" min="0" max="100"
+                      value={line.remise_pct ?? 0}
+                      onChange={e => update({ remise_pct: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) })}
+                      className="h-8 w-14 text-right text-xs bg-background/50 border-border/50"
+                    />
+                    <span className="text-[10px] text-muted-foreground">%</span>
                   </div>
                 ) : (
                   <div className="ml-auto text-right shrink-0">

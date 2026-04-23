@@ -353,6 +353,7 @@ export interface LigneDevis {
   devis_id: number;
   produit_id?: number | null;
   designation: string;
+  description_longue?: string | null;
   unite_calcul: string;
   largeur_m?: number | null;
   hauteur_m?: number | null;
@@ -361,6 +362,7 @@ export interface LigneDevis {
   quantite: number;
   quantite_calculee?: number | null;
   prix_unitaire_ht: number;
+  remise_pct?: number;
   taux_tva: number;
   total_ht: number;
   total_ttc: number;
@@ -394,6 +396,7 @@ export interface LigneInputService {
 export interface LigneInput {
   produit_id?: number | null;
   designation: string;
+  description_longue?: string | null;
   unite_calcul: string;
   largeur_m?: number | null;
   hauteur_m?: number | null;
@@ -401,6 +404,7 @@ export interface LigneInput {
   height_cm?: number | null;
   quantite: number;
   prix_unitaire_ht: number;
+  remise_pct?: number;
   taux_tva: number;
   ordre?: number;
   regime_pricing?: string | null;

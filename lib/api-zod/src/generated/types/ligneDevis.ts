@@ -13,6 +13,7 @@ export interface LigneDevis {
   devis_id: number;
   produit_id?: number | null;
   designation: string;
+  description_longue?: string | null;
   unite_calcul: string;
   largeur_m?: number | null;
   hauteur_m?: number | null;
@@ -21,6 +22,7 @@ export interface LigneDevis {
   quantite: number;
   quantite_calculee?: number | null;
   prix_unitaire_ht: number;
+  remise_pct?: number;
   taux_tva: number;
   total_ht: number;
   total_ttc: number;

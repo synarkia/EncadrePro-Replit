@@ -147,11 +147,13 @@ export default function FactureDetail() {
       const payload = lignes.map((l, i) => ({
         produit_id: l.produit_id ? parseInt(l.produit_id) : null,
         designation: l.designation,
+        description_longue: l.description_longue ?? null,
         unite_calcul: l.unite_calcul,
         largeur_m: l.largeur_m ? parseFloat(l.largeur_m) : null,
         hauteur_m: l.hauteur_m ? parseFloat(l.hauteur_m) : null,
         quantite: parseFloat(l.quantite),
         prix_unitaire_ht: parseFloat(l.prix_unitaire_ht),
+        remise_pct: l.remise_pct != null ? parseFloat(l.remise_pct) : 0,
         taux_tva: parseFloat(l.taux_tva),
         ordre: i
       }));
@@ -179,7 +181,8 @@ export default function FactureDetail() {
         const h = Number(l.hauteur_m) || 0;
         q = w * h * q;
       }
-      const lineHt = q * (Number(l.prix_unitaire_ht) || 0);
+      const remisePct = Math.max(0, Math.min(100, Number(l.remise_pct) || 0));
+      const lineHt = q * (Number(l.prix_unitaire_ht) || 0) * (1 - remisePct / 100);
       ht += lineHt;
       if (Number(l.taux_tva) === 10) tva10 += lineHt * 0.1;
       else if (Number(l.taux_tva) === 20) tva20 += lineHt * 0.2;
@@ -421,11 +424,14 @@ export default function FactureDetail() {
               const wM = Number(l.largeur_m) || 0;
               const hM = Number(l.hauteur_m) || 0;
               const descParts: string[] = [];
+              const longDesc = (l as { description_longue?: string | null }).description_longue ?? null;
+              if (longDesc) descParts.push(longDesc);
               if (wM > 0 || hM > 0) {
                 descParts.push(`Format ${(wM * 100).toFixed(0)}×${(hM * 100).toFixed(0)} cm`);
               }
               const unite = (l.unite_calcul ?? "").replace(/_/g, " ");
               const q = Number(l.quantite_calculee ?? l.quantite);
+              const remisePct = (l as { remise_pct?: number | null }).remise_pct ?? 0;
               return (
                 <tr key={i}>
                   <td>
@@ -437,7 +443,9 @@ export default function FactureDetail() {
                   <td className="text-right">{q.toFixed(q % 1 === 0 ? 0 : 2)}</td>
                   <td>{unite}</td>
                   <td className="text-right">{formatCurrency(l.prix_unitaire_ht)}</td>
-                  <td className="text-right print-muted">—</td>
+                  <td className={`text-right ${remisePct > 0 ? "" : "print-muted"}`}>
+                    {remisePct > 0 ? `\u2212${remisePct.toFixed(remisePct % 1 === 0 ? 0 : 2)}\u00a0%` : "—"}
+                  </td>
                   <td className="text-right">{formatCurrency(l.total_ht)}</td>
                 </tr>
               );

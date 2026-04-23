@@ -187,10 +187,14 @@ router.get("/factures/:id", async (req, res): Promise<void> => {
     ...mapFacture(factureRow),
     lignes: lignes.map((l) => ({
       id: l.id, devis_id: l.facture_id, produit_id: l.produit_id ?? null,
-      designation: l.designation, unite_calcul: l.unite_calcul,
+      designation: l.designation,
+      description_longue: l.description_longue ?? null,
+      unite_calcul: l.unite_calcul,
       largeur_m: l.largeur_m ?? null, hauteur_m: l.hauteur_m ?? null,
       quantite: l.quantite, quantite_calculee: l.quantite_calculee ?? null,
-      prix_unitaire_ht: l.prix_unitaire_ht, taux_tva: l.taux_tva,
+      prix_unitaire_ht: l.prix_unitaire_ht,
+      remise_pct: l.remise_pct ?? 0,
+      taux_tva: l.taux_tva,
       total_ht: l.total_ht, total_ttc: l.total_ttc, ordre: l.ordre,
     })),
     paiements: paiements.map((p) => ({
@@ -275,9 +279,13 @@ router.put("/factures/:id/lignes", async (req, res): Promise<void> => {
 
   const { lignes } = req.body as {
     lignes: Array<{
-      produit_id?: number | null; designation: string; unite_calcul: string;
+      produit_id?: number | null; designation: string;
+      description_longue?: string | null;
+      unite_calcul: string;
       largeur_m?: number | null; hauteur_m?: number | null;
-      quantite: number; prix_unitaire_ht: number; taux_tva: number; ordre: number;
+      quantite: number; prix_unitaire_ht: number;
+      remise_pct?: number | null;
+      taux_tva: number; ordre: number;
     }>;
   };
 
@@ -295,18 +303,22 @@ router.put("/factures/:id/lignes", async (req, res): Promise<void> => {
       const h = l.hauteur_m ?? 0;
       if (l.unite_calcul === "metre_lineaire") qCalc = (w + h) * 2 * l.quantite;
       else if (l.unite_calcul === "metre_carre") qCalc = w * h * l.quantite;
-      const totalHt = qCalc * l.prix_unitaire_ht;
+      const remisePct = Math.max(0, Math.min(100, l.remise_pct ?? 0));
+      const grossHt = qCalc * l.prix_unitaire_ht;
+      const totalHt = grossHt * (1 - remisePct / 100);
       const totalTtc = totalHt * (1 + l.taux_tva / 100);
       return {
         facture_id: factureId,
         produit_id: l.produit_id ?? null,
         designation: l.designation,
+        description_longue: l.description_longue ?? null,
         unite_calcul: l.unite_calcul,
         largeur_m: l.largeur_m ?? null,
         hauteur_m: l.hauteur_m ?? null,
         quantite: l.quantite,
         quantite_calculee: qCalc,
         prix_unitaire_ht: l.prix_unitaire_ht,
+        remise_pct: remisePct,
         taux_tva: l.taux_tva,
         total_ht: totalHt,
         total_ttc: totalTtc,

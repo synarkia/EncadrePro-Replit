@@ -74,6 +74,8 @@ function newEmptyLine(ordre: number): QuoteLine {
     quantite: 1,
     prix_unitaire_ht: 0,
     taux_tva: 20,
+    description_longue: null,
+    remise_pct: 0,
     faconnage: [],
     service: [],
   };
@@ -163,6 +165,8 @@ export default function DevisDetail() {
         id: l.id,
         produit_id: l.produit_id ?? null,
         designation: l.designation,
+        description_longue: (l as { description_longue?: string | null }).description_longue ?? null,
+        remise_pct: (l as { remise_pct?: number | null }).remise_pct ?? 0,
         unite_calcul: l.unite_calcul,
         width_cm: l.width_cm ?? (l.largeur_m != null ? l.largeur_m * 100 : null),
         height_cm: l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : null),
@@ -213,6 +217,8 @@ export default function DevisDetail() {
     const payload = lignes.map((l, i) => ({
       produit_id: l.produit_id ?? null,
       designation: l.designation || "—",
+      description_longue: l.description_longue ?? null,
+      remise_pct: l.remise_pct ?? 0,
       unite_calcul: l.unite_calcul,
       largeur_m: l.width_cm != null ? l.width_cm / 100 : (l.largeur_m ?? null),
       hauteur_m: l.height_cm != null ? l.height_cm / 100 : (l.hauteur_m ?? null),
@@ -455,10 +461,11 @@ export default function DevisDetail() {
         <table className="print-table">
           <thead>
             <tr>
-              <th style={{ width: "55%" }}>Désignation</th>
-              <th className="text-right" style={{ width: "8%" }}>Qté</th>
-              <th style={{ width: "12%" }}>Unité</th>
+              <th style={{ width: "48%" }}>Désignation</th>
+              <th className="text-right" style={{ width: "7%" }}>Qté</th>
+              <th style={{ width: "11%" }}>Unité</th>
               <th className="text-right" style={{ width: "12%" }}>P.U. HT</th>
+              <th className="text-right" style={{ width: "9%" }}>Remise</th>
               <th className="text-right" style={{ width: "13%" }}>Total HT</th>
             </tr>
           </thead>
@@ -467,7 +474,9 @@ export default function DevisDetail() {
               const wCm = l.width_cm ?? (l.largeur_m != null ? l.largeur_m * 100 : 0);
               const hCm = l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : 0);
               const q = calcQ(l.unite_calcul, wCm, hCm, l.quantite);
-              const lineHT = q * l.prix_unitaire_ht;
+              const lineRemisePct = (l as { remise_pct?: number | null }).remise_pct ?? 0;
+              const grossLineHT = q * l.prix_unitaire_ht;
+              const lineHT = grossLineHT * (1 - lineRemisePct / 100);
               const facHT = (l.faconnage ?? []).reduce((s, f) => {
                 const fLong = (f as { longueur_m?: number | null }).longueur_m ?? null;
                 const eff = fLong != null && fLong > 0 ? fLong : 1;
@@ -477,6 +486,8 @@ export default function DevisDetail() {
               const totalHt = lineHT + facHT + serviceHT;
 
               const descParts: string[] = [];
+              const longDesc = (l as { description_longue?: string | null }).description_longue ?? null;
+              if (longDesc) descParts.push(longDesc);
               if (wCm > 0 || hCm > 0) descParts.push(`Format ${wCm}×${hCm} cm`);
               (l.faconnage ?? []).forEach(f => {
                 const fLong = (f as { longueur_m?: number | null }).longueur_m ?? null;
@@ -498,6 +509,7 @@ export default function DevisDetail() {
                   <td className="text-right">{q.toFixed(q % 1 === 0 ? 0 : 2)}</td>
                   <td>{l.unite_calcul}</td>
                   <td className="text-right">{formatCurrency(l.prix_unitaire_ht)}</td>
+                  <td className="text-right">{lineRemisePct > 0 ? `\u2212${lineRemisePct.toFixed(lineRemisePct % 1 === 0 ? 0 : 2)}\u00a0%` : "—"}</td>
                   <td className="text-right">{formatCurrency(totalHt)}</td>
                 </tr>
               );
