@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { statutColors } from "./index";
 import { QuoteLineCard, type QuoteLine } from "@/components/QuoteLineCard";
 import { QuickAddProductModal } from "@/components/QuickAddProductModal";
+import { ClientContactCard } from "@/components/ClientContactCard";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -581,6 +582,14 @@ export default function DevisDetail() {
             )}
           </div>
         </div>
+
+        <ClientContactCard
+          adresse={devis.client_adresse}
+          code_postal={devis.client_code_postal}
+          ville={devis.client_ville}
+          email={devis.client_email}
+          telephone={devis.client_telephone}
+        />
 
         {/* ── Lines section ────────────────────────────────────────────── */}
         <div className="space-y-3">

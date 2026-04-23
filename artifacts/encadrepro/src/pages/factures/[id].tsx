@@ -36,6 +36,7 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ClientContactCard } from "@/components/ClientContactCard";
 
 /* WEB-TO-DESKTOP NOTE: For print in Electron, use BrowserWindow.webContents.print() or
    generate a PDF via webContents.printToPDF() and save to disk. */
@@ -696,6 +697,14 @@ export default function FactureDetail() {
             )}
           </div>
         </div>
+
+        <ClientContactCard
+          adresse={facture.client_adresse}
+          code_postal={facture.client_code_postal}
+          ville={facture.client_ville}
+          email={facture.client_email}
+          telephone={facture.client_telephone}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
