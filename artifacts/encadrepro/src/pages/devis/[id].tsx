@@ -489,6 +489,18 @@ export default function DevisDetail() {
           </div>
         </div>
 
+        {/* ── Bon pour accord — acceptance signature ─────────────────── */}
+        <div className="print-payment-row is-signature-only">
+          <div className="print-signature">
+            <div className="print-block-title">Bon pour accord</div>
+            <div className="print-signature-box" />
+            <p className="print-signature-hint">
+              Devis à retourner daté et signé avec la mention « Bon pour accord » pour acceptation
+              {devis.date_validite && <> — valable jusqu'au {formatDate(devis.date_validite)}</>}.
+            </p>
+          </div>
+        </div>
+
         <div className="print-footer">
           {atelier?.nom && <span>{atelier.nom}</span>}
           {atelier?.siret && <span>SIRET {atelier.siret}</span>}
