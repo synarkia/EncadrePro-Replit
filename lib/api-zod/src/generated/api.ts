@@ -710,6 +710,7 @@ export const GetDevisResponse = zod
           total_ttc: zod.number(),
           ordre: zod.number(),
           regime_pricing: zod.string().nullish(),
+          inherits_project_dimensions: zod.boolean(),
         }),
       ),
     }),
@@ -791,6 +792,7 @@ export const SaveDevisLignesBody = zod.object({
       taux_tva: zod.number(),
       ordre: zod.number().optional(),
       regime_pricing: zod.string().nullish(),
+      inherits_project_dimensions: zod.boolean().optional(),
     }),
   ),
 });
@@ -1028,6 +1030,7 @@ export const GetFactureResponse = zod
           total_ttc: zod.number(),
           ordre: zod.number(),
           regime_pricing: zod.string().nullish(),
+          inherits_project_dimensions: zod.boolean(),
         }),
       ),
       paiements: zod.array(

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, real, integer, numeric, timestamp, date, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, real, integer, numeric, timestamp, date, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { clientsTable } from "./clients";
@@ -63,6 +63,13 @@ export const lignesDevisTable = pgTable("lignes_devis", {
   longueur_m: real("longueur_m"),                              // façonnage only
   heures: real("heures"),                                      // service only
   parametres_json: text("parametres_json"),                    // façonnage extras
+  // ── Matière dimension inheritance from parent projet ────────────────────
+  // When TRUE, a matière line's width_cm/height_cm are kept in sync with its
+  // parent projet's dimensions. Set FALSE the moment the user overrides a
+  // dimension on the line so a later projet edit doesn't clobber their value.
+  // Default TRUE so newly-added matière lines auto-inherit; ignored for
+  // façonnage and service (their pricing has no width/height).
+  inherits_project_dimensions: boolean("inherits_project_dimensions").notNull().default(true),
 }, (table) => [
   index("lignes_devis_projet_id_idx").on(table.projet_id),
 ]);

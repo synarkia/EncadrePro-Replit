@@ -66,7 +66,16 @@ function nextTempId(): string {
   return `temp-${Date.now()}-${tempIdCounter}`;
 }
 
-function emptyLineFor(type: TypeLigne, projetId: number | null): QuoteLine {
+function emptyLineFor(
+  type: TypeLigne,
+  projetId: number | null,
+  projetDims?: { width_cm: number | null; height_cm: number | null } | null,
+): QuoteLine {
+  // Matière lines auto-inherit the parent projet's dimensions when the projet
+  // has them set; for façonnage / service the flag is meaningless but stays
+  // true so the round-trip matches the server default.
+  const useInherit = type === "matiere" && projetDims != null &&
+    (projetDims.width_cm != null || projetDims.height_cm != null);
   return {
     id: nextTempId(),
     projet_id: projetId,
@@ -76,8 +85,8 @@ function emptyLineFor(type: TypeLigne, projetId: number | null): QuoteLine {
     description_longue: null,
     remise_pct: 0,
     unite_calcul: type === "service" ? "heure" : type === "faconnage" ? "metre_lineaire" : "pièce",
-    width_cm: null,
-    height_cm: null,
+    width_cm: useInherit ? (projetDims?.width_cm ?? null) : null,
+    height_cm: useInherit ? (projetDims?.height_cm ?? null) : null,
     largeur_m: null,
     hauteur_m: null,
     longueur_m: null,
@@ -86,6 +95,7 @@ function emptyLineFor(type: TypeLigne, projetId: number | null): QuoteLine {
     quantite: 1,
     prix_unitaire_ht: 0,
     taux_tva: 20,
+    inherits_project_dimensions: true,
     type_code: null,
     prix_achat_ht: null,
     coefficient_marge: null,
@@ -102,8 +112,9 @@ function lineFromProduit(
   type: TypeLigne,
   projetId: number | null,
   p: ProduitSearchResult,
+  projetDims?: { width_cm: number | null; height_cm: number | null } | null,
 ): QuoteLine {
-  const base = emptyLineFor(type, projetId);
+  const base = emptyLineFor(type, projetId, projetDims);
   if (type === "matiere") {
     const regime: RegimePricing = "TN";
     const pvuht = computeLignePvuht({
@@ -240,6 +251,9 @@ export default function DevisDetail() {
           quantite: l.quantite,
           prix_unitaire_ht: l.prix_unitaire_ht,
           taux_tva: l.taux_tva,
+          // Default TRUE for legacy rows that pre-date the column.
+          inherits_project_dimensions:
+            (l as { inherits_project_dimensions?: boolean }).inherits_project_dimensions ?? true,
           regime_pricing: ((l as { regime_pricing?: string | null }).regime_pricing ?? null) as RegimePricing | null,
           type_code: null,
           prix_achat_ht: null,
@@ -258,12 +272,60 @@ export default function DevisDetail() {
   //    so the canonical reference is the ligne id, not its position. ─────────
   const addLineToProjet = useCallback(
     (projetId: number, type: TypeLigne, produit: ProduitSearchResult | null) => {
+      // Look up the parent projet so a new matière line auto-prefills its
+      // width/height from the projet (and starts in the "linked" state).
+      const projet = (devis?.projets ?? []).find(p => p.id === projetId);
+      const projetDims = projet
+        ? { width_cm: projet.width_cm ?? null, height_cm: projet.height_cm ?? null }
+        : null;
       setLignes(prev => [
         ...prev,
-        produit ? lineFromProduit(type, projetId, produit) : emptyLineFor(type, projetId),
+        produit
+          ? lineFromProduit(type, projetId, produit, projetDims)
+          : emptyLineFor(type, projetId, projetDims),
       ]);
     },
-    [],
+    [devis?.projets],
+  );
+
+  // ── Cascade: when a projet's width/height changes, re-snap every matière
+  //    line attached to that projet that's still in "linked" mode. Façonnage
+  //    and service are skipped (no width/height in their pricing). The user
+  //    still has to click "Save" to persist; that's intentional and matches
+  //    the rest of the editor.
+  const cascadeProjetDimensions = useCallback(
+    (
+      projetId: number,
+      _oldDims: { width_cm: number | null; height_cm: number | null },
+      newDims: { width_cm: number | null; height_cm: number | null },
+    ) => {
+      let realigned = 0;
+      let kept = 0;
+      setLignes(prev =>
+        prev.map(l => {
+          if (l.projet_id !== projetId || l.type_ligne !== "matiere") return l;
+          if (l.inherits_project_dimensions) {
+            realigned += 1;
+            return { ...l, width_cm: newDims.width_cm, height_cm: newDims.height_cm };
+          }
+          kept += 1;
+          return l;
+        }),
+      );
+      if (realigned === 0 && kept === 0) return;
+      const parts: string[] = [];
+      if (realigned > 0) {
+        parts.push(`${realigned} ligne${realigned > 1 ? "s" : ""} mise${realigned > 1 ? "s" : ""} à jour`);
+      }
+      if (kept > 0) {
+        parts.push(`${kept} ligne${kept > 1 ? "s" : ""} conserve${kept > 1 ? "nt" : ""} leur mesure custom`);
+      }
+      toast({
+        title: "Cascade dimensions",
+        description: parts.join(", "),
+      });
+    },
+    [toast],
   );
 
   const updateLineById = useCallback(
@@ -301,6 +363,7 @@ export default function DevisDetail() {
       taux_tva: l.taux_tva,
       ordre: i,
       regime_pricing: l.regime_pricing ?? null,
+      inherits_project_dimensions: l.inherits_project_dimensions,
     }));
 
     saveLignes.mutate({ id: devisId, data: { lignes: payload } }, {
@@ -730,6 +793,7 @@ export default function DevisDetail() {
           onAddLine={addLineToProjet}
           onChangeLine={updateLineById}
           onRemoveLine={removeLineById}
+          onProjetDimensionsChanged={cascadeProjetDimensions}
         />
 
         {/* ── Lignes libres (orphan lignes with no projet — legacy data) ─── */}

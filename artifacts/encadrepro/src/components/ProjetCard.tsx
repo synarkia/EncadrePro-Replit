@@ -165,6 +165,10 @@ export function ProjetCard({
                       isEditable={isEditable}
                       onChange={next => onChangeLine(ligne.id, next)}
                       onRemove={() => onRemoveLine(ligne.id)}
+                      projetDimensions={{
+                        width_cm: projet.width_cm ?? null,
+                        height_cm: projet.height_cm ?? null,
+                      }}
                     />
                   ))}
                 </div>

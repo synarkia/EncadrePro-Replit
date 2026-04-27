@@ -217,6 +217,9 @@ router.get("/devis/:id", async (req, res): Promise<void> => {
       total_ttc: l.total_ttc,
       ordre: l.ordre,
       regime_pricing: l.regime_pricing ?? null,
+      // Defaults TRUE in DB; surface as a real boolean so the client never
+      // has to coalesce. Only meaningful for matière (façonnage/service ignore it).
+      inherits_project_dimensions: l.inherits_project_dimensions ?? true,
     })),
   };
 
@@ -409,6 +412,11 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
       total_ttc: totalTTC,
       ordre: l.ordre ?? i,
       regime_pricing: regimePricing,
+      // Façonnage / service have no width/height, so the flag is meaningless;
+      // we still persist whatever the client sent (defaulting to TRUE) so the
+      // column stays NOT NULL and the round-trip is loss-less.
+      inherits_project_dimensions:
+        (l as { inherits_project_dimensions?: boolean }).inherits_project_dimensions ?? true,
     });
   }
 

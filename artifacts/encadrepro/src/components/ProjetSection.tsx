@@ -32,11 +32,19 @@ type Props = {
   onAddLine: (projetId: number, type: TypeLigne, produit: ProduitSearchResult | null) => void;
   onChangeLine: (id: QuoteLine["id"], next: QuoteLine) => void;
   onRemoveLine: (id: QuoteLine["id"]) => void;
+  /** Fired right after a successful projet edit when its width or height
+   *  changed. The parent owns ligne state, so it does the cascade and shows
+   *  the toast. Old/new dims may be null for "non précisé" projets. */
+  onProjetDimensionsChanged?: (
+    projetId: number,
+    oldDims: { width_cm: number | null; height_cm: number | null },
+    newDims: { width_cm: number | null; height_cm: number | null },
+  ) => void;
 };
 
 export function ProjetSection({
   devisId, projets, lignes, isEditable,
-  onAddLine, onChangeLine, onRemoveLine,
+  onAddLine, onChangeLine, onRemoveLine, onProjetDimensionsChanged,
 }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -80,6 +88,16 @@ export function ProjetSection({
   const handleSubmit = async (values: ProjetFormValues) => {
     try {
       if (editing) {
+        // Snapshot old dims BEFORE the mutation so we can diff after success
+        // and trigger the cascade for inheriting matière lines.
+        const oldDims = {
+          width_cm: editing.width_cm ?? null,
+          height_cm: editing.height_cm ?? null,
+        };
+        const newDims = {
+          width_cm: values.width_cm ?? null,
+          height_cm: values.height_cm ?? null,
+        };
         await updateProjet.mutateAsync({
           id: editing.id,
           data: {
@@ -90,6 +108,12 @@ export function ProjetSection({
           },
         });
         toast({ title: "Projet mis à jour" });
+        if (
+          onProjetDimensionsChanged &&
+          (oldDims.width_cm !== newDims.width_cm || oldDims.height_cm !== newDims.height_cm)
+        ) {
+          onProjetDimensionsChanged(editing.id, oldDims, newDims);
+        }
       } else {
         await createProjet.mutateAsync({
           id: devisId,
@@ -104,6 +128,9 @@ export function ProjetSection({
       }
       setSheetOpen(false);
       setEditing(null);
+      // Safe to invalidate: the parent's lignes useEffect is guarded by
+      // initRef so a refetch only refreshes projet metadata, not the
+      // in-memory lignes state where the cascade just landed.
       invalidate();
     } catch (err) {
       toast({

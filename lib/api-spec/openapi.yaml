@@ -1256,7 +1256,10 @@ components:
         total_ttc: { type: number }
         ordre: { type: integer }
         regime_pricing: { type: string, nullable: true }
-      required: [id, devis_id, type_ligne, designation, unite_calcul, quantite, prix_unitaire_ht, taux_tva, total_ht, total_ttc, ordre]
+        # When true, the matière line's width/height stay in sync with the parent
+        # projet's dimensions. Façonnage / service ignore this flag.
+        inherits_project_dimensions: { type: boolean }
+      required: [id, devis_id, type_ligne, designation, unite_calcul, quantite, prix_unitaire_ht, taux_tva, total_ht, total_ttc, ordre, inherits_project_dimensions]
 
     LigneInput:
       type: object
@@ -1282,6 +1285,10 @@ components:
         taux_tva: { type: number }
         ordre: { type: integer }
         regime_pricing: { type: string, nullable: true }
+        # Defaults to true server-side. Send false the moment the user
+        # overrides width/height on the matière line so a later projet edit
+        # doesn't clobber their value.
+        inherits_project_dimensions: { type: boolean }
       required: [type_ligne, designation, unite_calcul, quantite, prix_unitaire_ht, taux_tva]
 
     Devis:

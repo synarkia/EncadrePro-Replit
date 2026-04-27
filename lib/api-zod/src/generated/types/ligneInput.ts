@@ -27,4 +27,5 @@ export interface LigneInput {
   taux_tva: number;
   ordre?: number;
   regime_pricing?: string | null;
+  inherits_project_dimensions?: boolean;
 }

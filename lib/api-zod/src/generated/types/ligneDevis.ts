@@ -32,4 +32,5 @@ export interface LigneDevis {
   total_ttc: number;
   ordre: number;
   regime_pricing?: string | null;
+  inherits_project_dimensions: boolean;
 }

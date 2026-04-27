@@ -355,6 +355,7 @@ export interface LigneDevis {
   total_ttc: number;
   ordre: number;
   regime_pricing?: string | null;
+  inherits_project_dimensions: boolean;
 }
 
 export type LigneInputTypeLigne =
@@ -386,6 +387,7 @@ export interface LigneInput {
   taux_tva: number;
   ordre?: number;
   regime_pricing?: string | null;
+  inherits_project_dimensions?: boolean;
 }
 
 export type ProjetType = (typeof ProjetType)[keyof typeof ProjetType];

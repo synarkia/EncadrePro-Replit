@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Layers, Wrench, Briefcase, Trash2 } from "lucide-react";
+import { Layers, Wrench, Briefcase, Trash2, Link2, Link2Off, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProductSearchCombobox } from "./ProductSearchCombobox";
 import { QuickAddProductModal } from "./QuickAddProductModal";
 import { formatCurrency } from "@/lib/format";
@@ -43,6 +44,11 @@ export type QuoteLine = {
   quantite: number;
   prix_unitaire_ht: number;
   taux_tva: number;
+  // ── Matière dimension inheritance ────────────────────────────────────
+  // True when width_cm/height_cm should track the parent projet's dims.
+  // Auto-flipped to false when the user types a custom width/height.
+  // Façonnage / service ignore this flag.
+  inherits_project_dimensions: boolean;
   // ── Client-only metadata used to drive the TN/TA selector for VR products. ──
   type_code?: ProductTypeCode | null;
   prix_achat_ht?: number | null;
@@ -164,9 +170,15 @@ interface QuoteLineCardProps {
   isEditable: boolean;
   onChange: (line: QuoteLine) => void;
   onRemove: () => void;
+  /** Parent projet's dimensions (if any). When provided and the line is
+   *  matière + inherits_project_dimensions, the link icon is shown and the
+   *  "Réaligner" button becomes available after an override. */
+  projetDimensions?: { width_cm: number | null; height_cm: number | null } | null;
 }
 
-export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: QuoteLineCardProps) {
+export function QuoteLineCard({
+  line, index, isEditable, onChange, onRemove, projetDimensions,
+}: QuoteLineCardProps) {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddType, setQuickAddType] = useState<ProductTypeCode>("EN");
 
@@ -175,6 +187,24 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
 
   const totalHT = computeQuoteLineHT(line);
   const update = (patch: Partial<QuoteLine>) => onChange({ ...line, ...patch });
+
+  // ── Inheritance helpers (matière only) ────────────────────────────────────
+  const projetHasDims =
+    line.type_ligne === "matiere" &&
+    projetDimensions != null &&
+    (projetDimensions.width_cm != null || projetDimensions.height_cm != null);
+  const isInherited = line.type_ligne === "matiere" && projetHasDims && line.inherits_project_dimensions;
+  const isOverridden = line.type_ligne === "matiere" && projetHasDims && !line.inherits_project_dimensions;
+
+  /** Re-snap width/height to the parent projet's dims and flip inherits back on. */
+  const realignToProjet = () => {
+    if (!projetDimensions) return;
+    update({
+      width_cm: projetDimensions.width_cm,
+      height_cm: projetDimensions.height_cm,
+      inherits_project_dimensions: true,
+    });
+  };
 
   // ── Product picker per kind ────────────────────────────────────────────────
   const handleMatiereSelect = (p: ProduitSearchResult) => {
@@ -384,19 +414,76 @@ export function QuoteLineCard({ line, index, isEditable, onChange, onRemove }: Q
                   const qCalc = calcQuantite(line.unite_calcul, wCm, hCm, line.quantite);
                   return isEditable ? (
                     <>
+                      {/* Inheritance indicator — left of the dimension inputs.
+                          Linked: solid Link2 (matches projet). Unlinked: muted
+                          Link2Off + a "Réaligner" button to snap back. */}
+                      {isInherited && (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className="inline-flex items-center justify-center h-8 w-7 text-cyan-300/80 shrink-0"
+                                aria-label="Mesure héritée du projet"
+                                data-testid={`quote-line-link-${line.id}`}
+                              >
+                                <Link2 className="h-3.5 w-3.5" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>Hérité du projet</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {isOverridden && (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className="inline-flex items-center justify-center h-8 w-7 text-muted-foreground/50 shrink-0"
+                                aria-label="Mesure custom (déliée du projet)"
+                                data-testid={`quote-line-unlink-${line.id}`}
+                              >
+                                <Link2Off className="h-3.5 w-3.5" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>Mesure custom — déliée du projet</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       <Input type="number" step="0.5" min="0"
                         value={line.width_cm ?? ""}
-                        onChange={e => update({ width_cm: e.target.value ? parseFloat(e.target.value) : null })}
+                        onChange={e => update({
+                          width_cm: e.target.value ? parseFloat(e.target.value) : null,
+                          inherits_project_dimensions: false,
+                        })}
                         placeholder="L (cm)"
                         className="h-8 w-20 text-center text-xs bg-background/50 border-border/50 shrink-0"
+                        data-testid={`quote-line-width-${line.id}`}
                       />
                       <span className="text-muted-foreground text-xs">×</span>
                       <Input type="number" step="0.5" min="0"
                         value={line.height_cm ?? ""}
-                        onChange={e => update({ height_cm: e.target.value ? parseFloat(e.target.value) : null })}
+                        onChange={e => update({
+                          height_cm: e.target.value ? parseFloat(e.target.value) : null,
+                          inherits_project_dimensions: false,
+                        })}
                         placeholder="H (cm)"
                         className="h-8 w-20 text-center text-xs bg-background/50 border-border/50 shrink-0"
+                        data-testid={`quote-line-height-${line.id}`}
                       />
+                      {isOverridden && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={realignToProjet}
+                          className="h-8 px-2 text-[10px] text-cyan-300/80 hover:text-cyan-200 hover:bg-cyan-500/10 shrink-0"
+                          data-testid={`quote-line-realign-${line.id}`}
+                          title={`Réaligner sur le projet (${projetDimensions?.width_cm ?? "—"} × ${projetDimensions?.height_cm ?? "—"} cm)`}
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                          Réaligner
+                        </Button>
+                      )}
                       <span className="text-[10px] text-muted-foreground/60 shrink-0">
                         = {qCalc.toFixed(3)} {uniteLabel(line.unite_calcul)}
                       </span>
