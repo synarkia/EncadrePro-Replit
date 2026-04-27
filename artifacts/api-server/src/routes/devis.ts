@@ -4,8 +4,6 @@ import {
   db,
   devisTable,
   lignesDevisTable,
-  lignesDevisFaconnageTable,
-  lignesDevisServiceTable,
   atelierTable,
   facturesTable,
   lignesFactureTable,
@@ -69,7 +67,7 @@ async function getNextNumero(type: "devis" | "facture"): Promise<string> {
   }
 }
 
-// ─── Helper: recalculate devis totals including faconnage/service ──────────────
+// ─── Helper: recalculate devis totals (flat lignes — each contributes alone) ───
 async function recalcDevis(devisId: number): Promise<void> {
   const lignes = await db.select().from(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devisId));
 
@@ -78,24 +76,6 @@ async function recalcDevis(devisId: number): Promise<void> {
     ht += l.total_ht;
     if (l.taux_tva === 10) tva10 += l.total_ht * 0.1;
     else tva20 += l.total_ht * 0.2;
-  }
-
-  // Add faconnage/service totals
-  if (lignes.length > 0) {
-    const ligneIds = lignes.map(l => l.id);
-    const faconnages = await db.select().from(lignesDevisFaconnageTable).where(inArray(lignesDevisFaconnageTable.ligne_devis_id, ligneIds));
-    const services = await db.select().from(lignesDevisServiceTable).where(inArray(lignesDevisServiceTable.ligne_devis_id, ligneIds));
-
-    for (const f of faconnages) {
-      ht += f.total_ht;
-      if (f.taux_tva === 10) tva10 += f.total_ht * 0.1;
-      else tva20 += f.total_ht * 0.2;
-    }
-    for (const s of services) {
-      ht += s.total_ht;
-      if (s.taux_tva === 10) tva10 += s.total_ht * 0.1;
-      else tva20 += s.total_ht * 0.2;
-    }
   }
 
   await db.update(devisTable)
@@ -190,7 +170,7 @@ router.post("/devis", async (req, res): Promise<void> => {
   res.status(201).json(SaveDevisLignesResponse.parse(mapDevis(withClient!)));
 });
 
-// ─── GET /devis/:id — returns lines with nested faconnage/service ─────────────
+// ─── GET /devis/:id — returns flat lignes (each ligne is one of 3 disjoint kinds)
 router.get("/devis/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetDevisParams.safeParse({ id: parseInt(raw, 10) });
@@ -209,20 +189,6 @@ router.get("/devis/:id", async (req, res): Promise<void> => {
     .where(eq(projetsTable.devis_id, params.data.id))
     .orderBy(asc(projetsTable.position));
 
-  // Load all faconnage and service for all lines in one query each
-  let faconnageAll: typeof lignesDevisFaconnageTable.$inferSelect[] = [];
-  let serviceAll: typeof lignesDevisServiceTable.$inferSelect[] = [];
-
-  if (lignes.length > 0) {
-    const ids = lignes.map(l => l.id);
-    faconnageAll = await db.select().from(lignesDevisFaconnageTable)
-      .where(inArray(lignesDevisFaconnageTable.ligne_devis_id, ids))
-      .orderBy(lignesDevisFaconnageTable.ordre);
-    serviceAll = await db.select().from(lignesDevisServiceTable)
-      .where(inArray(lignesDevisServiceTable.ligne_devis_id, ids))
-      .orderBy(lignesDevisServiceTable.ordre);
-  }
-
   const data = {
     ...mapDevis(devisRow),
     projets,
@@ -231,6 +197,7 @@ router.get("/devis/:id", async (req, res): Promise<void> => {
       devis_id: l.devis_id,
       projet_id: l.projet_id ?? null,
       produit_id: l.produit_id ?? null,
+      type_ligne: ((l.type_ligne ?? "matiere") as "matiere" | "faconnage" | "service"),
       designation: l.designation,
       description_longue: l.description_longue ?? null,
       unite_calcul: l.unite_calcul,
@@ -238,6 +205,9 @@ router.get("/devis/:id", async (req, res): Promise<void> => {
       hauteur_m: l.hauteur_m ?? null,
       width_cm: l.width_cm ?? null,
       height_cm: l.height_cm ?? null,
+      longueur_m: l.longueur_m ?? null,
+      heures: l.heures ?? null,
+      parametres_json: l.parametres_json ?? null,
       quantite: l.quantite,
       quantite_calculee: l.quantite_calculee ?? null,
       prix_unitaire_ht: l.prix_unitaire_ht,
@@ -247,35 +217,6 @@ router.get("/devis/:id", async (req, res): Promise<void> => {
       total_ttc: l.total_ttc,
       ordre: l.ordre,
       regime_pricing: l.regime_pricing ?? null,
-      faconnage: faconnageAll
-        .filter(f => f.ligne_devis_id === l.id)
-        .map(f => ({
-          id: f.id,
-          ligne_devis_id: f.ligne_devis_id,
-          produit_id: f.produit_id ?? null,
-          designation: f.designation,
-          quantite: f.quantite,
-          longueur_m: f.longueur_m ?? null,
-          prix_unitaire_ht: f.prix_unitaire_ht,
-          taux_tva: f.taux_tva,
-          total_ht: f.total_ht,
-          parametres_json: f.parametres_json ?? null,
-          ordre: f.ordre,
-        })),
-      service: serviceAll
-        .filter(s => s.ligne_devis_id === l.id)
-        .map(s => ({
-          id: s.id,
-          ligne_devis_id: s.ligne_devis_id,
-          produit_id: s.produit_id ?? null,
-          designation: s.designation,
-          quantite: s.quantite,
-          heures: s.heures ?? null,
-          prix_unitaire_ht: s.prix_unitaire_ht,
-          taux_tva: s.taux_tva,
-          total_ht: s.total_ht,
-          ordre: s.ordre,
-        })),
     })),
   };
 
@@ -327,7 +268,7 @@ router.patch("/devis/:id/statut", async (req, res): Promise<void> => {
   res.json(UpdateDevisStatutResponse.parse(mapDevis(updated)));
 });
 
-// ─── PUT /devis/:id/lignes — save all lines with faconnage/service ────────────
+// ─── PUT /devis/:id/lignes — save flat lignes (each is matière | façonnage | service)
 router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = SaveDevisLignesParams.safeParse({ id: parseInt(raw, 10) });
@@ -364,7 +305,6 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
     }
   }
 
-  // Cascade deletes via FK constraints (faconnage/service tables have onDelete: cascade)
   await db.delete(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devisId));
 
   // Pre-fetch all referenced products in one query so we can apply the V1
@@ -380,43 +320,73 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
 
   for (let i = 0; i < parsed.data.lignes.length; i++) {
     const l = parsed.data.lignes[i];
+    const typeLigne = ((l as { type_ligne?: string }).type_ligne ?? "matiere") as "matiere" | "faconnage" | "service";
 
-    // Use cm dimensions if provided, else fall back to meter values
-    const widthCm = l.width_cm ?? (l.largeur_m != null ? l.largeur_m * 100 : null);
-    const heightCm = l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : null);
-    const largeurM = widthCm != null ? widthCm / 100 : (l.largeur_m ?? null);
-    const hauteurM = heightCm != null ? heightCm / 100 : (l.hauteur_m ?? null);
-
-    const qCalc = calcLigne(l.unite_calcul, widthCm, heightCm, l.quantite);
-    const isSurface = l.unite_calcul === "m²" || l.unite_calcul === "metre_carre" || l.unite_calcul === "m2";
-    const prod = l.produit_id != null ? produitsById.get(l.produit_id) : undefined;
-    const regime = ((l as { regime_pricing?: string | null }).regime_pricing ?? null) as RegimePricing | null;
-    const grossHT = computeLigneTotalHT({
-      type_code: prod?.type_code ?? null,
-      unite_calcul: l.unite_calcul,
-      quantite: qCalc,
-      surface_m2: isSurface ? qCalc : null,
-      prix_unitaire_ht: l.prix_unitaire_ht,
-      regime,
-      prix_achat_ht: prod?.prix_achat_ht ?? null,
-      majo_epaisseur: prod?.majo_epaisseur ?? null,
-      mini_fact_tn: prod?.mini_fact_tn ?? null,
-      mini_fact_ta: prod?.mini_fact_ta ?? null,
-      coef_marge_ta: prod?.coef_marge_ta ?? null,
-      plus_value_ta_pct: prod?.plus_value_ta_pct ?? null,
-    });
-    // Apply per-line discount (percentage) to the gross matière total.
+    // Per-line discount applies to all three kinds (kept simple & uniform).
     const remisePct = Math.max(0, Math.min(100, (l as { remise_pct?: number | null }).remise_pct ?? 0));
-    const totalHT = grossHT * (1 - remisePct / 100);
+
+    let totalHT = 0;
+    let qCalc: number | null = null;
+    let widthCm: number | null = null;
+    let heightCm: number | null = null;
+    let largeurM: number | null = null;
+    let hauteurM: number | null = null;
+    let longueurM: number | null = null;
+    let heures: number | null = null;
+    let regimePricing: RegimePricing | null = null;
+    let parametresJson: string | null = null;
+
+    if (typeLigne === "matiere") {
+      // ── Matière: dimensions + V1 legacy formula via computeLigneTotalHT ──
+      widthCm = l.width_cm ?? (l.largeur_m != null ? l.largeur_m * 100 : null);
+      heightCm = l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : null);
+      largeurM = widthCm != null ? widthCm / 100 : (l.largeur_m ?? null);
+      hauteurM = heightCm != null ? heightCm / 100 : (l.hauteur_m ?? null);
+      qCalc = calcLigne(l.unite_calcul, widthCm, heightCm, l.quantite);
+      const isSurface = l.unite_calcul === "m²" || l.unite_calcul === "metre_carre" || l.unite_calcul === "m2";
+      const prod = l.produit_id != null ? produitsById.get(l.produit_id) : undefined;
+      regimePricing = ((l as { regime_pricing?: string | null }).regime_pricing ?? null) as RegimePricing | null;
+      const grossHT = computeLigneTotalHT({
+        type_code: prod?.type_code ?? null,
+        unite_calcul: l.unite_calcul,
+        quantite: qCalc,
+        surface_m2: isSurface ? qCalc : null,
+        prix_unitaire_ht: l.prix_unitaire_ht,
+        regime: regimePricing,
+        prix_achat_ht: prod?.prix_achat_ht ?? null,
+        majo_epaisseur: prod?.majo_epaisseur ?? null,
+        mini_fact_tn: prod?.mini_fact_tn ?? null,
+        mini_fact_ta: prod?.mini_fact_ta ?? null,
+        coef_marge_ta: prod?.coef_marge_ta ?? null,
+        plus_value_ta_pct: prod?.plus_value_ta_pct ?? null,
+      });
+      totalHT = grossHT * (1 - remisePct / 100);
+    } else if (typeLigne === "faconnage") {
+      // ── Façonnage: optional longueur_m used as per-unit length multiplier ──
+      longueurM = (l as { longueur_m?: number | null }).longueur_m ?? null;
+      parametresJson = (l as { parametres_json?: string | null }).parametres_json ?? null;
+      const eff = longueurM != null && longueurM > 0 ? longueurM : 1;
+      const grossHT = l.quantite * eff * l.prix_unitaire_ht;
+      qCalc = l.quantite * eff;
+      totalHT = grossHT * (1 - remisePct / 100);
+    } else {
+      // ── Service: optional heures field; total = quantite × pu_ht ──
+      heures = (l as { heures?: number | null }).heures ?? null;
+      const grossHT = l.quantite * l.prix_unitaire_ht;
+      qCalc = l.quantite;
+      totalHT = grossHT * (1 - remisePct / 100);
+    }
+
     const totalTTC = totalHT * (1 + l.taux_tva / 100);
 
-    const [inserted] = await db.insert(lignesDevisTable).values({
+    await db.insert(lignesDevisTable).values({
       devis_id: devisId,
       // Preserve the projet grouping the UI sent (NULL = ligne libre hors projet).
       // The FK is ON DELETE SET NULL, so unknown ids would crash here — we
       // trust the UI to only send projet ids that belong to this devis.
       projet_id: (l as { projet_id?: number | null }).projet_id ?? null,
       produit_id: l.produit_id ?? null,
+      type_ligne: typeLigne,
       designation: l.designation,
       description_longue: (l as { description_longue?: string | null }).description_longue ?? null,
       unite_calcul: l.unite_calcul,
@@ -424,6 +394,9 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
       hauteur_m: hauteurM,
       width_cm: widthCm,
       height_cm: heightCm,
+      longueur_m: longueurM,
+      heures,
+      parametres_json: parametresJson,
       quantite: l.quantite,
       quantite_calculee: qCalc,
       prix_unitaire_ht: l.prix_unitaire_ht,
@@ -432,49 +405,8 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
       total_ht: totalHT,
       total_ttc: totalTTC,
       ordre: l.ordre ?? i,
-      regime_pricing: (l as { regime_pricing?: string | null }).regime_pricing ?? null,
-    }).returning();
-
-    // Insert faconnage sub-items
-    const faconnageItems = l.faconnage ?? [];
-    for (let fi = 0; fi < faconnageItems.length; fi++) {
-      const f = faconnageItems[fi];
-      const fLong = (f as { longueur_m?: number | null }).longueur_m ?? null;
-      // When longueur_m is provided, treat it as a per-unit length multiplier so
-      // that mat-board / per-meter façonnage products bill correctly.
-      const effLength = fLong != null && fLong > 0 ? fLong : 1;
-      const fTotalHT = f.quantite * effLength * f.prix_unitaire_ht;
-      await db.insert(lignesDevisFaconnageTable).values({
-        ligne_devis_id: inserted.id,
-        produit_id: f.produit_id ?? null,
-        designation: f.designation,
-        quantite: f.quantite,
-        longueur_m: fLong,
-        prix_unitaire_ht: f.prix_unitaire_ht,
-        taux_tva: f.taux_tva,
-        total_ht: fTotalHT,
-        parametres_json: f.parametres_json ?? null,
-        ordre: f.ordre ?? fi,
-      });
-    }
-
-    // Insert service sub-items
-    const serviceItems = l.service ?? [];
-    for (let si = 0; si < serviceItems.length; si++) {
-      const s = serviceItems[si];
-      const sTotalHT = s.quantite * s.prix_unitaire_ht;
-      await db.insert(lignesDevisServiceTable).values({
-        ligne_devis_id: inserted.id,
-        produit_id: s.produit_id ?? null,
-        designation: s.designation,
-        quantite: s.quantite,
-        heures: s.heures ?? null,
-        prix_unitaire_ht: s.prix_unitaire_ht,
-        taux_tva: s.taux_tva,
-        total_ht: sTotalHT,
-        ordre: s.ordre ?? si,
-      });
-    }
+      regime_pricing: regimePricing,
+    });
   }
 
   await recalcDevis(devisId);

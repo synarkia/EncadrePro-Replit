@@ -20,17 +20,24 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { ProjetCard } from "./ProjetCard";
 import { ProjetSheet, type ProjetFormValues, type ProjetType } from "./ProjetSheet";
-
-type LigneRef = { id: number | string; designation: string; projet_id?: number | null };
+import type { QuoteLine } from "./QuoteLineCard";
+import type { TypeLigne } from "./AddLineMenu";
+import type { ProduitSearchResult } from "./ProductSearchCombobox";
 
 type Props = {
   devisId: number;
   projets: Projet[];
-  lignes: LigneRef[];
+  lignes: QuoteLine[];
   isEditable: boolean;
+  onAddLine: (projetId: number, type: TypeLigne, produit: ProduitSearchResult | null) => void;
+  onChangeLine: (id: QuoteLine["id"], next: QuoteLine) => void;
+  onRemoveLine: (id: QuoteLine["id"]) => void;
 };
 
-export function ProjetSection({ devisId, projets, lignes, isEditable }: Props) {
+export function ProjetSection({
+  devisId, projets, lignes, isEditable,
+  onAddLine, onChangeLine, onRemoveLine,
+}: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetDevisQueryKey(devisId) });
@@ -52,7 +59,7 @@ export function ProjetSection({ devisId, projets, lignes, isEditable }: Props) {
   }, [projets, orderedIds]);
 
   const lignesByProjet = useMemo(() => {
-    const map = new Map<number, LigneRef[]>();
+    const map = new Map<number, QuoteLine[]>();
     for (const l of lignes) {
       const pid = l.projet_id ?? null;
       if (pid == null) continue;
@@ -233,7 +240,9 @@ export function ProjetSection({ devisId, projets, lignes, isEditable }: Props) {
                   onEdit={() => openEdit(p)}
                   onDuplicate={() => handleDuplicate(p)}
                   onDelete={() => setDeleteTarget(p)}
-                  // onAddLine intentionally unset — wired in the next prompt.
+                  onAddLine={onAddLine}
+                  onChangeLine={onChangeLine}
+                  onRemoveLine={onRemoveLine}
                 />
               ))}
             </div>

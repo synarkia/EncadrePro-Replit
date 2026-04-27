@@ -321,38 +321,21 @@ export interface CreateFournisseurBody {
   notes?: string | null;
 }
 
-export interface LigneDevisFaconnage {
-  id: number;
-  ligne_devis_id: number;
-  produit_id?: number | null;
-  designation: string;
-  quantite: number;
-  longueur_m?: number | null;
-  prix_unitaire_ht: number;
-  taux_tva: number;
-  total_ht: number;
-  parametres_json?: string | null;
-  ordre: number;
-}
+export type LigneDevisTypeLigne =
+  (typeof LigneDevisTypeLigne)[keyof typeof LigneDevisTypeLigne];
 
-export interface LigneDevisService {
-  id: number;
-  ligne_devis_id: number;
-  produit_id?: number | null;
-  designation: string;
-  quantite: number;
-  heures?: number | null;
-  prix_unitaire_ht: number;
-  taux_tva: number;
-  total_ht: number;
-  ordre: number;
-}
+export const LigneDevisTypeLigne = {
+  matiere: "matiere",
+  faconnage: "faconnage",
+  service: "service",
+} as const;
 
 export interface LigneDevis {
   id: number;
   devis_id: number;
   projet_id?: number | null;
   produit_id?: number | null;
+  type_ligne: LigneDevisTypeLigne;
   designation: string;
   description_longue?: string | null;
   unite_calcul: string;
@@ -360,6 +343,9 @@ export interface LigneDevis {
   hauteur_m?: number | null;
   width_cm?: number | null;
   height_cm?: number | null;
+  longueur_m?: number | null;
+  heures?: number | null;
+  parametres_json?: string | null;
   quantite: number;
   quantite_calculee?: number | null;
   prix_unitaire_ht: number;
@@ -369,34 +355,21 @@ export interface LigneDevis {
   total_ttc: number;
   ordre: number;
   regime_pricing?: string | null;
-  faconnage?: LigneDevisFaconnage[];
-  service?: LigneDevisService[];
 }
 
-export interface LigneInputFaconnage {
-  produit_id?: number | null;
-  designation: string;
-  quantite: number;
-  longueur_m?: number | null;
-  prix_unitaire_ht: number;
-  taux_tva: number;
-  parametres_json?: string | null;
-  ordre?: number;
-}
+export type LigneInputTypeLigne =
+  (typeof LigneInputTypeLigne)[keyof typeof LigneInputTypeLigne];
 
-export interface LigneInputService {
-  produit_id?: number | null;
-  designation: string;
-  quantite: number;
-  heures?: number | null;
-  prix_unitaire_ht: number;
-  taux_tva: number;
-  ordre?: number;
-}
+export const LigneInputTypeLigne = {
+  matiere: "matiere",
+  faconnage: "faconnage",
+  service: "service",
+} as const;
 
 export interface LigneInput {
   projet_id?: number | null;
   produit_id?: number | null;
+  type_ligne: LigneInputTypeLigne;
   designation: string;
   description_longue?: string | null;
   unite_calcul: string;
@@ -404,14 +377,15 @@ export interface LigneInput {
   hauteur_m?: number | null;
   width_cm?: number | null;
   height_cm?: number | null;
+  longueur_m?: number | null;
+  heures?: number | null;
+  parametres_json?: string | null;
   quantite: number;
   prix_unitaire_ht: number;
   remise_pct?: number;
   taux_tva: number;
   ordre?: number;
   regime_pricing?: string | null;
-  faconnage?: LigneInputFaconnage[];
-  service?: LigneInputService[];
 }
 
 export type ProjetType = (typeof ProjetType)[keyof typeof ProjetType];

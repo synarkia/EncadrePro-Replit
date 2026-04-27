@@ -9,7 +9,7 @@ import {
   getListDevisQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Save, ArrowRightLeft, FileCheck, Printer, Pencil, Trash2, Loader2, ChevronDown, Download, Mail } from "lucide-react";
+import { ArrowLeft, Save, ArrowRightLeft, FileCheck, Printer, Pencil, Trash2, Loader2, ChevronDown, Download, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,8 +18,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { statutColors } from "./index";
-import { QuoteLineCard, type QuoteLine } from "@/components/QuoteLineCard";
-import { computeLigneTotalHT } from "@/lib/compute-line";
+import { QuoteLineCard, computeQuoteLineHT, type QuoteLine, type TypeLigne } from "@/components/QuoteLineCard";
+import { ProjetSection } from "@/components/ProjetSection";
+import type { ProduitSearchResult } from "@/components/ProductSearchCombobox";
+import { computeLignePvuht, type RegimePricing } from "@/lib/compute-line";
+import { pricingModeToUniteCalcul } from "@/lib/product-types";
 import { QuickAddProductModal } from "@/components/QuickAddProductModal";
 import { ClientContactCard } from "@/components/ClientContactCard";
 import {
@@ -57,30 +60,84 @@ function calcQ(unite: string, widthCm: number, heightCm: number, qte: number): n
   return qte;
 }
 
-function faconnageHT(f: { quantite: number; longueur_m?: number | null; prix_unitaire_ht: number }) {
-  const eff = f.longueur_m != null && f.longueur_m > 0 ? f.longueur_m : 1;
-  return f.quantite * eff * f.prix_unitaire_ht;
+let tempIdCounter = 0;
+function nextTempId(): string {
+  tempIdCounter += 1;
+  return `temp-${Date.now()}-${tempIdCounter}`;
 }
 
-function newEmptyLine(ordre: number): QuoteLine {
+function emptyLineFor(type: TypeLigne, projetId: number | null): QuoteLine {
   return {
-    id: `temp-${Date.now()}`,
+    id: nextTempId(),
+    projet_id: projetId,
     produit_id: null,
+    type_ligne: type,
     designation: "",
-    unite_calcul: "pièce",
+    description_longue: null,
+    remise_pct: 0,
+    unite_calcul: type === "service" ? "heure" : type === "faconnage" ? "metre_lineaire" : "pièce",
     width_cm: null,
     height_cm: null,
     largeur_m: null,
     hauteur_m: null,
+    longueur_m: null,
+    parametres_json: null,
+    heures: null,
     quantite: 1,
     prix_unitaire_ht: 0,
     taux_tva: 20,
-    description_longue: null,
-    remise_pct: 0,
-    faconnage: [],
-    service: [],
+    type_code: null,
+    prix_achat_ht: null,
+    coefficient_marge: null,
+    regime_pricing: null,
+    majo_epaisseur: null,
+    mini_fact_tn: null,
+    mini_fact_ta: null,
+    coef_marge_ta: null,
+    plus_value_ta_pct: null,
   };
-  void ordre;
+}
+
+function lineFromProduit(
+  type: TypeLigne,
+  projetId: number | null,
+  p: ProduitSearchResult,
+): QuoteLine {
+  const base = emptyLineFor(type, projetId);
+  if (type === "matiere") {
+    const regime: RegimePricing = "TN";
+    const pvuht = computeLignePvuht({
+      type_code: p.type_code,
+      prix_ht: p.prix_ht,
+      prix_achat_ht: p.prix_achat_ht,
+      coefficient_marge: p.coefficient_marge,
+      regime,
+    });
+    return {
+      ...base,
+      produit_id: p.id,
+      designation: p.designation,
+      unite_calcul: p.pricing_mode ? pricingModeToUniteCalcul(p.pricing_mode) : (p.unite ?? p.unite_calcul ?? "pièce"),
+      prix_unitaire_ht: pvuht,
+      taux_tva: p.taux_tva,
+      type_code: p.type_code,
+      prix_achat_ht: p.prix_achat_ht,
+      coefficient_marge: p.coefficient_marge,
+      regime_pricing: regime,
+      majo_epaisseur: p.majo_epaisseur ?? null,
+      mini_fact_tn: p.mini_fact_tn ?? null,
+      mini_fact_ta: p.mini_fact_ta ?? null,
+      coef_marge_ta: p.coef_marge_ta ?? null,
+      plus_value_ta_pct: p.plus_value_ta_pct ?? null,
+    };
+  }
+  return {
+    ...base,
+    produit_id: p.id,
+    designation: p.designation,
+    prix_unitaire_ht: p.prix_ht,
+    taux_tva: p.taux_tva,
+  };
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -162,61 +219,72 @@ export default function DevisDetail() {
   useEffect(() => {
     if (devis && initRef.current !== devisId) {
       initRef.current = devisId;
-      setLignes((devis.lignes ?? []).map(l => ({
-        id: l.id,
-        produit_id: l.produit_id ?? null,
-        designation: l.designation,
-        description_longue: (l as { description_longue?: string | null }).description_longue ?? null,
-        remise_pct: (l as { remise_pct?: number | null }).remise_pct ?? 0,
-        unite_calcul: l.unite_calcul,
-        width_cm: l.width_cm ?? (l.largeur_m != null ? l.largeur_m * 100 : null),
-        height_cm: l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : null),
-        largeur_m: l.largeur_m ?? null,
-        hauteur_m: l.hauteur_m ?? null,
-        quantite: l.quantite,
-        prix_unitaire_ht: l.prix_unitaire_ht,
-        taux_tva: l.taux_tva,
-        regime_pricing: ((l as { regime_pricing?: string | null }).regime_pricing ?? null) as "TN" | "TA" | null,
-        faconnage: (l.faconnage ?? []).map(f => ({
-          id: f.id,
-          produit_id: f.produit_id ?? null,
-          designation: f.designation,
-          quantite: f.quantite,
-          longueur_m: (f as { longueur_m?: number | null }).longueur_m ?? null,
-          prix_unitaire_ht: f.prix_unitaire_ht,
-          taux_tva: f.taux_tva,
-          total_ht: f.total_ht,
-          parametres_json: f.parametres_json ?? null,
-          ordre: f.ordre,
-        })),
-        service: (l.service ?? []).map(s => ({
-          id: s.id,
-          produit_id: s.produit_id ?? null,
-          designation: s.designation,
-          quantite: s.quantite,
-          heures: s.heures ?? null,
-          prix_unitaire_ht: s.prix_unitaire_ht,
-          taux_tva: s.taux_tva,
-          total_ht: s.total_ht,
-          ordre: s.ordre,
-        })),
-      })));
+      setLignes((devis.lignes ?? []).map(l => {
+        const typeLigne = ((l as { type_ligne?: string | null }).type_ligne ?? "matiere") as TypeLigne;
+        return {
+          id: l.id,
+          projet_id: (l as { projet_id?: number | null }).projet_id ?? null,
+          produit_id: l.produit_id ?? null,
+          type_ligne: typeLigne,
+          designation: l.designation,
+          description_longue: (l as { description_longue?: string | null }).description_longue ?? null,
+          remise_pct: (l as { remise_pct?: number | null }).remise_pct ?? 0,
+          unite_calcul: l.unite_calcul,
+          width_cm: l.width_cm ?? (l.largeur_m != null ? l.largeur_m * 100 : null),
+          height_cm: l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : null),
+          largeur_m: l.largeur_m ?? null,
+          hauteur_m: l.hauteur_m ?? null,
+          longueur_m: (l as { longueur_m?: number | null }).longueur_m ?? null,
+          parametres_json: (l as { parametres_json?: string | null }).parametres_json ?? null,
+          heures: (l as { heures?: number | null }).heures ?? null,
+          quantite: l.quantite,
+          prix_unitaire_ht: l.prix_unitaire_ht,
+          taux_tva: l.taux_tva,
+          regime_pricing: ((l as { regime_pricing?: string | null }).regime_pricing ?? null) as RegimePricing | null,
+          type_code: null,
+          prix_achat_ht: null,
+          coefficient_marge: null,
+          majo_epaisseur: null,
+          mini_fact_tn: null,
+          mini_fact_ta: null,
+          coef_marge_ta: null,
+          plus_value_ta_pct: null,
+        };
+      }));
     }
   }, [devis, devisId]);
 
-  const addLine = () => setLignes(prev => [...prev, newEmptyLine(prev.length)]);
+  // ── Id-based mutations: lignes are now flat and may live inside any projet,
+  //    so the canonical reference is the ligne id, not its position. ─────────
+  const addLineToProjet = useCallback(
+    (projetId: number, type: TypeLigne, produit: ProduitSearchResult | null) => {
+      setLignes(prev => [
+        ...prev,
+        produit ? lineFromProduit(type, projetId, produit) : emptyLineFor(type, projetId),
+      ]);
+    },
+    [],
+  );
 
-  const updateLine = (index: number, line: QuoteLine) => {
-    setLignes(prev => prev.map((l, i) => i === index ? line : l));
-  };
+  const updateLineById = useCallback(
+    (id: QuoteLine["id"], next: QuoteLine) => {
+      setLignes(prev => prev.map(l => (l.id === id ? next : l)));
+    },
+    [],
+  );
 
-  const removeLine = (index: number) => {
-    setLignes(prev => prev.filter((_, i) => i !== index));
-  };
+  const removeLineById = useCallback(
+    (id: QuoteLine["id"]) => {
+      setLignes(prev => prev.filter(l => l.id !== id));
+    },
+    [],
+  );
 
   const handleSave = () => {
     const payload = lignes.map((l, i) => ({
+      projet_id: l.projet_id ?? null,
       produit_id: l.produit_id ?? null,
+      type_ligne: l.type_ligne,
       designation: l.designation || "—",
       description_longue: l.description_longue ?? null,
       remise_pct: l.remise_pct ?? 0,
@@ -225,30 +293,14 @@ export default function DevisDetail() {
       hauteur_m: l.height_cm != null ? l.height_cm / 100 : (l.hauteur_m ?? null),
       width_cm: l.width_cm ?? null,
       height_cm: l.height_cm ?? null,
+      longueur_m: l.longueur_m ?? null,
+      heures: l.heures ?? null,
+      parametres_json: l.parametres_json ?? null,
       quantite: l.quantite || 1,
       prix_unitaire_ht: l.prix_unitaire_ht,
       taux_tva: l.taux_tva,
       ordre: i,
       regime_pricing: l.regime_pricing ?? null,
-      faconnage: (l.faconnage ?? []).map((f, fi) => ({
-        produit_id: f.produit_id ?? null,
-        designation: f.designation || "—",
-        quantite: f.quantite,
-        longueur_m: f.longueur_m ?? null,
-        prix_unitaire_ht: f.prix_unitaire_ht,
-        taux_tva: f.taux_tva,
-        parametres_json: f.parametres_json ?? null,
-        ordre: fi,
-      })),
-      service: (l.service ?? []).map((s, si) => ({
-        produit_id: s.produit_id ?? null,
-        designation: s.designation || "—",
-        quantite: s.quantite,
-        heures: s.heures ?? null,
-        prix_unitaire_ht: s.prix_unitaire_ht,
-        taux_tva: s.taux_tva,
-        ordre: si,
-      })),
     }));
 
     saveLignes.mutate({ id: devisId, data: { lignes: payload } }, {
@@ -321,47 +373,13 @@ export default function DevisDetail() {
   const previewTotals = useMemo(() => {
     let ht = 0, tva10 = 0, tva20 = 0;
     lignes.forEach(l => {
-      const wCm = l.width_cm ?? 0;
-      const hCm = l.height_cm ?? 0;
-      const qCalc = calcQ(l.unite_calcul, wCm, hCm, l.quantite);
-      const isSurface = l.unite_calcul === "m²" || l.unite_calcul === "metre_carre";
-      // Use the shared helper so VR / mini_fact_tn / TA legacy formula stays
-      // in lock-step with QuoteLineCard and the persisted backend total.
-      const grossHT = computeLigneTotalHT({
-        type_code: l.type_code,
-        unite_calcul: l.unite_calcul,
-        quantite: qCalc,
-        surface_m2: isSurface ? qCalc : null,
-        prix_unitaire_ht: l.prix_unitaire_ht,
-        regime: l.regime_pricing,
-        prix_achat_ht: l.prix_achat_ht,
-        majo_epaisseur: l.majo_epaisseur,
-        mini_fact_tn: l.mini_fact_tn,
-        mini_fact_ta: l.mini_fact_ta,
-        coef_marge_ta: l.coef_marge_ta,
-        plus_value_ta_pct: l.plus_value_ta_pct,
-      });
-      const remisePct = Math.max(0, Math.min(100, l.remise_pct ?? 0));
-      const lineHT = grossHT * (1 - remisePct / 100);
-      const facHT = (l.faconnage ?? []).reduce((s, f) => s + faconnageHT(f), 0);
-      const serviceHT = (l.service ?? []).reduce((s, sv) => s + sv.quantite * sv.prix_unitaire_ht, 0);
-      const totalLineHT = lineHT + facHT + serviceHT;
-
-      ht += totalLineHT;
+      // Single source of truth for per-line HT — branches on l.type_ligne and
+      // applies the V1 TN/TA formula for matière. Stays in lock-step with
+      // QuoteLineCard's display and api-server's persisted total.
+      const lineHT = computeQuoteLineHT(l);
+      ht += lineHT;
       if (l.taux_tva === 10) tva10 += lineHT * 0.1;
       else if (l.taux_tva === 20) tva20 += lineHT * 0.2;
-
-      // Also add TVA for sub-items (façonnage uses longueur_m multiplier when set)
-      (l.faconnage ?? []).forEach(f => {
-        const subHT = faconnageHT(f);
-        if (f.taux_tva === 10) tva10 += subHT * 0.1;
-        else if (f.taux_tva === 20) tva20 += subHT * 0.2;
-      });
-      (l.service ?? []).forEach(sv => {
-        const subHT = sv.quantite * sv.prix_unitaire_ht;
-        if (sv.taux_tva === 10) tva10 += subHT * 0.1;
-        else if (sv.taux_tva === 20) tva20 += subHT * 0.2;
-      });
     });
     return { ht, tva10, tva20, ttc: ht + tva10 + tva20 };
   }, [lignes]);
@@ -490,34 +508,44 @@ export default function DevisDetail() {
           </thead>
           <tbody>
             {(devis.lignes ?? []).map((l, i) => {
+              const typeLigne = ((l as { type_ligne?: string | null }).type_ligne ?? "matiere") as TypeLigne;
               const wCm = l.width_cm ?? (l.largeur_m != null ? l.largeur_m * 100 : 0);
               const hCm = l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : 0);
-              const q = calcQ(l.unite_calcul, wCm, hCm, l.quantite);
+              const longueurM = (l as { longueur_m?: number | null }).longueur_m ?? null;
+              const heures = (l as { heures?: number | null }).heures ?? null;
               const lineRemisePct = (l as { remise_pct?: number | null }).remise_pct ?? 0;
-              // Use the persisted matière total (already factors in mini_fact_tn /
+              // Use the persisted backend total (already factors in mini_fact_tn /
               // majo_epaisseur / TA legacy formula and the per-line remise) so the
               // printed Total HT agrees with the on-screen QuoteLineCard total.
-              const lineHT = Number(l.total_ht ?? 0);
-              const facHT = (l.faconnage ?? []).reduce((s, f) => {
-                const fLong = (f as { longueur_m?: number | null }).longueur_m ?? null;
-                const eff = fLong != null && fLong > 0 ? fLong : 1;
-                return s + f.quantite * eff * f.prix_unitaire_ht;
-              }, 0);
-              const serviceHT = (l.service ?? []).reduce((s, sv) => s + sv.quantite * sv.prix_unitaire_ht, 0);
-              const totalHt = lineHT + facHT + serviceHT;
+              const totalHt = Number(l.total_ht ?? 0);
+
+              // Quantity displayed in the print column depends on the ligne kind.
+              let displayedQte: number;
+              let displayedUnite: string;
+              if (typeLigne === "faconnage") {
+                const eff = longueurM != null && longueurM > 0 ? longueurM : 1;
+                displayedQte = l.quantite * eff;
+                displayedUnite = longueurM != null && longueurM > 0 ? "ml" : l.unite_calcul;
+              } else if (typeLigne === "service") {
+                displayedQte = heures != null && heures > 0 ? l.quantite * heures : l.quantite;
+                displayedUnite = heures != null && heures > 0 ? "h" : l.unite_calcul;
+              } else {
+                displayedQte = calcQ(l.unite_calcul, wCm, hCm, l.quantite);
+                displayedUnite = l.unite_calcul;
+              }
 
               const descParts: string[] = [];
               const longDesc = (l as { description_longue?: string | null }).description_longue ?? null;
               if (longDesc) descParts.push(longDesc);
-              if (wCm > 0 || hCm > 0) descParts.push(`Format ${wCm}×${hCm} cm`);
-              (l.faconnage ?? []).forEach(f => {
-                const fLong = (f as { longueur_m?: number | null }).longueur_m ?? null;
-                const subTotal = f.quantite * (fLong != null && fLong > 0 ? fLong : 1) * f.prix_unitaire_ht;
-                descParts.push(`${f.designation} — ${formatCurrency(subTotal)}`);
-              });
-              (l.service ?? []).forEach(s => {
-                descParts.push(`${s.designation} — ${formatCurrency(s.quantite * s.prix_unitaire_ht)}`);
-              });
+              if (typeLigne === "matiere" && (wCm > 0 || hCm > 0)) {
+                descParts.push(`Format ${wCm}×${hCm} cm`);
+              }
+              if (typeLigne === "faconnage" && longueurM != null && longueurM > 0) {
+                descParts.push(`Longueur : ${longueurM.toFixed(2)} m`);
+              }
+              if (typeLigne === "service" && heures != null && heures > 0) {
+                descParts.push(`Durée : ${heures.toFixed(2)} h`);
+              }
 
               return (
                 <tr key={i}>
@@ -527,8 +555,8 @@ export default function DevisDetail() {
                       <div className="print-description">{descParts.join("\n")}</div>
                     )}
                   </td>
-                  <td className="text-right">{q.toFixed(q % 1 === 0 ? 0 : 2)}</td>
-                  <td>{l.unite_calcul}</td>
+                  <td className="text-right">{displayedQte.toFixed(displayedQte % 1 === 0 ? 0 : 2)}</td>
+                  <td>{displayedUnite}</td>
                   <td className="text-right">{formatCurrency(l.prix_unitaire_ht)}</td>
                   <td className="text-right">{lineRemisePct > 0 ? `\u2212${lineRemisePct.toFixed(lineRemisePct % 1 === 0 ? 0 : 2)}\u00a0%` : "—"}</td>
                   <td className="text-right">{formatCurrency(totalHt)}</td>
@@ -693,87 +721,58 @@ export default function DevisDetail() {
           telephone={devis.client_telephone}
         />
 
-        {/* ── Lines section ────────────────────────────────────────────── */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">
-              Lignes du devis
-              {lignes.length > 0 && <span className="ml-2 text-sm font-normal text-muted-foreground">({lignes.length})</span>}
-            </h2>
-            {isEditable && (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="glass-panel text-primary border-primary/30 hover:bg-primary/10"
-                  onClick={addLine}
-                >
-                  <Plus className="h-4 w-4 mr-1" /> Ajouter
-                </Button>
-                <Button size="sm" onClick={handleSave} disabled={saveLignes.isPending}>
-                  {saveLignes.isPending ? (
-                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Enregistrement...</>
-                  ) : (
-                    <><Save className="h-4 w-4 mr-1" />Enregistrer</>
-                  )}
-                </Button>
+        {/* ── Projets section (lignes are edited inside their projet card) ── */}
+        <ProjetSection
+          devisId={devisId}
+          projets={devis.projets ?? []}
+          lignes={lignes}
+          isEditable={isEditable}
+          onAddLine={addLineToProjet}
+          onChangeLine={updateLineById}
+          onRemoveLine={removeLineById}
+        />
+
+        {/* ── Lignes libres (orphan lignes with no projet — legacy data) ─── */}
+        {(() => {
+          const orphans = lignes.filter(l => l.projet_id == null);
+          if (orphans.length === 0) return null;
+          return (
+            <div className="space-y-3" data-testid="lignes-libres-section">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                Lignes libres
+                <span className="text-xs font-normal text-muted-foreground rounded-full border border-border/40 px-2 py-0.5">
+                  hors projet
+                </span>
+                <span className="text-sm font-normal text-muted-foreground">({orphans.length})</span>
+              </h2>
+              <div className="space-y-2">
+                {orphans.map((ligne, idx) => (
+                  <QuoteLineCard
+                    key={ligne.id}
+                    line={ligne}
+                    index={idx}
+                    isEditable={isEditable}
+                    onChange={next => updateLineById(ligne.id, next)}
+                    onRemove={() => removeLineById(ligne.id)}
+                  />
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+          );
+        })()}
 
-          {/* Empty state */}
-          {lignes.length === 0 && (
-            <div
-              className="text-center py-16 text-muted-foreground border-2 border-dashed border-border/40 rounded-xl bg-card/20 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors"
-              onClick={() => isEditable && addLine()}
-            >
-              {isEditable ? (
-                <>
-                  <Plus className="h-8 w-8 mx-auto mb-3 text-muted-foreground/40" />
-                  <p className="font-medium">Aucune ligne</p>
-                  <p className="text-sm text-muted-foreground/60 mt-1">Cliquez pour ajouter la première ligne</p>
-                </>
+        {/* ── Save bar ────────────────────────────────────────────────── */}
+        {isEditable && (
+          <div className="flex justify-end gap-2 pt-2">
+            <Button onClick={handleSave} disabled={saveLignes.isPending} data-testid="devis-save-button">
+              {saveLignes.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Enregistrement...</>
               ) : (
-                <p>Aucune ligne dans ce devis.</p>
+                <><Save className="h-4 w-4 mr-1" />Enregistrer le devis</>
               )}
-            </div>
-          )}
-
-          {/* Line cards */}
-          <div className="space-y-3">
-            {lignes.map((line, index) => (
-              <QuoteLineCard
-                key={line.id}
-                line={line}
-                index={index}
-                isEditable={isEditable}
-                onChange={updated => updateLine(index, updated)}
-                onRemove={() => removeLine(index)}
-              />
-            ))}
+            </Button>
           </div>
-
-          {/* Save bar (sticky when editing + lines exist) */}
-          {isEditable && lignes.length > 0 && (
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="glass-panel text-primary border-primary/30 hover:bg-primary/10"
-                onClick={addLine}
-              >
-                <Plus className="h-4 w-4 mr-1" /> Ajouter une ligne
-              </Button>
-              <Button onClick={handleSave} disabled={saveLignes.isPending}>
-                {saveLignes.isPending ? (
-                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Enregistrement...</>
-                ) : (
-                  <><Save className="h-4 w-4 mr-1" />Enregistrer</>
-                )}
-              </Button>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* ── Totals card ──────────────────────────────────────────────── */}
         <div className="glass-panel rounded-xl border border-border/50 p-6 ml-auto max-w-sm">

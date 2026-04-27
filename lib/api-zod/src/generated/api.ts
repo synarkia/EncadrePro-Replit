@@ -690,6 +690,7 @@ export const GetDevisResponse = zod
           devis_id: zod.number(),
           projet_id: zod.number().nullish(),
           produit_id: zod.number().nullish(),
+          type_ligne: zod.enum(["matiere", "faconnage", "service"]),
           designation: zod.string(),
           description_longue: zod.string().nullish(),
           unite_calcul: zod.string(),
@@ -697,6 +698,9 @@ export const GetDevisResponse = zod
           hauteur_m: zod.number().nullish(),
           width_cm: zod.number().nullish(),
           height_cm: zod.number().nullish(),
+          longueur_m: zod.number().nullish(),
+          heures: zod.number().nullish(),
+          parametres_json: zod.string().nullish(),
           quantite: zod.number(),
           quantite_calculee: zod.number().nullish(),
           prix_unitaire_ht: zod.number(),
@@ -706,39 +710,6 @@ export const GetDevisResponse = zod
           total_ttc: zod.number(),
           ordre: zod.number(),
           regime_pricing: zod.string().nullish(),
-          faconnage: zod
-            .array(
-              zod.object({
-                id: zod.number(),
-                ligne_devis_id: zod.number(),
-                produit_id: zod.number().nullish(),
-                designation: zod.string(),
-                quantite: zod.number(),
-                longueur_m: zod.number().nullish(),
-                prix_unitaire_ht: zod.number(),
-                taux_tva: zod.number(),
-                total_ht: zod.number(),
-                parametres_json: zod.string().nullish(),
-                ordre: zod.number(),
-              }),
-            )
-            .optional(),
-          service: zod
-            .array(
-              zod.object({
-                id: zod.number(),
-                ligne_devis_id: zod.number(),
-                produit_id: zod.number().nullish(),
-                designation: zod.string(),
-                quantite: zod.number(),
-                heures: zod.number().nullish(),
-                prix_unitaire_ht: zod.number(),
-                taux_tva: zod.number(),
-                total_ht: zod.number(),
-                ordre: zod.number(),
-              }),
-            )
-            .optional(),
         }),
       ),
     }),
@@ -803,6 +774,7 @@ export const SaveDevisLignesBody = zod.object({
     zod.object({
       projet_id: zod.number().nullish(),
       produit_id: zod.number().nullish(),
+      type_ligne: zod.enum(["matiere", "faconnage", "service"]),
       designation: zod.string(),
       description_longue: zod.string().nullish(),
       unite_calcul: zod.string(),
@@ -810,39 +782,15 @@ export const SaveDevisLignesBody = zod.object({
       hauteur_m: zod.number().nullish(),
       width_cm: zod.number().nullish(),
       height_cm: zod.number().nullish(),
+      longueur_m: zod.number().nullish(),
+      heures: zod.number().nullish(),
+      parametres_json: zod.string().nullish(),
       quantite: zod.number(),
       prix_unitaire_ht: zod.number(),
       remise_pct: zod.number().optional(),
       taux_tva: zod.number(),
       ordre: zod.number().optional(),
       regime_pricing: zod.string().nullish(),
-      faconnage: zod
-        .array(
-          zod.object({
-            produit_id: zod.number().nullish(),
-            designation: zod.string(),
-            quantite: zod.number(),
-            longueur_m: zod.number().nullish(),
-            prix_unitaire_ht: zod.number(),
-            taux_tva: zod.number(),
-            parametres_json: zod.string().nullish(),
-            ordre: zod.number().optional(),
-          }),
-        )
-        .optional(),
-      service: zod
-        .array(
-          zod.object({
-            produit_id: zod.number().nullish(),
-            designation: zod.string(),
-            quantite: zod.number(),
-            heures: zod.number().nullish(),
-            prix_unitaire_ht: zod.number(),
-            taux_tva: zod.number(),
-            ordre: zod.number().optional(),
-          }),
-        )
-        .optional(),
     }),
   ),
 });
@@ -1060,6 +1008,7 @@ export const GetFactureResponse = zod
           devis_id: zod.number(),
           projet_id: zod.number().nullish(),
           produit_id: zod.number().nullish(),
+          type_ligne: zod.enum(["matiere", "faconnage", "service"]),
           designation: zod.string(),
           description_longue: zod.string().nullish(),
           unite_calcul: zod.string(),
@@ -1067,6 +1016,9 @@ export const GetFactureResponse = zod
           hauteur_m: zod.number().nullish(),
           width_cm: zod.number().nullish(),
           height_cm: zod.number().nullish(),
+          longueur_m: zod.number().nullish(),
+          heures: zod.number().nullish(),
+          parametres_json: zod.string().nullish(),
           quantite: zod.number(),
           quantite_calculee: zod.number().nullish(),
           prix_unitaire_ht: zod.number(),
@@ -1076,39 +1028,6 @@ export const GetFactureResponse = zod
           total_ttc: zod.number(),
           ordre: zod.number(),
           regime_pricing: zod.string().nullish(),
-          faconnage: zod
-            .array(
-              zod.object({
-                id: zod.number(),
-                ligne_devis_id: zod.number(),
-                produit_id: zod.number().nullish(),
-                designation: zod.string(),
-                quantite: zod.number(),
-                longueur_m: zod.number().nullish(),
-                prix_unitaire_ht: zod.number(),
-                taux_tva: zod.number(),
-                total_ht: zod.number(),
-                parametres_json: zod.string().nullish(),
-                ordre: zod.number(),
-              }),
-            )
-            .optional(),
-          service: zod
-            .array(
-              zod.object({
-                id: zod.number(),
-                ligne_devis_id: zod.number(),
-                produit_id: zod.number().nullish(),
-                designation: zod.string(),
-                quantite: zod.number(),
-                heures: zod.number().nullish(),
-                prix_unitaire_ht: zod.number(),
-                taux_tva: zod.number(),
-                total_ht: zod.number(),
-                ordre: zod.number(),
-              }),
-            )
-            .optional(),
         }),
       ),
       paiements: zod.array(

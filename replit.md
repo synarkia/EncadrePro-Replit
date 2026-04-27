@@ -83,7 +83,7 @@ Single-row config (id=1). Always upsert, never insert a second row.
 - `atelier.ts` — Workshop settings singleton
 - `clients.ts` — Customer records
 - `produits.ts` — Product catalogue (new: `type_produit`, `fournisseur`, `sous_categorie`, `unite`)
-- `devis.ts` — Quotes + `lignes_devis` (new: `width_cm`, `height_cm`, `projet_id` FK SET NULL) + `lignes_devis_faconnage` + `lignes_devis_service`
+- `devis.ts` — Quotes + `lignes_devis` (flat type-tagged model: `type_ligne` = `matiere|faconnage|service`, plus `longueur_m` for façonnage, `heures` for service, `parametres_json` for kind-specific extras; `projet_id` FK SET NULL). The legacy nested `lignes_devis_faconnage` / `lignes_devis_service` sub-tables were dropped in Phase B.
 - `projets.ts` — Project grouping inside a quote (type, dimensions, optional photo + label, position). One devis can carry several projets; lignes' `projet_id` is nullable for free-form lines
 - `factures.ts` — Invoices + `lignes_facture` + `acomptes` tables
 
@@ -91,7 +91,7 @@ Single-row config (id=1). Always upsert, never insert a second row.
 - `dashboard.ts` — Stats, CA mensuel, recent devis/factures
 - `clients.ts` — CRUD + stats
 - `produits.ts` — CRUD + `GET /produits/search?q=&type=` + `GET /produits/fournisseurs`
-- `devis.ts` — CRUD + save lignes (with nested faconnage/service + `projet_id`) + convert to facture; GET embeds `projets` array
+- `devis.ts` — CRUD + save lignes (flat `type_ligne`-tagged rows: matiere/faconnage/service, with `longueur_m`/`heures`/`parametres_json` + `projet_id`) + convert to facture; GET embeds `projets` array
 - `projets.ts` — CRUD: `POST /devis/:id/projets`, `PATCH /projets/:id`, `DELETE /projets/:id`, `PUT /devis/:id/projets/reorder`
 - `factures.ts` — CRUD + paiements (auto-recalculates statut)
 - `atelier.ts` — GET/PUT settings
@@ -100,7 +100,9 @@ Single-row config (id=1). Always upsert, never insert a second row.
 ### Frontend Components (`artifacts/encadrepro/src/components/`)
 - `ProductSearchCombobox.tsx` — Autocomplete with 2+ char trigger, type filter, supplier pill
 - `QuickAddProductModal.tsx` — Quick product creation modal (type/fournisseur/unite form)
-- `QuoteLineCard.tsx` — Card-based line editor with façonnage + service sub-items
+- `QuoteLineCard.tsx` — Type-aware single-card editor (one ligne = matiere | faconnage | service); branches chrome + fields by `type_ligne`. Exports `computeQuoteLineHT` as the single source of truth for per-line HT (mirrors backend `computeLigneTotalHT`)
+- `AddLineMenu.tsx` — 2-stage Dialog (pick type → ProductSearchCombobox filtered by typeCodes per kind, with "ligne libre" escape hatch)
+- `ProjetCard.tsx` / `ProjetSection.tsx` / `ProjetSheet.tsx` — Project grouping UI with @dnd-kit drag-reorder, expandable cards hosting QuoteLineCard editors, and right-side Sheet for create/edit
 
 ### Frontend Pages (`artifacts/encadrepro/src/pages/`)
 - `dashboard.tsx` — KPI cards + monthly CA chart

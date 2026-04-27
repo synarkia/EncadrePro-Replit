@@ -5,14 +5,14 @@
  * EncadrePro API – gestion d'un atelier d'encadrement
  * OpenAPI spec version: 1.0.0
  */
-import type { LigneDevisFaconnage } from "./ligneDevisFaconnage";
-import type { LigneDevisService } from "./ligneDevisService";
+import type { LigneDevisTypeLigne } from "./ligneDevisTypeLigne";
 
 export interface LigneDevis {
   id: number;
   devis_id: number;
   projet_id?: number | null;
   produit_id?: number | null;
+  type_ligne: LigneDevisTypeLigne;
   designation: string;
   description_longue?: string | null;
   unite_calcul: string;
@@ -20,6 +20,9 @@ export interface LigneDevis {
   hauteur_m?: number | null;
   width_cm?: number | null;
   height_cm?: number | null;
+  longueur_m?: number | null;
+  heures?: number | null;
+  parametres_json?: string | null;
   quantite: number;
   quantite_calculee?: number | null;
   prix_unitaire_ht: number;
@@ -29,6 +32,4 @@ export interface LigneDevis {
   total_ttc: number;
   ordre: number;
   regime_pricing?: string | null;
-  faconnage?: LigneDevisFaconnage[];
-  service?: LigneDevisService[];
 }

@@ -1223,37 +1223,10 @@ components:
       required: [nom]
 
     # ── DEVIS ──
-    LigneDevisFaconnage:
-      type: object
-      properties:
-        id: { type: integer }
-        ligne_devis_id: { type: integer }
-        produit_id: { type: integer, nullable: true }
-        designation: { type: string }
-        quantite: { type: number }
-        longueur_m: { type: number, nullable: true }
-        prix_unitaire_ht: { type: number }
-        taux_tva: { type: number }
-        total_ht: { type: number }
-        parametres_json: { type: string, nullable: true }
-        ordre: { type: integer }
-      required: [id, ligne_devis_id, designation, quantite, prix_unitaire_ht, taux_tva, total_ht, ordre]
-
-    LigneDevisService:
-      type: object
-      properties:
-        id: { type: integer }
-        ligne_devis_id: { type: integer }
-        produit_id: { type: integer, nullable: true }
-        designation: { type: string }
-        quantite: { type: number }
-        heures: { type: number, nullable: true }
-        prix_unitaire_ht: { type: number }
-        taux_tva: { type: number }
-        total_ht: { type: number }
-        ordre: { type: integer }
-      required: [id, ligne_devis_id, designation, quantite, prix_unitaire_ht, taux_tva, total_ht, ordre]
-
+    # Each ligne is one of three disjoint kinds. The kind drives which
+    # extra fields apply: longueur_m for "faconnage", heures for "service",
+    # dims/regime for "matiere". Nested sub-items have been replaced by
+    # independent lignes in the same projet.
     LigneDevis:
       type: object
       properties:
@@ -1261,6 +1234,9 @@ components:
         devis_id: { type: integer }
         projet_id: { type: integer, nullable: true }
         produit_id: { type: integer, nullable: true }
+        type_ligne:
+          type: string
+          enum: [matiere, faconnage, service]
         designation: { type: string }
         description_longue: { type: string, nullable: true }
         unite_calcul: { type: string }
@@ -1268,6 +1244,9 @@ components:
         hauteur_m: { type: number, nullable: true }
         width_cm: { type: number, nullable: true }
         height_cm: { type: number, nullable: true }
+        longueur_m: { type: number, nullable: true }
+        heures: { type: number, nullable: true }
+        parametres_json: { type: string, nullable: true }
         quantite: { type: number }
         quantite_calculee: { type: number, nullable: true }
         prix_unitaire_ht: { type: number }
@@ -1277,46 +1256,16 @@ components:
         total_ttc: { type: number }
         ordre: { type: integer }
         regime_pricing: { type: string, nullable: true }
-        faconnage:
-          type: array
-          items:
-            $ref: "#/components/schemas/LigneDevisFaconnage"
-        service:
-          type: array
-          items:
-            $ref: "#/components/schemas/LigneDevisService"
-      required: [id, devis_id, designation, unite_calcul, quantite, prix_unitaire_ht, taux_tva, total_ht, total_ttc, ordre]
-
-    LigneInputFaconnage:
-      type: object
-      properties:
-        produit_id: { type: integer, nullable: true }
-        designation: { type: string }
-        quantite: { type: number }
-        longueur_m: { type: number, nullable: true }
-        prix_unitaire_ht: { type: number }
-        taux_tva: { type: number }
-        parametres_json: { type: string, nullable: true }
-        ordre: { type: integer }
-      required: [designation, quantite, prix_unitaire_ht, taux_tva]
-
-    LigneInputService:
-      type: object
-      properties:
-        produit_id: { type: integer, nullable: true }
-        designation: { type: string }
-        quantite: { type: number }
-        heures: { type: number, nullable: true }
-        prix_unitaire_ht: { type: number }
-        taux_tva: { type: number }
-        ordre: { type: integer }
-      required: [designation, quantite, prix_unitaire_ht, taux_tva]
+      required: [id, devis_id, type_ligne, designation, unite_calcul, quantite, prix_unitaire_ht, taux_tva, total_ht, total_ttc, ordre]
 
     LigneInput:
       type: object
       properties:
         projet_id: { type: integer, nullable: true }
         produit_id: { type: integer, nullable: true }
+        type_ligne:
+          type: string
+          enum: [matiere, faconnage, service]
         designation: { type: string }
         description_longue: { type: string, nullable: true }
         unite_calcul: { type: string }
@@ -1324,21 +1273,16 @@ components:
         hauteur_m: { type: number, nullable: true }
         width_cm: { type: number, nullable: true }
         height_cm: { type: number, nullable: true }
+        longueur_m: { type: number, nullable: true }
+        heures: { type: number, nullable: true }
+        parametres_json: { type: string, nullable: true }
         quantite: { type: number }
         prix_unitaire_ht: { type: number }
         remise_pct: { type: number }
         taux_tva: { type: number }
         ordre: { type: integer }
         regime_pricing: { type: string, nullable: true }
-        faconnage:
-          type: array
-          items:
-            $ref: "#/components/schemas/LigneInputFaconnage"
-        service:
-          type: array
-          items:
-            $ref: "#/components/schemas/LigneInputService"
-      required: [designation, unite_calcul, quantite, prix_unitaire_ht, taux_tva]
+      required: [type_ligne, designation, unite_calcul, quantite, prix_unitaire_ht, taux_tva]
 
     Devis:
       type: object

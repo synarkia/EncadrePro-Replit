@@ -2,7 +2,6 @@ import { pgTable, serial, text, real, integer, numeric, timestamp, date, index }
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { clientsTable } from "./clients";
-import { produitsTable } from "./produits";
 import { projetsTable } from "./projets";
 
 /* WEB-TO-DESKTOP NOTE: shared schema, used by future Electron build. */
@@ -56,38 +55,17 @@ export const lignesDevisTable = pgTable("lignes_devis", {
   ordre: integer("ordre").notNull().default(0),
   // ── VR-only TN/TA regime selector (null for non-VR lines) ──────────────
   regime_pricing: text("regime_pricing"),
+  // ── New flat ligne model ────────────────────────────────────────────────
+  // Each ligne is one of three disjoint kinds. The kind drives which extra
+  // fields apply (longueur_m for façonnage, heures for service, dims/regime
+  // for matière). Sub-stacking has been replaced by independent lignes.
+  type_ligne: text("type_ligne").notNull().default("matiere"), // matiere | faconnage | service
+  longueur_m: real("longueur_m"),                              // façonnage only
+  heures: real("heures"),                                      // service only
+  parametres_json: text("parametres_json"),                    // façonnage extras
 }, (table) => [
   index("lignes_devis_projet_id_idx").on(table.projet_id),
 ]);
-
-export const lignesDevisFaconnageTable = pgTable("lignes_devis_faconnage", {
-  id: serial("id").primaryKey(),
-  ligne_devis_id: integer("ligne_devis_id").notNull().references(() => lignesDevisTable.id, { onDelete: "cascade" }),
-  produit_id: integer("produit_id").references(() => produitsTable.id),
-  designation: text("designation").notNull(),
-  quantite: real("quantite").notNull().default(1),
-  // Optional length in metres — used for FA products priced per linear meter
-  // (e.g. mat-board cut). When set, line total = quantite × longueur_m × pu_ht.
-  longueur_m: real("longueur_m"),
-  prix_unitaire_ht: numeric("prix_unitaire_ht", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
-  taux_tva: numeric("taux_tva", { precision: 5, scale: 2, mode: "number" }).notNull().default(20),
-  total_ht: numeric("total_ht", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
-  parametres_json: text("parametres_json"),
-  ordre: integer("ordre").notNull().default(0),
-});
-
-export const lignesDevisServiceTable = pgTable("lignes_devis_service", {
-  id: serial("id").primaryKey(),
-  ligne_devis_id: integer("ligne_devis_id").notNull().references(() => lignesDevisTable.id, { onDelete: "cascade" }),
-  produit_id: integer("produit_id").references(() => produitsTable.id),
-  designation: text("designation").notNull(),
-  quantite: real("quantite").notNull().default(1),
-  heures: real("heures"),
-  prix_unitaire_ht: numeric("prix_unitaire_ht", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
-  taux_tva: numeric("taux_tva", { precision: 5, scale: 2, mode: "number" }).notNull().default(20),
-  total_ht: numeric("total_ht", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
-  ordre: integer("ordre").notNull().default(0),
-});
 
 export const insertDevisSchema = createInsertSchema(devisTable).omit({ id: true, cree_le: true, modifie_le: true });
 export type InsertDevis = z.infer<typeof insertDevisSchema>;
@@ -97,10 +75,4 @@ export const insertLigneDevisSchema = createInsertSchema(lignesDevisTable).omit(
 export type InsertLigneDevis = z.infer<typeof insertLigneDevisSchema>;
 export type LigneDevis = typeof lignesDevisTable.$inferSelect;
 
-export const insertLigneDevisFaconnageSchema = createInsertSchema(lignesDevisFaconnageTable).omit({ id: true });
-export type InsertLigneDevisFaconnage = z.infer<typeof insertLigneDevisFaconnageSchema>;
-export type LigneDevisFaconnage = typeof lignesDevisFaconnageTable.$inferSelect;
-
-export const insertLigneDevisServiceSchema = createInsertSchema(lignesDevisServiceTable).omit({ id: true });
-export type InsertLigneDevisService = z.infer<typeof insertLigneDevisServiceSchema>;
-export type LigneDevisService = typeof lignesDevisServiceTable.$inferSelect;
+export type TypeLigne = "matiere" | "faconnage" | "service";
