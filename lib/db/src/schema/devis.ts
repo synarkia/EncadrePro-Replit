@@ -1,8 +1,9 @@
-import { pgTable, serial, text, real, integer, numeric, timestamp, date } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, real, integer, numeric, timestamp, date, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { clientsTable } from "./clients";
 import { produitsTable } from "./produits";
+import { projetsTable } from "./projets";
 
 /* WEB-TO-DESKTOP NOTE: shared schema, used by future Electron build. */
 
@@ -27,6 +28,11 @@ export const devisTable = pgTable("devis", {
 export const lignesDevisTable = pgTable("lignes_devis", {
   id: serial("id").primaryKey(),
   devis_id: integer("devis_id").notNull().references(() => devisTable.id, { onDelete: "cascade" }),
+  // Optional FK to projets — NULL means "ligne libre hors projet" so existing
+  // devis stay valid before the data migration runs and so future free-form
+  // lines (e.g. ad-hoc fees) don't require a projet wrapper. ON DELETE SET NULL
+  // so dropping a projet keeps the lignes around as free-form.
+  projet_id: integer("projet_id").references(() => projetsTable.id, { onDelete: "set null" }),
   produit_id: integer("produit_id"),
   designation: text("designation").notNull(),
   // ── Optional long-form description shown under the designation on print
@@ -50,7 +56,9 @@ export const lignesDevisTable = pgTable("lignes_devis", {
   ordre: integer("ordre").notNull().default(0),
   // ── VR-only TN/TA regime selector (null for non-VR lines) ──────────────
   regime_pricing: text("regime_pricing"),
-});
+}, (table) => [
+  index("lignes_devis_projet_id_idx").on(table.projet_id),
+]);
 
 export const lignesDevisFaconnageTable = pgTable("lignes_devis_faconnage", {
   id: serial("id").primaryKey(),

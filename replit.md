@@ -83,14 +83,16 @@ Single-row config (id=1). Always upsert, never insert a second row.
 - `atelier.ts` — Workshop settings singleton
 - `clients.ts` — Customer records
 - `produits.ts` — Product catalogue (new: `type_produit`, `fournisseur`, `sous_categorie`, `unite`)
-- `devis.ts` — Quotes + `lignes_devis` (new: `width_cm`, `height_cm`) + `lignes_devis_faconnage` + `lignes_devis_service`
+- `devis.ts` — Quotes + `lignes_devis` (new: `width_cm`, `height_cm`, `projet_id` FK SET NULL) + `lignes_devis_faconnage` + `lignes_devis_service`
+- `projets.ts` — Project grouping inside a quote (type, dimensions, optional photo + label, position). One devis can carry several projets; lignes' `projet_id` is nullable for free-form lines
 - `factures.ts` — Invoices + `lignes_facture` + `acomptes` tables
 
 ### API Routes (`artifacts/api-server/src/routes/`)
 - `dashboard.ts` — Stats, CA mensuel, recent devis/factures
 - `clients.ts` — CRUD + stats
 - `produits.ts` — CRUD + `GET /produits/search?q=&type=` + `GET /produits/fournisseurs`
-- `devis.ts` — CRUD + save lignes (with nested faconnage/service) + convert to facture
+- `devis.ts` — CRUD + save lignes (with nested faconnage/service + `projet_id`) + convert to facture; GET embeds `projets` array
+- `projets.ts` — CRUD: `POST /devis/:id/projets`, `PATCH /projets/:id`, `DELETE /projets/:id`, `PUT /devis/:id/projets/reorder`
 - `factures.ts` — CRUD + paiements (auto-recalculates statut)
 - `atelier.ts` — GET/PUT settings
 - `import.ts` — Bulk-import endpoints from FileMaker exports (CSV/XLSX, multipart, dry-run + real)

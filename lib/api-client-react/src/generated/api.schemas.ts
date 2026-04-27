@@ -351,6 +351,7 @@ export interface LigneDevisService {
 export interface LigneDevis {
   id: number;
   devis_id: number;
+  projet_id?: number | null;
   produit_id?: number | null;
   designation: string;
   description_longue?: string | null;
@@ -394,6 +395,7 @@ export interface LigneInputService {
 }
 
 export interface LigneInput {
+  projet_id?: number | null;
   produit_id?: number | null;
   designation: string;
   description_longue?: string | null;
@@ -412,9 +414,75 @@ export interface LigneInput {
   service?: LigneInputService[];
 }
 
+export type ProjetType = (typeof ProjetType)[keyof typeof ProjetType];
+
+export const ProjetType = {
+  encadrement: "encadrement",
+  verre: "verre",
+  miroir: "miroir",
+  vitrage: "vitrage",
+  autre: "autre",
+} as const;
+
+export interface Projet {
+  id: number;
+  devis_id: number;
+  type: ProjetType;
+  width_cm?: number | null;
+  height_cm?: number | null;
+  photo_path?: string | null;
+  label?: string | null;
+  position: number;
+  cree_le: string;
+  modifie_le: string;
+}
+
 export type DevisDetail = Devis & {
+  projets: Projet[];
   lignes: LigneDevis[];
 };
+
+export type CreateProjetBodyType =
+  (typeof CreateProjetBodyType)[keyof typeof CreateProjetBodyType];
+
+export const CreateProjetBodyType = {
+  encadrement: "encadrement",
+  verre: "verre",
+  miroir: "miroir",
+  vitrage: "vitrage",
+  autre: "autre",
+} as const;
+
+export interface CreateProjetBody {
+  type: CreateProjetBodyType;
+  width_cm?: number | null;
+  height_cm?: number | null;
+  photo_path?: string | null;
+  label?: string | null;
+}
+
+export type UpdateProjetBodyType =
+  (typeof UpdateProjetBodyType)[keyof typeof UpdateProjetBodyType];
+
+export const UpdateProjetBodyType = {
+  encadrement: "encadrement",
+  verre: "verre",
+  miroir: "miroir",
+  vitrage: "vitrage",
+  autre: "autre",
+} as const;
+
+export interface UpdateProjetBody {
+  type?: UpdateProjetBodyType;
+  width_cm?: number | null;
+  height_cm?: number | null;
+  photo_path?: string | null;
+  label?: string | null;
+}
+
+export interface ReorderProjetsBody {
+  ids: number[];
+}
 
 export interface CreateDevisBody {
   client_id: number;

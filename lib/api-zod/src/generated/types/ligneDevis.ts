@@ -11,6 +11,7 @@ import type { LigneDevisService } from "./ligneDevisService";
 export interface LigneDevis {
   id: number;
   devis_id: number;
+  projet_id?: number | null;
   produit_id?: number | null;
   designation: string;
   description_longue?: string | null;

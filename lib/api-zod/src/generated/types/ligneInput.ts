@@ -9,6 +9,7 @@ import type { LigneInputFaconnage } from "./ligneInputFaconnage";
 import type { LigneInputService } from "./ligneInputService";
 
 export interface LigneInput {
+  projet_id?: number | null;
   produit_id?: number | null;
   designation: string;
   description_longue?: string | null;

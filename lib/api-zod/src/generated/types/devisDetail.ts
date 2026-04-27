@@ -7,7 +7,9 @@
  */
 import type { Devis } from "./devis";
 import type { LigneDevis } from "./ligneDevis";
+import type { Projet } from "./projet";
 
 export type DevisDetail = Devis & {
+  projets: Projet[];
   lignes: LigneDevis[];
 };

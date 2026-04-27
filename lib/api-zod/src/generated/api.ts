@@ -664,10 +664,31 @@ export const GetDevisResponse = zod
   })
   .and(
     zod.object({
+      projets: zod.array(
+        zod.object({
+          id: zod.number(),
+          devis_id: zod.number(),
+          type: zod.enum([
+            "encadrement",
+            "verre",
+            "miroir",
+            "vitrage",
+            "autre",
+          ]),
+          width_cm: zod.number().nullish(),
+          height_cm: zod.number().nullish(),
+          photo_path: zod.string().nullish(),
+          label: zod.string().nullish(),
+          position: zod.number(),
+          cree_le: zod.string(),
+          modifie_le: zod.string(),
+        }),
+      ),
       lignes: zod.array(
         zod.object({
           id: zod.number(),
           devis_id: zod.number(),
+          projet_id: zod.number().nullish(),
           produit_id: zod.number().nullish(),
           designation: zod.string(),
           description_longue: zod.string().nullish(),
@@ -780,6 +801,7 @@ export const SaveDevisLignesParams = zod.object({
 export const SaveDevisLignesBody = zod.object({
   lignes: zod.array(
     zod.object({
+      projet_id: zod.number().nullish(),
       produit_id: zod.number().nullish(),
       designation: zod.string(),
       description_longue: zod.string().nullish(),
@@ -855,6 +877,95 @@ export const SaveDevisLignesResponse = zod.object({
  */
 export const ConvertDevisToFactureParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * @summary Create a project under a quote
+ */
+export const CreateProjetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateProjetBody = zod.object({
+  type: zod.enum(["encadrement", "verre", "miroir", "vitrage", "autre"]),
+  width_cm: zod.number().nullish(),
+  height_cm: zod.number().nullish(),
+  photo_path: zod.string().nullish(),
+  label: zod.string().nullish(),
+});
+
+/**
+ * Replaces every projet's `position` with its index in the supplied
+`ids` array. The body must list every projet of the devis exactly
+once; unknown or missing ids return a 400.
+
+ * @summary Reorder all projects of a quote
+ */
+export const ReorderProjetsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ReorderProjetsBody = zod.object({
+  ids: zod.array(zod.number()),
+});
+
+export const ReorderProjetsResponseItem = zod.object({
+  id: zod.number(),
+  devis_id: zod.number(),
+  type: zod.enum(["encadrement", "verre", "miroir", "vitrage", "autre"]),
+  width_cm: zod.number().nullish(),
+  height_cm: zod.number().nullish(),
+  photo_path: zod.string().nullish(),
+  label: zod.string().nullish(),
+  position: zod.number(),
+  cree_le: zod.string(),
+  modifie_le: zod.string(),
+});
+export const ReorderProjetsResponse = zod.array(ReorderProjetsResponseItem);
+
+/**
+ * @summary Update a project (partial)
+ */
+export const UpdateProjetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateProjetBody = zod.object({
+  type: zod
+    .enum(["encadrement", "verre", "miroir", "vitrage", "autre"])
+    .optional(),
+  width_cm: zod.number().nullish(),
+  height_cm: zod.number().nullish(),
+  photo_path: zod.string().nullish(),
+  label: zod.string().nullish(),
+});
+
+export const UpdateProjetResponse = zod.object({
+  id: zod.number(),
+  devis_id: zod.number(),
+  type: zod.enum(["encadrement", "verre", "miroir", "vitrage", "autre"]),
+  width_cm: zod.number().nullish(),
+  height_cm: zod.number().nullish(),
+  photo_path: zod.string().nullish(),
+  label: zod.string().nullish(),
+  position: zod.number(),
+  cree_le: zod.string(),
+  modifie_le: zod.string(),
+});
+
+/**
+ * Removes the project. Any lignes_devis still pointing at it have their
+`projet_id` reset to NULL (FK ON DELETE SET NULL) so devis totals
+stay intact — the lines simply become "free" again.
+
+ * @summary Delete a project
+ */
+export const DeleteProjetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteProjetResponse = zod.object({
+  success: zod.boolean(),
 });
 
 /**
@@ -947,6 +1058,7 @@ export const GetFactureResponse = zod
         zod.object({
           id: zod.number(),
           devis_id: zod.number(),
+          projet_id: zod.number().nullish(),
           produit_id: zod.number().nullish(),
           designation: zod.string(),
           description_longue: zod.string().nullish(),

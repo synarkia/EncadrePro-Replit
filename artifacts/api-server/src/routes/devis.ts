@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, inArray } from "drizzle-orm";
+import { eq, sql, inArray, asc, and } from "drizzle-orm";
 import {
   db,
   devisTable,
@@ -10,6 +10,7 @@ import {
   facturesTable,
   lignesFactureTable,
   produitsTable,
+  projetsTable,
 } from "@workspace/db";
 import { computeLigneTotalHT, type RegimePricing } from "../lib/compute-line";
 import { execRows, serializeDates } from "../lib/db-utils";
@@ -202,6 +203,12 @@ router.get("/devis/:id", async (req, res): Promise<void> => {
     .where(eq(lignesDevisTable.devis_id, params.data.id))
     .orderBy(lignesDevisTable.ordre);
 
+  // Load every projet attached to this devis, ordered by user-set position so
+  // the UI can render them in the saved order without an extra sort.
+  const projets = await db.select().from(projetsTable)
+    .where(eq(projetsTable.devis_id, params.data.id))
+    .orderBy(asc(projetsTable.position));
+
   // Load all faconnage and service for all lines in one query each
   let faconnageAll: typeof lignesDevisFaconnageTable.$inferSelect[] = [];
   let serviceAll: typeof lignesDevisServiceTable.$inferSelect[] = [];
@@ -218,9 +225,11 @@ router.get("/devis/:id", async (req, res): Promise<void> => {
 
   const data = {
     ...mapDevis(devisRow),
+    projets,
     lignes: lignes.map((l) => ({
       id: l.id,
       devis_id: l.devis_id,
+      projet_id: l.projet_id ?? null,
       produit_id: l.produit_id ?? null,
       designation: l.designation,
       description_longue: l.description_longue ?? null,
@@ -329,6 +338,32 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
 
   const devisId = params.data.id;
 
+  // Defend against cross-devis projet linkage: collect every non-null projet_id
+  // the client sent and confirm each one belongs to THIS devis. Otherwise a
+  // bad client could attach a ligne to a projet of a different quote.
+  const submittedProjetIds = Array.from(new Set(
+    parsed.data.lignes
+      .map(l => (l as { projet_id?: number | null }).projet_id ?? null)
+      .filter((id): id is number => id != null),
+  ));
+  if (submittedProjetIds.length > 0) {
+    const ownedProjets = await db
+      .select({ id: projetsTable.id })
+      .from(projetsTable)
+      .where(and(
+        eq(projetsTable.devis_id, devisId),
+        inArray(projetsTable.id, submittedProjetIds),
+      ));
+    const ownedIds = new Set(ownedProjets.map(p => p.id));
+    const foreign = submittedProjetIds.filter(id => !ownedIds.has(id));
+    if (foreign.length > 0) {
+      res.status(400).json({
+        error: `projet_id(s) [${foreign.join(", ")}] do not belong to devis ${devisId}`,
+      });
+      return;
+    }
+  }
+
   // Cascade deletes via FK constraints (faconnage/service tables have onDelete: cascade)
   await db.delete(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devisId));
 
@@ -377,6 +412,10 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
 
     const [inserted] = await db.insert(lignesDevisTable).values({
       devis_id: devisId,
+      // Preserve the projet grouping the UI sent (NULL = ligne libre hors projet).
+      // The FK is ON DELETE SET NULL, so unknown ids would crash here — we
+      // trust the UI to only send projet ids that belong to this devis.
+      projet_id: (l as { projet_id?: number | null }).projet_id ?? null,
       produit_id: l.produit_id ?? null,
       designation: l.designation,
       description_longue: (l as { description_longue?: string | null }).description_longue ?? null,

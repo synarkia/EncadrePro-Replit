@@ -17,6 +17,8 @@ tags:
     description: Product catalog
   - name: devis
     description: Quote management
+  - name: projets
+    description: Project grouping inside a quote
   - name: factures
     description: Invoice management
   - name: atelier
@@ -567,6 +569,110 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Facture"
+
+  # ──────────────── PROJETS ────────────────
+  /devis/{id}/projets:
+    post:
+      operationId: createProjet
+      tags: [projets]
+      summary: Create a project under a quote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjetBody"
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Projet"
+
+  /devis/{id}/projets/reorder:
+    put:
+      operationId: reorderProjets
+      tags: [projets]
+      summary: Reorder all projects of a quote
+      description: |
+        Replaces every projet's `position` with its index in the supplied
+        `ids` array. The body must list every projet of the devis exactly
+        once; unknown or missing ids return a 400.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderProjetsBody"
+      responses:
+        "200":
+          description: Reordered projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Projet"
+
+  /projets/{id}:
+    patch:
+      operationId: updateProjet
+      tags: [projets]
+      summary: Update a project (partial)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjetBody"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Projet"
+
+    delete:
+      operationId: deleteProjet
+      tags: [projets]
+      summary: Delete a project
+      description: |
+        Removes the project. Any lignes_devis still pointing at it have their
+        `projet_id` reset to NULL (FK ON DELETE SET NULL) so devis totals
+        stay intact — the lines simply become "free" again.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
 
   # ──────────────── FACTURES ────────────────
   /factures:
@@ -1153,6 +1259,7 @@ components:
       properties:
         id: { type: integer }
         devis_id: { type: integer }
+        projet_id: { type: integer, nullable: true }
         produit_id: { type: integer, nullable: true }
         designation: { type: string }
         description_longue: { type: string, nullable: true }
@@ -1208,6 +1315,7 @@ components:
     LigneInput:
       type: object
       properties:
+        projet_id: { type: integer, nullable: true }
         produit_id: { type: integer, nullable: true }
         designation: { type: string }
         description_longue: { type: string, nullable: true }
@@ -1264,11 +1372,63 @@ components:
         - $ref: "#/components/schemas/Devis"
         - type: object
           properties:
+            projets:
+              type: array
+              items:
+                $ref: "#/components/schemas/Projet"
             lignes:
               type: array
               items:
                 $ref: "#/components/schemas/LigneDevis"
-          required: [lignes]
+          required: [projets, lignes]
+
+    Projet:
+      type: object
+      properties:
+        id: { type: integer }
+        devis_id: { type: integer }
+        type:
+          type: string
+          enum: [encadrement, verre, miroir, vitrage, autre]
+        width_cm: { type: number, nullable: true }
+        height_cm: { type: number, nullable: true }
+        photo_path: { type: string, nullable: true }
+        label: { type: string, nullable: true }
+        position: { type: integer }
+        cree_le: { type: string }
+        modifie_le: { type: string }
+      required: [id, devis_id, type, position, cree_le, modifie_le]
+
+    CreateProjetBody:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [encadrement, verre, miroir, vitrage, autre]
+        width_cm: { type: number, nullable: true }
+        height_cm: { type: number, nullable: true }
+        photo_path: { type: string, nullable: true }
+        label: { type: string, nullable: true }
+      required: [type]
+
+    UpdateProjetBody:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [encadrement, verre, miroir, vitrage, autre]
+        width_cm: { type: number, nullable: true }
+        height_cm: { type: number, nullable: true }
+        photo_path: { type: string, nullable: true }
+        label: { type: string, nullable: true }
+
+    ReorderProjetsBody:
+      type: object
+      properties:
+        ids:
+          type: array
+          items: { type: integer }
+      required: [ids]
 
     CreateDevisBody:
       type: object
