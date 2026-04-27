@@ -307,9 +307,12 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
 
   await db.delete(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devisId));
 
-  // Pre-fetch all referenced products in one query so we can apply the V1
-  // matière formula (mini_fact_tn / majo_epaisseur / TA legacy) consistently
-  // with what the UI's QuoteLineCard shows.
+  // Pre-fetch all referenced products in one query. The V1 matière formula
+  // (mini_fact_tn / majo_epaisseur / TA legacy) is intentionally NOT applied
+  // here yet — see compute-line.ts. We still load the products + pass their
+  // pricing parameters through so the helper has everything it needs the day
+  // the V1 rules are reintroduced, and so this stays in lock-step with the
+  // UI's QuoteLineCard.
   const produitIds = parsed.data.lignes
     .map(l => l.produit_id)
     .filter((id): id is number => id != null);
@@ -337,7 +340,7 @@ router.put("/devis/:id/lignes", async (req, res): Promise<void> => {
     let parametresJson: string | null = null;
 
     if (typeLigne === "matiere") {
-      // ── Matière: dimensions + V1 legacy formula via computeLigneTotalHT ──
+      // ── Matière: dimensions → qCalc, then qty × PU via computeLigneTotalHT ──
       widthCm = l.width_cm ?? (l.largeur_m != null ? l.largeur_m * 100 : null);
       heightCm = l.height_cm ?? (l.hauteur_m != null ? l.hauteur_m * 100 : null);
       largeurM = widthCm != null ? widthCm / 100 : (l.largeur_m ?? null);
