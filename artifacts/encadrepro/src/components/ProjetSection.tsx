@@ -29,7 +29,17 @@ type Props = {
   projets: Projet[];
   lignes: QuoteLine[];
   isEditable: boolean;
-  onAddLine: (projetId: number, type: TypeLigne, produit: ProduitSearchResult | null) => void;
+  /** Add a line to a projet. The optional `projetDimsHint` lets the caller
+   *  pass the parent projet's width/height directly — necessary right after
+   *  a `createProjet` because the devis-query cache may not yet contain the
+   *  new projet, so a `find()` lookup would return undefined and the matière
+   *  line would lose its inheritance prefill. */
+  onAddLine: (
+    projetId: number,
+    type: TypeLigne,
+    produit: ProduitSearchResult | null,
+    projetDimsHint?: { width_cm: number | null; height_cm: number | null } | null,
+  ) => void;
   onChangeLine: (id: QuoteLine["id"], next: QuoteLine) => void;
   onRemoveLine: (id: QuoteLine["id"]) => void;
   /** Fired right after a successful projet edit when its width or height
@@ -115,7 +125,7 @@ export function ProjetSection({
           onProjetDimensionsChanged(editing.id, oldDims, newDims);
         }
       } else {
-        await createProjet.mutateAsync({
+        const created = await createProjet.mutateAsync({
           id: devisId,
           data: {
             type: values.type,
@@ -125,6 +135,23 @@ export function ProjetSection({
           },
         });
         toast({ title: "Projet créé" });
+        // ── Template scaffolding: only chantier ships a template right now.
+        //    The toggle is already gated by mode === "create" and the type
+        //    being templateable; here we just react to the persisted projet
+        //    by chaining two onAddLine calls (matière + service). The matière
+        //    line will auto-prefill width/height from the new projet (linked).
+        if (values.use_template && values.type === "vitrage" && created?.id != null) {
+          // Pass the just-created dims as a hint — devis.projets in the cache
+          // may not yet contain `created.id` when these callbacks fire, so the
+          // parent's `find()` would otherwise return undefined and the matière
+          // template line would skip its width/height prefill.
+          const dimsHint = {
+            width_cm: created.width_cm ?? null,
+            height_cm: created.height_cm ?? null,
+          };
+          onAddLine(created.id, "matiere", null, dimsHint);
+          onAddLine(created.id, "service", null, dimsHint);
+        }
       }
       setSheetOpen(false);
       setEditing(null);

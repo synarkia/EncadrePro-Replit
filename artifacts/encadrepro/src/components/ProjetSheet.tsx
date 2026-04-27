@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Layers, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter,
 } from "@/components/ui/sheet";
@@ -22,11 +23,23 @@ export const PROJET_TYPE_OPTIONS: ReadonlyArray<{
   { value: "autre",       label: "Autre",            emoji: "✨" },
 ];
 
+/**
+ * Project types that ship with a "skeleton" template (pre-created lignes
+ * the user just has to fill in). Right now only "vitrage" (chantier) does:
+ * a chantier almost always means one matière line (the glass) plus one
+ * service line (pose hours). Add more types here as the pattern grows.
+ */
+export const TEMPLATE_PROJET_TYPES: ReadonlySet<ProjetType> = new Set(["vitrage"]);
+
 export type ProjetFormValues = {
   type: ProjetType;
   width_cm: number | null;
   height_cm: number | null;
   label: string | null;
+  /** Only meaningful in "create" mode for a type in TEMPLATE_PROJET_TYPES.
+   *  When true, the parent will pre-create the template's lignes after
+   *  the projet itself has been persisted. Ignored for edit. */
+  use_template: boolean;
 };
 
 type Props = {
@@ -43,15 +56,43 @@ export function ProjetSheet({ open, onOpenChange, mode, initial, onSubmit, isSub
   const [width, setWidth] = useState<string>("");
   const [height, setHeight] = useState<string>("");
   const [label, setLabel] = useState<string>("");
+  // Default ON; only flipped by the user via the Switch. The "touched" flag
+  // distinguishes auto-defaults (re-applied on sheet open + on type change)
+  // from explicit user intent (which we preserve across type switches).
+  const [useTemplate, setUseTemplateState] = useState<boolean>(true);
+  const [templateUserTouched, setTemplateUserTouched] = useState<boolean>(false);
+  const setUseTemplate = (next: boolean) => {
+    setTemplateUserTouched(true);
+    setUseTemplateState(next);
+  };
 
   useEffect(() => {
     if (open) {
-      setType(((initial?.type ?? "encadrement") as ProjetType));
+      const initialType = (initial?.type ?? "encadrement") as ProjetType;
+      setType(initialType);
       setWidth(initial?.width_cm != null ? String(initial.width_cm) : "");
       setHeight(initial?.height_cm != null ? String(initial.height_cm) : "");
       setLabel(initial?.label ?? "");
+      // Reset the toggle (and clear any prior manual override) every time
+      // the sheet opens so each "Nouveau projet" starts from the default
+      // for the currently-selected type.
+      setUseTemplateState(TEMPLATE_PROJET_TYPES.has(initialType));
+      setTemplateUserTouched(false);
     }
   }, [open, initial]);
+
+  // When the user switches projet type inside the sheet, only auto-default
+  // the toggle if they HAVEN'T explicitly toggled it yet. This way someone
+  // who turned the template OFF for vitrage and briefly switched away won't
+  // have it silently flipped back ON when they return to vitrage.
+  useEffect(() => {
+    if (!templateUserTouched) {
+      setUseTemplateState(TEMPLATE_PROJET_TYPES.has(type));
+    }
+  }, [type, templateUserTouched]);
+
+  const hasTemplate = TEMPLATE_PROJET_TYPES.has(type);
+  const showTemplateToggle = mode === "create" && hasTemplate;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +103,9 @@ export function ProjetSheet({ open, onOpenChange, mode, initial, onSubmit, isSub
       width_cm: w != null && Number.isFinite(w) ? w : null,
       height_cm: h != null && Number.isFinite(h) ? h : null,
       label: label.trim() === "" ? null : label.trim(),
+      // Only meaningful for create + templateable types; the parent guards
+      // the cascade anyway, so it's safe to always send the current toggle.
+      use_template: showTemplateToggle && useTemplate,
     });
   };
 
@@ -104,6 +148,43 @@ export function ProjetSheet({ open, onOpenChange, mode, initial, onSubmit, isSub
               })}
             </div>
           </div>
+
+          {/* ── Template toggle (only shown for templateable types in create mode) ──
+              For chantier, we pre-create one matière (vitrage) + one service
+              (pose). The user can keep the toggle off to start from scratch. */}
+          {showTemplateToggle && (
+            <div
+              className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2"
+              data-testid="projet-template-block"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="projet-template-toggle" className="text-sm font-medium text-foreground">
+                    Utiliser le template chantier
+                  </Label>
+                  <p className="text-xs text-muted-foreground/80">
+                    Crée 1 ligne matière (vitrage) + 1 ligne service (pose) à remplir.
+                  </p>
+                </div>
+                <Switch
+                  id="projet-template-toggle"
+                  checked={useTemplate}
+                  onCheckedChange={setUseTemplate}
+                  data-testid="projet-template-toggle"
+                />
+              </div>
+              {useTemplate && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <span className="inline-flex items-center gap-1 text-[11px] text-cyan-200/90 bg-cyan-500/10 border border-cyan-500/20 rounded-full px-2 py-0.5">
+                    <Layers className="h-3 w-3" /> Matière (vitrage)
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] text-cyan-200/90 bg-cyan-500/10 border border-cyan-500/20 rounded-full px-2 py-0.5">
+                    <Briefcase className="h-3 w-3" /> Service (pose)
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

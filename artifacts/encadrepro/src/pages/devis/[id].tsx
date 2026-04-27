@@ -271,13 +271,23 @@ export default function DevisDetail() {
   // ── Id-based mutations: lignes are now flat and may live inside any projet,
   //    so the canonical reference is the ligne id, not its position. ─────────
   const addLineToProjet = useCallback(
-    (projetId: number, type: TypeLigne, produit: ProduitSearchResult | null) => {
-      // Look up the parent projet so a new matière line auto-prefills its
-      // width/height from the projet (and starts in the "linked" state).
-      const projet = (devis?.projets ?? []).find(p => p.id === projetId);
-      const projetDims = projet
-        ? { width_cm: projet.width_cm ?? null, height_cm: projet.height_cm ?? null }
-        : null;
+    (
+      projetId: number,
+      type: TypeLigne,
+      produit: ProduitSearchResult | null,
+      projetDimsHint?: { width_cm: number | null; height_cm: number | null } | null,
+    ) => {
+      // Prefer an explicit hint (used by chantier-template scaffolding right
+      // after createProjet, when the cache hasn't caught up). Otherwise fall
+      // back to looking up the parent projet from the loaded devis so a new
+      // matière line auto-prefills its width/height (linked state).
+      let projetDims = projetDimsHint ?? null;
+      if (projetDims == null) {
+        const projet = (devis?.projets ?? []).find(p => p.id === projetId);
+        projetDims = projet
+          ? { width_cm: projet.width_cm ?? null, height_cm: projet.height_cm ?? null }
+          : null;
+      }
       setLignes(prev => [
         ...prev,
         produit
