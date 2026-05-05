@@ -7,9 +7,9 @@
  */
 import type { Acompte } from "./acompte";
 import type { Facture } from "./facture";
-import type { LigneDevis } from "./ligneDevis";
+import type { LigneFacture } from "./ligneFacture";
 
 export type FactureDetail = Facture & {
-  lignes: LigneDevis[];
+  lignes: LigneFacture[];
   paiements: Acompte[];
 };

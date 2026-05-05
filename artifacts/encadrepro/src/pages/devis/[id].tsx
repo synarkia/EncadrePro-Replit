@@ -35,6 +35,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ConvertToFactureDialog, type ConvertPayload } from "@/components/ConvertToFactureDialog";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
@@ -172,6 +173,7 @@ export default function DevisDetail() {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isConvertOpen, setIsConvertOpen] = useState(false);
   const [editNotes, setEditNotes] = useState("");
   const [editDate, setEditDate] = useState("");
   const [editDateCreation, setEditDateCreation] = useState("");
@@ -226,6 +228,12 @@ export default function DevisDetail() {
 
   const [lignes, setLignes] = useState<QuoteLine[]>([]);
   const initRef = useRef<number | null>(null);
+  // Mirror of `lignes` accessible outside React's render cycle. Used by the
+  // cascade callback to count realigned/kept lines synchronously — counting
+  // inside a setState updater would run lazily (during render) and cause the
+  // immediate toast check to misfire.
+  const lignesRef = useRef<QuoteLine[]>([]);
+  useEffect(() => { lignesRef.current = lignes; }, [lignes]);
 
   useEffect(() => {
     if (devis && initRef.current !== devisId) {
@@ -309,19 +317,28 @@ export default function DevisDetail() {
       _oldDims: { width_cm: number | null; height_cm: number | null },
       newDims: { width_cm: number | null; height_cm: number | null },
     ) => {
+      // Count synchronously off the ref so the toast check below sees the
+      // real numbers (a setState updater closure would run lazily during the
+      // next render, after this function had already returned).
+      const current = lignesRef.current;
       let realigned = 0;
       let kept = 0;
-      setLignes(prev =>
-        prev.map(l => {
-          if (l.projet_id !== projetId || l.type_ligne !== "matiere") return l;
-          if (l.inherits_project_dimensions) {
-            realigned += 1;
-            return { ...l, width_cm: newDims.width_cm, height_cm: newDims.height_cm };
-          }
-          kept += 1;
-          return l;
-        }),
-      );
+      for (const l of current) {
+        if (l.projet_id !== projetId || l.type_ligne !== "matiere") continue;
+        if (l.inherits_project_dimensions) realigned += 1;
+        else kept += 1;
+      }
+      if (realigned > 0) {
+        setLignes(prev =>
+          prev.map(l => {
+            if (l.projet_id !== projetId || l.type_ligne !== "matiere") return l;
+            if (l.inherits_project_dimensions) {
+              return { ...l, width_cm: newDims.width_cm, height_cm: newDims.height_cm };
+            }
+            return l;
+          }),
+        );
+      }
       if (realigned === 0 && kept === 0) return;
       const parts: string[] = [];
       if (realigned > 0) {
@@ -393,13 +410,23 @@ export default function DevisDetail() {
     });
   };
 
-  const handleConvert = () => {
-    convertFacture.mutate({ id: devisId }, {
-      onSuccess: (facture) => {
-        toast({ title: "Devis converti", description: "Facture créée avec succès." });
-        setLocation(`/factures/${facture.id}`);
-      }
-    });
+  const handleConvertSubmit = (payload: ConvertPayload) => {
+    convertFacture.mutate(
+      { id: devisId, data: payload },
+      {
+        onSuccess: (facture) => {
+          setIsConvertOpen(false);
+          toast({ title: "Devis converti", description: "Facture créée avec succès." });
+          queryClient.invalidateQueries({ queryKey: getGetDevisQueryKey(devisId) });
+          queryClient.invalidateQueries({ queryKey: getListDevisQueryKey() });
+          setLocation(`/factures/${facture.id}`);
+        },
+        onError: (err: unknown) => {
+          const msg = err instanceof Error ? err.message : "La conversion a échoué.";
+          toast({ title: "Erreur", description: msg, variant: "destructive" });
+        },
+      },
+    );
   };
 
   const openEdit = () => {
@@ -772,7 +799,12 @@ export default function DevisDetail() {
               <Trash2 className="h-4 w-4 mr-1" /> Supprimer
             </Button>
             {devis.statut === "accepte" && (
-              <Button className="shadow-lg shadow-violet-500/20 bg-violet-600 hover:bg-violet-500 text-white" onClick={handleConvert} disabled={convertFacture.isPending}>
+              <Button
+                className="shadow-lg shadow-violet-500/20 bg-violet-600 hover:bg-violet-500 text-white"
+                onClick={() => setIsConvertOpen(true)}
+                disabled={convertFacture.isPending}
+                data-testid="button-open-convert"
+              >
                 <ArrowRightLeft className="mr-2 h-4 w-4" /> Convertir en facture
               </Button>
             )}
@@ -882,6 +914,16 @@ export default function DevisDetail() {
           </div>
         )}
       </div>
+
+      {/* ── Convert to facture dialog ────────────────────────────────── */}
+      <ConvertToFactureDialog
+        open={isConvertOpen}
+        onOpenChange={setIsConvertOpen}
+        devisNumero={devis.numero}
+        totalTtc={Number(devis.total_ttc ?? 0)}
+        isPending={convertFacture.isPending}
+        onSubmit={handleConvertSubmit}
+      />
 
       {/* ── Edit header dialog ───────────────────────────────────────── */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>

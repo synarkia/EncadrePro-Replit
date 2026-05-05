@@ -22,6 +22,7 @@ import type {
   CaMensuel,
   Client,
   ClientStats,
+  ConvertirDevisBody,
   CreateClientBody,
   CreateDevisBody,
   CreateFactureBody,
@@ -2356,11 +2357,14 @@ export const getConvertDevisToFactureUrl = (id: number) => {
 
 export const convertDevisToFacture = async (
   id: number,
+  convertirDevisBody?: ConvertirDevisBody,
   options?: RequestInit,
 ): Promise<Facture> => {
   return customFetch<Facture>(getConvertDevisToFactureUrl(id), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(convertirDevisBody),
   });
 };
 
@@ -2371,14 +2375,14 @@ export const getConvertDevisToFactureMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof convertDevisToFacture>>,
     TError,
-    { id: number },
+    { id: number; data: BodyType<ConvertirDevisBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof convertDevisToFacture>>,
   TError,
-  { id: number },
+  { id: number; data: BodyType<ConvertirDevisBody> },
   TContext
 > => {
   const mutationKey = ["convertDevisToFacture"];
@@ -2392,11 +2396,11 @@ export const getConvertDevisToFactureMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof convertDevisToFacture>>,
-    { id: number }
+    { id: number; data: BodyType<ConvertirDevisBody> }
   > = (props) => {
-    const { id } = props ?? {};
+    const { id, data } = props ?? {};
 
-    return convertDevisToFacture(id, requestOptions);
+    return convertDevisToFacture(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2405,7 +2409,7 @@ export const getConvertDevisToFactureMutationOptions = <
 export type ConvertDevisToFactureMutationResult = NonNullable<
   Awaited<ReturnType<typeof convertDevisToFacture>>
 >;
-
+export type ConvertDevisToFactureMutationBody = BodyType<ConvertirDevisBody>;
 export type ConvertDevisToFactureMutationError = ErrorType<unknown>;
 
 /**
@@ -2418,14 +2422,14 @@ export const useConvertDevisToFacture = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof convertDevisToFacture>>,
     TError,
-    { id: number },
+    { id: number; data: BodyType<ConvertirDevisBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof convertDevisToFacture>>,
   TError,
-  { id: number },
+  { id: number; data: BodyType<ConvertirDevisBody> },
   TContext
 > => {
   return useMutation(getConvertDevisToFactureMutationOptions(options));

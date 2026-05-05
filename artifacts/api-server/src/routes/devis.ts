@@ -9,6 +9,7 @@ import {
   lignesFactureTable,
   produitsTable,
   projetsTable,
+  acomptesTable,
 } from "@workspace/db";
 import { computeLigneTotalHT, type RegimePricing } from "../lib/compute-line";
 import { execRows, serializeDates } from "../lib/db-utils";
@@ -26,6 +27,7 @@ import {
   SaveDevisLignesBody,
   SaveDevisLignesResponse,
   ConvertDevisToFactureParams,
+  ConvertDevisToFactureBody,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -432,53 +434,103 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
   const params = ConvertDevisToFactureParams.safeParse({ id: parseInt(raw, 10) });
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  // Body is optional — keep backward-compatible "one-click convert" behaviour
+  // when callers send no body at all.
+  const body = ConvertDevisToFactureBody.safeParse(req.body ?? {});
+  if (!body.success) { res.status(400).json({ error: "Invalid body", details: body.error.issues }); return; }
+  const opts = body.data;
+
   const [devis] = await db.select().from(devisTable).where(eq(devisTable.id, params.data.id));
   if (!devis) { res.status(404).json({ error: "Devis introuvable" }); return; }
 
-  const numero = await getNextNumero("facture");
-  const echeance = new Date();
-  echeance.setDate(echeance.getDate() + 30);
-
-  const [facture] = await db.insert(facturesTable).values({
-    numero,
-    devis_id: devis.id,
-    client_id: devis.client_id,
-    sous_total_ht: devis.sous_total_ht,
-    total_tva_10: devis.total_tva_10,
-    total_tva_20: devis.total_tva_20,
-    total_ttc: devis.total_ttc,
-    total_paye: 0,
-    solde_restant: devis.total_ttc,
-    notes: devis.notes,
-    conditions: devis.conditions,
-    statut: "brouillon",
-    date_echeance: echeance.toISOString().slice(0, 10),
-  }).returning();
-
-  const lignes = await db.select().from(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devis.id));
-  for (const l of lignes) {
-    await db.insert(lignesFactureTable).values({
-      facture_id: facture.id,
-      produit_id: l.produit_id,
-      designation: l.designation,
-      description_longue: l.description_longue ?? null,
-      unite_calcul: l.unite_calcul,
-      largeur_m: l.largeur_m,
-      hauteur_m: l.hauteur_m,
-      quantite: l.quantite,
-      quantite_calculee: l.quantite_calculee,
-      prix_unitaire_ht: l.prix_unitaire_ht,
-      remise_pct: l.remise_pct ?? 0,
-      taux_tva: l.taux_tva,
-      total_ht: l.total_ht,
-      total_ttc: l.total_ttc,
-      ordre: l.ordre,
-    });
+  // Validate acompte amount fits inside the devis total TTC.
+  const acompteMontant = Math.max(0, Number(opts.acompte_montant ?? 0));
+  const totalTtc = Number(devis.total_ttc ?? 0);
+  if (acompteMontant > totalTtc + 0.01) {
+    res.status(400).json({ error: "L'acompte ne peut pas dépasser le total TTC" });
+    return;
+  }
+  if (acompteMontant > 0 && !opts.mode_paiement) {
+    res.status(400).json({ error: "Mode de règlement requis lorsqu'un acompte est versé" });
+    return;
   }
 
-  await db.update(devisTable)
-    .set({ statut: "converti", facture_id: facture.id })
-    .where(eq(devisTable.id, devis.id));
+  // The atelier counter is incremented before the transaction. Worst case on a
+  // mid-flight rollback is a single skipped facture number — strongly preferred
+  // over the alternative (collisions on the unique numero index).
+  const numero = await getNextNumero("facture");
+
+  // Default échéance = today (paiement comptant) when not provided.
+  const echeanceIso = opts.date_echeance && opts.date_echeance.length >= 10
+    ? opts.date_echeance.slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+
+  const noteFinale = (opts.note_interne && opts.note_interne.trim().length > 0)
+    ? opts.note_interne
+    : devis.notes;
+
+  const soldeRestant = Math.max(0, totalTtc - acompteMontant);
+
+  // Wrap every mutation in one transaction so a partial failure never leaves
+  // an orphan facture, half-copied lignes, or a devis flipped to "converti"
+  // without a matching facture row.
+  const facture = await db.transaction(async (tx) => {
+    const [created] = await tx.insert(facturesTable).values({
+      numero,
+      devis_id: devis.id,
+      client_id: devis.client_id,
+      sous_total_ht: devis.sous_total_ht,
+      total_tva_10: devis.total_tva_10,
+      total_tva_20: devis.total_tva_20,
+      total_ttc: devis.total_ttc,
+      total_paye: acompteMontant,
+      solde_restant: soldeRestant,
+      notes: noteFinale,
+      conditions: devis.conditions,
+      statut: "brouillon",
+      date_echeance: echeanceIso,
+    }).returning();
+
+    const lignes = await tx.select().from(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devis.id));
+    for (const l of lignes) {
+      await tx.insert(lignesFactureTable).values({
+        facture_id: created.id,
+        produit_id: l.produit_id,
+        designation: l.designation,
+        description_longue: l.description_longue ?? null,
+        unite_calcul: l.unite_calcul,
+        largeur_m: l.largeur_m,
+        hauteur_m: l.hauteur_m,
+        quantite: l.quantite,
+        quantite_calculee: l.quantite_calculee,
+        prix_unitaire_ht: l.prix_unitaire_ht,
+        remise_pct: l.remise_pct ?? 0,
+        taux_tva: l.taux_tva,
+        total_ht: l.total_ht,
+        total_ttc: l.total_ttc,
+        ordre: l.ordre,
+      });
+    }
+
+    if (acompteMontant > 0) {
+      const acompteNote = opts.mode_paiement === "virement" && opts.reference_virement
+        ? `Référence virement: ${opts.reference_virement}`
+        : null;
+      await tx.insert(acomptesTable).values({
+        facture_id: created.id,
+        montant: acompteMontant,
+        date_paiement: new Date().toISOString().slice(0, 10),
+        mode_paiement: opts.mode_paiement ?? null,
+        notes: acompteNote,
+      });
+    }
+
+    await tx.update(devisTable)
+      .set({ statut: "converti", facture_id: created.id })
+      .where(eq(devisTable.id, devis.id));
+
+    return created;
+  });
 
   const factureRows = await execRows<{
     id: number; numero: string; devis_id: number; devis_numero: string | null; client_id: number;

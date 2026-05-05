@@ -562,6 +562,12 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConvertirDevisBody"
       responses:
         "201":
           description: Created invoice from quote
@@ -1403,6 +1409,18 @@ components:
         statut: { type: string }
       required: [statut]
 
+    ConvertirDevisBody:
+      type: object
+      properties:
+        acompte_montant: { type: number, nullable: true, minimum: 0 }
+        mode_paiement:
+          type: string
+          nullable: true
+          enum: [cb, especes, virement, lien]
+        reference_virement: { type: string, nullable: true }
+        date_echeance: { type: string, nullable: true, description: "ISO date YYYY-MM-DD for solde due date" }
+        note_interne: { type: string, nullable: true }
+
     # ── FACTURES ──
     Acompte:
       type: object
@@ -1448,6 +1466,27 @@ components:
         modifie_le: { type: string }
       required: [id, numero, client_id, date_creation, statut, sous_total_ht, total_tva_10, total_tva_20, total_ttc, total_paye, solde_restant, cree_le, modifie_le]
 
+    LigneFacture:
+      type: object
+      properties:
+        id: { type: integer }
+        devis_id: { type: integer }
+        produit_id: { type: integer, nullable: true }
+        designation: { type: string }
+        description_longue: { type: string, nullable: true }
+        unite_calcul: { type: string }
+        largeur_m: { type: number, nullable: true }
+        hauteur_m: { type: number, nullable: true }
+        quantite: { type: number }
+        quantite_calculee: { type: number, nullable: true }
+        prix_unitaire_ht: { type: number }
+        remise_pct: { type: number }
+        taux_tva: { type: number }
+        total_ht: { type: number }
+        total_ttc: { type: number }
+        ordre: { type: integer }
+      required: [id, devis_id, designation, unite_calcul, quantite, prix_unitaire_ht, taux_tva, total_ht, total_ttc, ordre]
+
     FactureDetail:
       allOf:
         - $ref: "#/components/schemas/Facture"
@@ -1456,7 +1495,7 @@ components:
             lignes:
               type: array
               items:
-                $ref: "#/components/schemas/LigneDevis"
+                $ref: "#/components/schemas/LigneFacture"
             paiements:
               type: array
               items:

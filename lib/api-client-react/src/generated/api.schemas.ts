@@ -473,6 +473,27 @@ export interface UpdateStatutBody {
   statut: string;
 }
 
+export type ConvertirDevisBodyModePaiement =
+  | (typeof ConvertirDevisBodyModePaiement)[keyof typeof ConvertirDevisBodyModePaiement]
+  | null;
+
+export const ConvertirDevisBodyModePaiement = {
+  cb: "cb",
+  especes: "especes",
+  virement: "virement",
+  lien: "lien",
+} as const;
+
+export interface ConvertirDevisBody {
+  /** @minimum 0 */
+  acompte_montant?: number | null;
+  mode_paiement?: ConvertirDevisBodyModePaiement;
+  reference_virement?: string | null;
+  /** ISO date YYYY-MM-DD for solde due date */
+  date_echeance?: string | null;
+  note_interne?: string | null;
+}
+
 export interface Acompte {
   id: number;
   facture_id: number;
@@ -483,8 +504,27 @@ export interface Acompte {
   cree_le: string;
 }
 
+export interface LigneFacture {
+  id: number;
+  devis_id: number;
+  produit_id?: number | null;
+  designation: string;
+  description_longue?: string | null;
+  unite_calcul: string;
+  largeur_m?: number | null;
+  hauteur_m?: number | null;
+  quantite: number;
+  quantite_calculee?: number | null;
+  prix_unitaire_ht: number;
+  remise_pct?: number;
+  taux_tva: number;
+  total_ht: number;
+  total_ttc: number;
+  ordre: number;
+}
+
 export type FactureDetail = Facture & {
-  lignes: LigneDevis[];
+  lignes: LigneFacture[];
   paiements: Acompte[];
 };
 

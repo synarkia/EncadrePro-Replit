@@ -829,6 +829,22 @@ export const ConvertDevisToFactureParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const convertDevisToFactureBodyAcompteMontantMin = 0;
+
+export const ConvertDevisToFactureBody = zod.object({
+  acompte_montant: zod
+    .number()
+    .min(convertDevisToFactureBodyAcompteMontantMin)
+    .nullish(),
+  mode_paiement: zod.enum(["cb", "especes", "virement", "lien"]).nullish(),
+  reference_virement: zod.string().nullish(),
+  date_echeance: zod
+    .string()
+    .nullish()
+    .describe("ISO date YYYY-MM-DD for solde due date"),
+  note_interne: zod.string().nullish(),
+});
+
 /**
  * @summary Create a project under a quote
  */
@@ -1008,19 +1024,12 @@ export const GetFactureResponse = zod
         zod.object({
           id: zod.number(),
           devis_id: zod.number(),
-          projet_id: zod.number().nullish(),
           produit_id: zod.number().nullish(),
-          type_ligne: zod.enum(["matiere", "faconnage", "service"]),
           designation: zod.string(),
           description_longue: zod.string().nullish(),
           unite_calcul: zod.string(),
           largeur_m: zod.number().nullish(),
           hauteur_m: zod.number().nullish(),
-          width_cm: zod.number().nullish(),
-          height_cm: zod.number().nullish(),
-          longueur_m: zod.number().nullish(),
-          heures: zod.number().nullish(),
-          parametres_json: zod.string().nullish(),
           quantite: zod.number(),
           quantite_calculee: zod.number().nullish(),
           prix_unitaire_ht: zod.number(),
@@ -1029,8 +1038,6 @@ export const GetFactureResponse = zod
           total_ht: zod.number(),
           total_ttc: zod.number(),
           ordre: zod.number(),
-          regime_pricing: zod.string().nullish(),
-          inherits_project_dimensions: zod.boolean(),
         }),
       ),
       paiements: zod.array(
