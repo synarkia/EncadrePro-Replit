@@ -89,7 +89,9 @@ export function ConvertToFactureDialog({
   const resteAPayer = round2(Math.max(0, totalTtc - acompteMontant));
   const overTotal = acompteMontant > totalTtc + 0.01;
   const needsMode = acompteMontant > 0;
-  const customInvalid = preset === "custom" && (customAmount.trim() === "" || acompteMontant <= 0);
+  // Spec range is [0, total TTC]: empty input is invalid, but explicit "0" is allowed
+  // (equivalent to picking the 0% chip while keeping the user in custom mode).
+  const customInvalid = preset === "custom" && (customAmount.trim() === "" || acompteMontant < 0);
   const submitDisabled =
     isPending ||
     overTotal ||
