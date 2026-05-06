@@ -570,11 +570,71 @@ paths:
               $ref: "#/components/schemas/ConvertirDevisBody"
       responses:
         "201":
-          description: Created invoice from quote
+          description: Created invoice from quote (with optional facture d'acompte if a deposit was paid)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Facture"
+                $ref: "#/components/schemas/ConvertirDevisResponse"
+
+  # ──────────────── FACTURES D'ACOMPTE ────────────────
+  /factures/{id}/factures-acompte:
+    get:
+      operationId: listFacturesAcompteForFacture
+      tags: [factures-acompte]
+      summary: List standalone deposit invoices linked to a facture
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deposit invoices linked to this facture
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FactureAcompte"
+
+  /factures-acompte/{id}:
+    get:
+      operationId: getFactureAcompte
+      tags: [factures-acompte]
+      summary: Fetch a single facture d'acompte
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Facture d'acompte detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FactureAcompte"
+
+  /factures-acompte/{id}/pdf:
+    get:
+      operationId: getFactureAcomptePdf
+      tags: [factures-acompte]
+      summary: Open the printable view of a facture d'acompte
+      description: |
+        Redirects (302) to the frontend printable page for this facture d'acompte.
+        The browser print dialog generates the actual PDF — no server-side
+        rendering engine is required.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "302":
+          description: Redirect to printable HTML page
 
   # ──────────────── PROJETS ────────────────
   /devis/{id}/projets:
@@ -1421,6 +1481,47 @@ components:
         date_echeance: { type: string, nullable: true, description: "ISO date YYYY-MM-DD for solde due date" }
         note_interne: { type: string, nullable: true }
 
+    # ── FACTURE D'ACOMPTE (standalone fiscal document) ──
+    FactureAcompte:
+      type: object
+      properties:
+        id: { type: integer }
+        numero: { type: string, description: "Format FA-YYYY-NNNN" }
+        facture_id: { type: integer }
+        facture_numero: { type: string, nullable: true }
+        devis_id: { type: integer, nullable: true }
+        devis_numero: { type: string, nullable: true }
+        client_id: { type: integer, nullable: true }
+        client_nom: { type: string, nullable: true }
+        client_prenom: { type: string, nullable: true }
+        client_adresse: { type: string, nullable: true }
+        client_code_postal: { type: string, nullable: true }
+        client_ville: { type: string, nullable: true }
+        client_email: { type: string, nullable: true }
+        client_telephone: { type: string, nullable: true }
+        montant_ht: { type: number }
+        montant_tva: { type: number }
+        montant_tva_10: { type: number, description: "VAT collected at the 10% rate (0 when not applicable)" }
+        montant_tva_20: { type: number, description: "VAT collected at the 20% rate (0 when not applicable)" }
+        montant_ttc: { type: number }
+        mode_reglement: { type: string }
+        reference_paiement: { type: string, nullable: true }
+        date_paiement: { type: string }
+        facture_total_ttc: { type: number, nullable: true, description: "Final facture total TTC for solde calculation" }
+        cree_le: { type: string }
+        modifie_le: { type: string }
+      required:
+        [id, numero, facture_id, montant_ht, montant_tva, montant_tva_10, montant_tva_20, montant_ttc, mode_reglement, date_paiement, cree_le, modifie_le]
+
+    ConvertirDevisResponse:
+      allOf:
+        - $ref: "#/components/schemas/Facture"
+        - type: object
+          properties:
+            facture_acompte:
+              $ref: "#/components/schemas/FactureAcompte"
+              nullable: true
+
     # ── FACTURES ──
     Acompte:
       type: object
@@ -1540,15 +1641,17 @@ components:
         conditions_generales: { type: string, nullable: true }
         prefixe_devis: { type: string }
         prefixe_facture: { type: string }
+        prefixe_facture_acompte: { type: string }
         compteur_devis: { type: integer }
         compteur_facture: { type: integer }
+        compteur_facture_acompte: { type: integer }
         tva_defaut: { type: number }
         email_template: { type: string, nullable: true }
         smtp_host: { type: string, nullable: true }
         smtp_port: { type: integer, nullable: true }
         smtp_user: { type: string, nullable: true }
         smtp_pass: { type: string, nullable: true }
-      required: [id, nom, prefixe_devis, prefixe_facture, compteur_devis, compteur_facture, tva_defaut]
+      required: [id, nom, prefixe_devis, prefixe_facture, prefixe_facture_acompte, compteur_devis, compteur_facture, compteur_facture_acompte, tva_defaut]
 
     SaveAtelierBody:
       type: object
@@ -1570,6 +1673,7 @@ components:
         conditions_generales: { type: string, nullable: true }
         prefixe_devis: { type: string }
         prefixe_facture: { type: string }
+        prefixe_facture_acompte: { type: string }
         tva_defaut: { type: number }
         email_template: { type: string, nullable: true }
         smtp_host: { type: string, nullable: true }

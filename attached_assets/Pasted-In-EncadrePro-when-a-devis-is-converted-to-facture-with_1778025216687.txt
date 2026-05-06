@@ -1,0 +1,77 @@
+In EncadrePro, when a devis is converted to facture with an acompte > 0%, the system currently records the deposit in the `acomptes` table against the main facture. But under French tax law, a deposit payment must generate its own standalone invoice document ("facture d'acompte"). Implement this.
+
+1. Database — new table `factures_acompte`:
+
+   - id, facture_id FK (the parent final invoice), devis_id FK (original quote),
+
+     numero TEXT UNIQUE, montant_ht DECIMAL(12,2), montant_tva DECIMAL(12,2),
+
+     montant_ttc DECIMAL(12,2), mode_reglement TEXT, reference_paiement TEXT NULL,
+
+     date_paiement DATETIME, created_at, updated_at
+
+   - Numbering format: "FA-YYYY-NNNN" (FA = Facture d'Acompte, sequential per year)
+
+   - Add a counter row in the existing invoice_counters logic (or create one):
+
+     type='FA', year, last_number
+
+2. Generation trigger:
+
+   - In the ConvertToFactureDialog submit handler, AFTER creating the main facture
+
+     and recording the acompte, ALSO create a factures_acompte record if acompte > 0
+
+   - Copy the relevant amounts (HT/TVA/TTC proportional to the deposit percentage)
+
+   - Link it to both the facture and the original devis
+
+3. PDF generation for the facture d'acompte:
+
+   - Title: "FACTURE D'ACOMPTE" in large text
+
+   - Number: FA-YYYY-NNNN
+
+   - Reference to the original devis number
+
+   - Client info (name, address, phone, email)
+
+   - Breakdown: Montant HT / TVA / TTC of the deposit
+
+   - Payment method and date
+
+   - Line: "Le solde de XX€ TTC sera facturé à la livraison"
+
+   - Use the same PDF template/engine as regular factures
+
+   - Use  legal mentions you have and know already — Structured  as configurable from Settings.
+
+4. On the FINAL facture PDF (the one issued at delivery):
+
+   - List all original devis lines at full price
+
+   - Add a deduction line at the bottom: "Acompte versé le DD/MM/YYYY (FA-YYYY-NNNN) — -XX€ TTC"
+
+   - Show "Reste à payer" as the final total
+
+   - If reste à payer = 0, auto-mark the facture as "soldee"
+
+5. UI:
+
+   - On the facture detail page, add a section "Facture(s) d'acompte associée(s)"
+
+     showing the FA number, amount, date, with a button to view/download the PDF
+
+   - On the devis detail page (when converted), show both the facture and facture
+
+     d'acompte links
+
+6. API:
+
+   - GET /api/factures-acompte/:id — fetch a single facture d'acompte
+
+   - GET /api/factures/:id/acomptes — list factures d'acompte for a facture
+
+   - PDF endpoint: GET /api/factures-acompte/:id/pdf
+
+Don't forget to update the OpenAPI spec and run codegen after schema changes.

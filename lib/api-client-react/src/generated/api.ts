@@ -23,6 +23,7 @@ import type {
   Client,
   ClientStats,
   ConvertirDevisBody,
+  ConvertirDevisResponse,
   CreateClientBody,
   CreateDevisBody,
   CreateFactureBody,
@@ -35,6 +36,7 @@ import type {
   DevisDetail,
   ErrorResponse,
   Facture,
+  FactureAcompte,
   FactureDetail,
   Fournisseur,
   HealthStatus,
@@ -2359,8 +2361,8 @@ export const convertDevisToFacture = async (
   id: number,
   convertirDevisBody?: ConvertirDevisBody,
   options?: RequestInit,
-): Promise<Facture> => {
-  return customFetch<Facture>(getConvertDevisToFactureUrl(id), {
+): Promise<ConvertirDevisResponse> => {
+  return customFetch<ConvertirDevisResponse>(getConvertDevisToFactureUrl(id), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -2434,6 +2436,280 @@ export const useConvertDevisToFacture = <
 > => {
   return useMutation(getConvertDevisToFactureMutationOptions(options));
 };
+
+/**
+ * @summary List standalone deposit invoices linked to a facture
+ */
+export const getListFacturesAcompteForFactureUrl = (id: number) => {
+  return `/api/factures/${id}/factures-acompte`;
+};
+
+export const listFacturesAcompteForFacture = async (
+  id: number,
+  options?: RequestInit,
+): Promise<FactureAcompte[]> => {
+  return customFetch<FactureAcompte[]>(
+    getListFacturesAcompteForFactureUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListFacturesAcompteForFactureQueryKey = (id: number) => {
+  return [`/api/factures/${id}/factures-acompte`] as const;
+};
+
+export const getListFacturesAcompteForFactureQueryOptions = <
+  TData = Awaited<ReturnType<typeof listFacturesAcompteForFacture>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listFacturesAcompteForFacture>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListFacturesAcompteForFactureQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listFacturesAcompteForFacture>>
+  > = ({ signal }) =>
+    listFacturesAcompteForFacture(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listFacturesAcompteForFacture>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListFacturesAcompteForFactureQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listFacturesAcompteForFacture>>
+>;
+export type ListFacturesAcompteForFactureQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List standalone deposit invoices linked to a facture
+ */
+
+export function useListFacturesAcompteForFacture<
+  TData = Awaited<ReturnType<typeof listFacturesAcompteForFacture>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listFacturesAcompteForFacture>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListFacturesAcompteForFactureQueryOptions(
+    id,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Fetch a single facture d'acompte
+ */
+export const getGetFactureAcompteUrl = (id: number) => {
+  return `/api/factures-acompte/${id}`;
+};
+
+export const getFactureAcompte = async (
+  id: number,
+  options?: RequestInit,
+): Promise<FactureAcompte> => {
+  return customFetch<FactureAcompte>(getGetFactureAcompteUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFactureAcompteQueryKey = (id: number) => {
+  return [`/api/factures-acompte/${id}`] as const;
+};
+
+export const getGetFactureAcompteQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFactureAcompte>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFactureAcompte>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetFactureAcompteQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFactureAcompte>>
+  > = ({ signal }) => getFactureAcompte(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFactureAcompte>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFactureAcompteQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFactureAcompte>>
+>;
+export type GetFactureAcompteQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Fetch a single facture d'acompte
+ */
+
+export function useGetFactureAcompte<
+  TData = Awaited<ReturnType<typeof getFactureAcompte>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFactureAcompte>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFactureAcompteQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Redirects (302) to the frontend printable page for this facture d'acompte.
+The browser print dialog generates the actual PDF — no server-side
+rendering engine is required.
+
+ * @summary Open the printable view of a facture d'acompte
+ */
+export const getGetFactureAcomptePdfUrl = (id: number) => {
+  return `/api/factures-acompte/${id}/pdf`;
+};
+
+export const getFactureAcomptePdf = async (
+  id: number,
+  options?: RequestInit,
+): Promise<unknown> => {
+  return customFetch<unknown>(getGetFactureAcomptePdfUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFactureAcomptePdfQueryKey = (id: number) => {
+  return [`/api/factures-acompte/${id}/pdf`] as const;
+};
+
+export const getGetFactureAcomptePdfQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFactureAcomptePdf>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFactureAcomptePdf>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFactureAcomptePdfQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFactureAcomptePdf>>
+  > = ({ signal }) => getFactureAcomptePdf(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFactureAcomptePdf>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFactureAcomptePdfQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFactureAcomptePdf>>
+>;
+export type GetFactureAcomptePdfQueryError = ErrorType<void>;
+
+/**
+ * @summary Open the printable view of a facture d'acompte
+ */
+
+export function useGetFactureAcomptePdf<
+  TData = Awaited<ReturnType<typeof getFactureAcomptePdf>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFactureAcomptePdf>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFactureAcomptePdfQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Create a project under a quote

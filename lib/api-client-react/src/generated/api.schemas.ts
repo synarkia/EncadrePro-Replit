@@ -494,6 +494,42 @@ export interface ConvertirDevisBody {
   note_interne?: string | null;
 }
 
+export interface FactureAcompte {
+  id: number;
+  /** Format FA-YYYY-NNNN */
+  numero: string;
+  facture_id: number;
+  facture_numero?: string | null;
+  devis_id?: number | null;
+  devis_numero?: string | null;
+  client_id?: number | null;
+  client_nom?: string | null;
+  client_prenom?: string | null;
+  client_adresse?: string | null;
+  client_code_postal?: string | null;
+  client_ville?: string | null;
+  client_email?: string | null;
+  client_telephone?: string | null;
+  montant_ht: number;
+  montant_tva: number;
+  /** VAT collected at the 10% rate (0 when not applicable) */
+  montant_tva_10: number;
+  /** VAT collected at the 20% rate (0 when not applicable) */
+  montant_tva_20: number;
+  montant_ttc: number;
+  mode_reglement: string;
+  reference_paiement?: string | null;
+  date_paiement: string;
+  /** Final facture total TTC for solde calculation */
+  facture_total_ttc?: number | null;
+  cree_le: string;
+  modifie_le: string;
+}
+
+export type ConvertirDevisResponse = Facture & {
+  facture_acompte?: FactureAcompte | null;
+};
+
 export interface Acompte {
   id: number;
   facture_id: number;
@@ -559,8 +595,10 @@ export interface Atelier {
   conditions_generales?: string | null;
   prefixe_devis: string;
   prefixe_facture: string;
+  prefixe_facture_acompte: string;
   compteur_devis: number;
   compteur_facture: number;
+  compteur_facture_acompte: number;
   tva_defaut: number;
   email_template?: string | null;
   smtp_host?: string | null;
@@ -587,6 +625,7 @@ export interface SaveAtelierBody {
   conditions_generales?: string | null;
   prefixe_devis?: string;
   prefixe_facture?: string;
+  prefixe_facture_acompte?: string;
   tva_defaut?: number;
   email_template?: string | null;
   smtp_host?: string | null;

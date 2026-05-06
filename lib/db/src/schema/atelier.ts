@@ -33,8 +33,12 @@ export const atelierTable = pgTable("atelier", {
   conditions_generales: text("conditions_generales").default("Devis valable 30 jours. Acompte de 30% à la commande."),
   prefixe_devis: text("prefixe_devis").notNull().default("DEV"),
   prefixe_facture: text("prefixe_facture").notNull().default("FAC"),
+  // Facture d'acompte (French tax law): standalone deposit-invoice document
+  // with its own sequential numbering, independent from regular factures.
+  prefixe_facture_acompte: text("prefixe_facture_acompte").notNull().default("FA"),
   compteur_devis: integer("compteur_devis").notNull().default(0),
   compteur_facture: integer("compteur_facture").notNull().default(0),
+  compteur_facture_acompte: integer("compteur_facture_acompte").notNull().default(0),
   tva_defaut: numeric("tva_defaut", { precision: 5, scale: 2, mode: "number" }).notNull().default(20),
 
   // ── Email ─────────────────────────────────────────────────────────────────

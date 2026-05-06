@@ -85,7 +85,7 @@ Single-row config (id=1). Always upsert, never insert a second row.
 - `produits.ts` — Product catalogue (new: `type_produit`, `fournisseur`, `sous_categorie`, `unite`)
 - `devis.ts` — Quotes + `lignes_devis` (flat type-tagged model: `type_ligne` = `matiere|faconnage|service`, plus `longueur_m` for façonnage, `heures` for service, `parametres_json` for kind-specific extras; `projet_id` FK SET NULL). The legacy nested `lignes_devis_faconnage` / `lignes_devis_service` sub-tables were dropped in Phase B.
 - `projets.ts` — Project grouping inside a quote (type, dimensions, optional photo + label, position). One devis can carry several projets; lignes' `projet_id` is nullable for free-form lines
-- `factures.ts` — Invoices + `lignes_facture` + `acomptes` tables
+- `factures.ts` — Invoices + `lignes_facture` + `acomptes` tables + **`factures_acompte`** (standalone French fiscal deposit-invoice with own numbering FA-YYYY-NNNN, per-rate VAT breakdown `montant_tva_10` / `montant_tva_20`, FK→facture_id ON DELETE CASCADE)
 
 ### API Routes (`artifacts/api-server/src/routes/`)
 - `dashboard.ts` — Stats, CA mensuel, recent devis/factures
@@ -94,6 +94,7 @@ Single-row config (id=1). Always upsert, never insert a second row.
 - `devis.ts` — CRUD + save lignes (flat `type_ligne`-tagged rows: matiere/faconnage/service, with `longueur_m`/`heures`/`parametres_json` + `projet_id`) + convert to facture; GET embeds `projets` array
 - `projets.ts` — CRUD: `POST /devis/:id/projets`, `PATCH /projets/:id`, `DELETE /projets/:id`, `PUT /devis/:id/projets/reorder`
 - `factures.ts` — CRUD + paiements (auto-recalculates statut)
+- `factures-acompte.ts` — `GET /factures/:id/factures-acompte`, `GET /factures-acompte/:id`, `GET /factures-acompte/:id/pdf` (302 → printable page)
 - `atelier.ts` — GET/PUT settings
 - `import.ts` — Bulk-import endpoints from FileMaker exports (CSV/XLSX, multipart, dry-run + real)
 
@@ -111,7 +112,8 @@ Single-row config (id=1). Always upsert, never insert a second row.
 - `devis/index.tsx` — Quotes list
 - `devis/[id].tsx` — Quote editor with QuoteLineCard layout + totals panel
 - `factures/index.tsx` — Invoices list
-- `factures/[id].tsx` — Invoice details + payment tracking
+- `factures/[id].tsx` — Invoice details + payment tracking + linked factures d'acompte section + per-FA deduction line on print template
+- `factures-acompte/[id].tsx` — Printable standalone facture d'acompte page (per-rate VAT 10 % / 20 % when applicable)
 - `catalogue/index.tsx` — Product catalogue with type tabs (Matière/Façonnage/Service)
 - `parametres/index.tsx` — Workshop settings form
 - `parametres/ImportSection.tsx` — FileMaker import UI (3 cards: Fournisseurs, Clients, Produits) with dry-run preview, dedup-skip-only, and >50% fournisseur-missing hint

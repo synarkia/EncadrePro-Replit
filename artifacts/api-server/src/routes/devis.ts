@@ -10,6 +10,7 @@ import {
   produitsTable,
   projetsTable,
   acomptesTable,
+  facturesAcompteTable,
 } from "@workspace/db";
 import { computeLigneTotalHT, type RegimePricing } from "../lib/compute-line";
 import { execRows, serializeDates } from "../lib/db-utils";
@@ -470,11 +471,14 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
     : devis.notes;
 
   const soldeRestant = Math.max(0, totalTtc - acompteMontant);
+  // When the deposit covers the full TTC, the final facture is born already
+  // soldée — no further payment is expected, so reflect that in the status.
+  const initialStatut = acompteMontant > 0 && soldeRestant <= 0.01 ? "soldee" : "brouillon";
 
   // Wrap every mutation in one transaction so a partial failure never leaves
   // an orphan facture, half-copied lignes, or a devis flipped to "converti"
   // without a matching facture row.
-  const facture = await db.transaction(async (tx) => {
+  const { facture, factureAcompte } = await db.transaction(async (tx) => {
     const [created] = await tx.insert(facturesTable).values({
       numero,
       devis_id: devis.id,
@@ -487,7 +491,7 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
       solde_restant: soldeRestant,
       notes: noteFinale,
       conditions: devis.conditions,
-      statut: "brouillon",
+      statut: initialStatut,
       date_echeance: echeanceIso,
     }).returning();
 
@@ -512,6 +516,7 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
       });
     }
 
+    let createdFa: typeof facturesAcompteTable.$inferSelect | null = null;
     if (acompteMontant > 0) {
       const acompteNote = opts.mode_paiement === "virement" && opts.reference_virement
         ? `Référence virement: ${opts.reference_virement}`
@@ -523,13 +528,64 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
         mode_paiement: opts.mode_paiement ?? null,
         notes: acompteNote,
       });
+
+      // ── Standalone "facture d'acompte" (French tax law) ────────────────
+      // The deposit must exist as its own fiscal document with its own
+      // sequential numbering (FA-YYYY-NNNN), separate from both the final
+      // facture and the simple `acomptes` payment-tracking row above.
+      //
+      // Per-rate TVA split: the FA must evidence how much VAT was collected
+      // at each applicable rate (10 % vs 20 %) when the source devis mixes
+      // them. We compute the proportional share of each tax bucket against
+      // the global TTC, with deterministic cent-rounding, and derive HT as
+      // (TTC − total VAT) so the columns reconcile to the cent.
+      const ratio = totalTtc > 0 ? acompteMontant / totalTtc : 0;
+      const faTtc = acompteMontant;
+      const faTva10 = Math.round(parseNum(devis.total_tva_10) * ratio * 100) / 100;
+      const faTva20 = Math.round(parseNum(devis.total_tva_20) * ratio * 100) / 100;
+      const faTva = Math.round((faTva10 + faTva20) * 100) / 100;
+      const faHt = Math.round((faTtc - faTva) * 100) / 100;
+
+      // Atomic counter: a single UPDATE … RETURNING inside the transaction
+      // makes the increment race-free against concurrent conversions, which
+      // a read-then-update pattern would not be.
+      const counterRows = await tx.execute(sql`
+        UPDATE atelier
+        SET compteur_facture_acompte = compteur_facture_acompte + 1
+        WHERE id = 1
+        RETURNING compteur_facture_acompte AS next_fa, prefixe_facture_acompte AS prefixe
+      `);
+      const counterRow = (counterRows.rows ?? counterRows)[0] as { next_fa: number; prefixe: string } | undefined;
+      const nextFa = Number(counterRow?.next_fa ?? 1);
+      const prefixe = counterRow?.prefixe || "FA";
+      const year = new Date().getFullYear();
+      const faNumero = `${prefixe}-${year}-${String(nextFa).padStart(4, "0")}`;
+
+      const referencePaiement = opts.mode_paiement === "virement" && opts.reference_virement
+        ? opts.reference_virement
+        : null;
+
+      const [fa] = await tx.insert(facturesAcompteTable).values({
+        numero: faNumero,
+        facture_id: created.id,
+        devis_id: devis.id,
+        montant_ht: faHt,
+        montant_tva: faTva,
+        montant_tva_10: faTva10,
+        montant_tva_20: faTva20,
+        montant_ttc: faTtc,
+        mode_reglement: opts.mode_paiement ?? "virement",
+        reference_paiement: referencePaiement,
+        date_paiement: new Date().toISOString().slice(0, 10),
+      }).returning();
+      createdFa = fa;
     }
 
     await tx.update(devisTable)
       .set({ statut: "converti", facture_id: created.id })
       .where(eq(devisTable.id, devis.id));
 
-    return created;
+    return { facture: created, factureAcompte: createdFa };
   });
 
   const factureRows = await execRows<{
@@ -571,6 +627,35 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
     prestation_periode: f.prestation_periode ?? null,
     bon_de_commande: f.bon_de_commande ?? null,
     cree_le: f.cree_le, modifie_le: f.modifie_le,
+    facture_acompte: factureAcompte
+      ? {
+          id: factureAcompte.id,
+          numero: factureAcompte.numero,
+          facture_id: factureAcompte.facture_id,
+          facture_numero: f.numero,
+          facture_total_ttc: parseNum(f.total_ttc),
+          devis_id: factureAcompte.devis_id,
+          devis_numero: f.devis_numero ?? null,
+          client_id: f.client_id,
+          client_nom: f.client_nom ?? null,
+          client_prenom: f.client_prenom ?? null,
+          client_adresse: f.client_adresse ?? null,
+          client_code_postal: f.client_code_postal ?? null,
+          client_ville: f.client_ville ?? null,
+          client_email: f.client_email ?? null,
+          client_telephone: f.client_telephone ?? null,
+          montant_ht: parseNum(factureAcompte.montant_ht),
+          montant_tva: parseNum(factureAcompte.montant_tva),
+          montant_tva_10: parseNum(factureAcompte.montant_tva_10),
+          montant_tva_20: parseNum(factureAcompte.montant_tva_20),
+          montant_ttc: parseNum(factureAcompte.montant_ttc),
+          mode_reglement: factureAcompte.mode_reglement,
+          reference_paiement: factureAcompte.reference_paiement ?? null,
+          date_paiement: factureAcompte.date_paiement,
+          cree_le: factureAcompte.cree_le,
+          modifie_le: factureAcompte.modifie_le,
+        }
+      : null,
   });
 });
 

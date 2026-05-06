@@ -11,6 +11,7 @@ import DevisList from "@/pages/devis/index";
 import DevisDetail from "@/pages/devis/[id]";
 import FacturesList from "@/pages/factures/index";
 import FactureDetail from "@/pages/factures/[id]";
+import FactureAcomptePrint from "@/pages/factures-acompte/[id]";
 import Catalogue from "@/pages/catalogue/index";
 import Parametres from "@/pages/parametres/index";
 import NotFound from "@/pages/not-found";
@@ -29,6 +30,7 @@ function Router() {
         <Route path="/devis/:id" component={DevisDetail} />
         <Route path="/factures" component={FacturesList} />
         <Route path="/factures/:id" component={FactureDetail} />
+        <Route path="/factures-acompte/:id" component={FactureAcomptePrint} />
         <Route path="/catalogue" component={Catalogue} />
         <Route path="/parametres" component={Parametres} />
         <Route component={NotFound} />

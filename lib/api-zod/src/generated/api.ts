@@ -846,6 +846,104 @@ export const ConvertDevisToFactureBody = zod.object({
 });
 
 /**
+ * @summary List standalone deposit invoices linked to a facture
+ */
+export const ListFacturesAcompteForFactureParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListFacturesAcompteForFactureResponseItem = zod.object({
+  id: zod.number(),
+  numero: zod.string().describe("Format FA-YYYY-NNNN"),
+  facture_id: zod.number(),
+  facture_numero: zod.string().nullish(),
+  devis_id: zod.number().nullish(),
+  devis_numero: zod.string().nullish(),
+  client_id: zod.number().nullish(),
+  client_nom: zod.string().nullish(),
+  client_prenom: zod.string().nullish(),
+  client_adresse: zod.string().nullish(),
+  client_code_postal: zod.string().nullish(),
+  client_ville: zod.string().nullish(),
+  client_email: zod.string().nullish(),
+  client_telephone: zod.string().nullish(),
+  montant_ht: zod.number(),
+  montant_tva: zod.number(),
+  montant_tva_10: zod
+    .number()
+    .describe("VAT collected at the 10% rate (0 when not applicable)"),
+  montant_tva_20: zod
+    .number()
+    .describe("VAT collected at the 20% rate (0 when not applicable)"),
+  montant_ttc: zod.number(),
+  mode_reglement: zod.string(),
+  reference_paiement: zod.string().nullish(),
+  date_paiement: zod.string(),
+  facture_total_ttc: zod
+    .number()
+    .nullish()
+    .describe("Final facture total TTC for solde calculation"),
+  cree_le: zod.string(),
+  modifie_le: zod.string(),
+});
+export const ListFacturesAcompteForFactureResponse = zod.array(
+  ListFacturesAcompteForFactureResponseItem,
+);
+
+/**
+ * @summary Fetch a single facture d'acompte
+ */
+export const GetFactureAcompteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetFactureAcompteResponse = zod.object({
+  id: zod.number(),
+  numero: zod.string().describe("Format FA-YYYY-NNNN"),
+  facture_id: zod.number(),
+  facture_numero: zod.string().nullish(),
+  devis_id: zod.number().nullish(),
+  devis_numero: zod.string().nullish(),
+  client_id: zod.number().nullish(),
+  client_nom: zod.string().nullish(),
+  client_prenom: zod.string().nullish(),
+  client_adresse: zod.string().nullish(),
+  client_code_postal: zod.string().nullish(),
+  client_ville: zod.string().nullish(),
+  client_email: zod.string().nullish(),
+  client_telephone: zod.string().nullish(),
+  montant_ht: zod.number(),
+  montant_tva: zod.number(),
+  montant_tva_10: zod
+    .number()
+    .describe("VAT collected at the 10% rate (0 when not applicable)"),
+  montant_tva_20: zod
+    .number()
+    .describe("VAT collected at the 20% rate (0 when not applicable)"),
+  montant_ttc: zod.number(),
+  mode_reglement: zod.string(),
+  reference_paiement: zod.string().nullish(),
+  date_paiement: zod.string(),
+  facture_total_ttc: zod
+    .number()
+    .nullish()
+    .describe("Final facture total TTC for solde calculation"),
+  cree_le: zod.string(),
+  modifie_le: zod.string(),
+});
+
+/**
+ * Redirects (302) to the frontend printable page for this facture d'acompte.
+The browser print dialog generates the actual PDF — no server-side
+rendering engine is required.
+
+ * @summary Open the printable view of a facture d'acompte
+ */
+export const GetFactureAcomptePdfParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary Create a project under a quote
  */
 export const CreateProjetParams = zod.object({
@@ -1142,8 +1240,10 @@ export const GetAtelierResponse = zod.object({
   conditions_generales: zod.string().nullish(),
   prefixe_devis: zod.string(),
   prefixe_facture: zod.string(),
+  prefixe_facture_acompte: zod.string(),
   compteur_devis: zod.number(),
   compteur_facture: zod.number(),
+  compteur_facture_acompte: zod.number(),
   tva_defaut: zod.number(),
   email_template: zod.string().nullish(),
   smtp_host: zod.string().nullish(),
@@ -1173,6 +1273,7 @@ export const SaveAtelierBody = zod.object({
   conditions_generales: zod.string().nullish(),
   prefixe_devis: zod.string().optional(),
   prefixe_facture: zod.string().optional(),
+  prefixe_facture_acompte: zod.string().optional(),
   tva_defaut: zod.number().optional(),
   email_template: zod.string().nullish(),
   smtp_host: zod.string().nullish(),
@@ -1200,8 +1301,10 @@ export const SaveAtelierResponse = zod.object({
   conditions_generales: zod.string().nullish(),
   prefixe_devis: zod.string(),
   prefixe_facture: zod.string(),
+  prefixe_facture_acompte: zod.string(),
   compteur_devis: zod.number(),
   compteur_facture: zod.number(),
+  compteur_facture_acompte: zod.number(),
   tva_defaut: zod.number(),
   email_template: zod.string().nullish(),
   smtp_host: zod.string().nullish(),

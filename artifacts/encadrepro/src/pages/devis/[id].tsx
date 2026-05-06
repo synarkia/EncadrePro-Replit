@@ -416,7 +416,18 @@ export default function DevisDetail() {
       {
         onSuccess: (facture) => {
           setIsConvertOpen(false);
-          toast({ title: "Devis converti", description: "Facture créée avec succès." });
+          // When the convert flow generated a standalone facture d'acompte we
+          // surface its number in the toast so the user knows two distinct
+          // fiscal documents now exist for this conversion.
+          const fa = (facture as typeof facture & {
+            facture_acompte?: { id: number; numero: string } | null;
+          }).facture_acompte;
+          toast({
+            title: "Devis converti",
+            description: fa
+              ? `Facture ${facture.numero} créée avec succès. Facture d'acompte ${fa.numero} générée.`
+              : "Facture créée avec succès.",
+          });
           queryClient.invalidateQueries({ queryKey: getGetDevisQueryKey(devisId) });
           queryClient.invalidateQueries({ queryKey: getListDevisQueryKey() });
           setLocation(`/factures/${facture.id}`);

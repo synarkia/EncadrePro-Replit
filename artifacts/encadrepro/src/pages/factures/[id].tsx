@@ -7,6 +7,7 @@ import {
   useGetAtelier,
   useDeleteFacture,
   getListFacturesQueryKey,
+  useListFacturesAcompteForFacture, getListFacturesAcompteForFactureQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle, CreditCard, Clock, FileText, Plus, Trash2, Save, Printer, Pencil, ChevronDown, Download, Mail } from "lucide-react";
@@ -73,6 +74,16 @@ export default function FactureDetail() {
   });
   const { data: produits } = useListProduits();
   const { data: atelier } = useGetAtelier();
+  // Standalone facture(s) d'acompte attached to this facture (French tax law).
+  // We fetch through a dedicated endpoint rather than embedding on the
+  // facture detail to keep the contract small and let the FA section update
+  // independently after a payment / convert flow.
+  const { data: facturesAcompte = [] } = useListFacturesAcompteForFacture(factureId, {
+    query: {
+      enabled: !!factureId,
+      queryKey: getListFacturesAcompteForFactureQueryKey(factureId),
+    },
+  });
 
   const updateStatut = useUpdateFactureStatut();
   const addPaiement = useAddPaiement();
@@ -492,7 +503,16 @@ export default function FactureDetail() {
               <span className="print-totals-label">Total TTC</span>
               <span className="print-totals-value">{formatCurrency(facture.total_ttc)}</span>
             </div>
-            {facture.total_paye > 0 && (
+            {facturesAcompte.length > 0 ? (
+              facturesAcompte.map((fa) => (
+                <div key={fa.id} className="print-totals-row is-paid">
+                  <span className="print-totals-label">
+                    Acompte versé le {formatDate(fa.date_paiement)} ({fa.numero})
+                  </span>
+                  <span className="print-totals-value">− {formatCurrency(fa.montant_ttc)}</span>
+                </div>
+              ))
+            ) : facture.total_paye > 0 && (
               <div className="print-totals-row is-paid">
                 <span className="print-totals-label">Acompte versé</span>
                 <span className="print-totals-value">− {formatCurrency(facture.total_paye)}</span>
@@ -933,6 +953,41 @@ export default function FactureDetail() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* ── Factures d'acompte associées ──────────────── */}
+            {facturesAcompte.length > 0 && (
+              <Card className="glass-panel" data-testid="factures-acompte-section">
+                <CardHeader className="pb-3 border-b border-border/50">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" />
+                    Factures d'acompte associées
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-2">
+                  {facturesAcompte.map((fa) => (
+                    <Link key={fa.id} href={`/factures-acompte/${fa.id}`}>
+                      <div
+                        className="flex justify-between items-center p-2 rounded bg-muted/10 border border-border/30 hover:bg-muted/20 hover:border-primary/40 cursor-pointer transition-colors"
+                        data-testid={`fa-link-${fa.id}`}
+                      >
+                        <div>
+                          <p className="text-sm font-medium font-mono">{fa.numero}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {formatDate(fa.date_paiement)} • {fa.mode_reglement}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-green-600 dark:text-green-400">
+                            {formatCurrency(fa.montant_ttc)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">TTC</p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>

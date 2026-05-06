@@ -59,6 +59,37 @@ export const acomptesTable = pgTable("acomptes", {
   cree_le: timestamp("cree_le", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
 });
 
+// ─── Factures d'acompte ───────────────────────────────────────────────────────
+// French tax law requires a deposit payment to generate its own standalone
+// invoice document ("facture d'acompte") with its own number (FA-YYYY-NNNN),
+// distinct from the final facture and from the simple `acomptes` payment row.
+// One factures_acompte row corresponds to one deposit collected at conversion
+// time; it's tied to BOTH the parent final facture and the original devis.
+export const facturesAcompteTable = pgTable("factures_acompte", {
+  id: serial("id").primaryKey(),
+  numero: text("numero").notNull().unique(),
+  facture_id: integer("facture_id").notNull().references(() => facturesTable.id, { onDelete: "cascade" }),
+  devis_id: integer("devis_id").references(() => devisTable.id),
+  montant_ht: numeric("montant_ht", { precision: 12, scale: 2, mode: "number" }).notNull(),
+  montant_tva: numeric("montant_tva", { precision: 12, scale: 2, mode: "number" }).notNull(),
+  // Per-rate VAT breakdown: French tax law requires that a facture d'acompte
+  // expose how much VAT was collected at each applicable rate (10 % vs 20 %)
+  // when the source devis mixes them. We default both to 0 so a single-rate
+  // FA still has well-defined columns.
+  montant_tva_10: numeric("montant_tva_10", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+  montant_tva_20: numeric("montant_tva_20", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+  montant_ttc: numeric("montant_ttc", { precision: 12, scale: 2, mode: "number" }).notNull(),
+  mode_reglement: text("mode_reglement").notNull(),
+  reference_paiement: text("reference_paiement"),
+  date_paiement: date("date_paiement", { mode: "string" }).notNull(),
+  cree_le: timestamp("cree_le", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+  modifie_le: timestamp("modifie_le", { withTimezone: true, mode: "string" }).notNull().defaultNow().$onUpdate(() => new Date().toISOString()),
+});
+
+export const insertFactureAcompteSchema = createInsertSchema(facturesAcompteTable).omit({ id: true, cree_le: true, modifie_le: true });
+export type InsertFactureAcompte = z.infer<typeof insertFactureAcompteSchema>;
+export type FactureAcompte = typeof facturesAcompteTable.$inferSelect;
+
 export const insertFactureSchema = createInsertSchema(facturesTable).omit({ id: true, cree_le: true, modifie_le: true });
 export type InsertFacture = z.infer<typeof insertFactureSchema>;
 export type Facture = typeof facturesTable.$inferSelect;

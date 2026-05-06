@@ -25,8 +25,10 @@ export interface Atelier {
   conditions_generales?: string | null;
   prefixe_devis: string;
   prefixe_facture: string;
+  prefixe_facture_acompte: string;
   compteur_devis: number;
   compteur_facture: number;
+  compteur_facture_acompte: number;
   tva_defaut: number;
   email_template?: string | null;
   smtp_host?: string | null;
