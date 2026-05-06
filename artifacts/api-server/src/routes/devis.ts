@@ -464,10 +464,9 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
     ? opts.date_echeance.slice(0, 10)
     : new Date().toISOString().slice(0, 10);
 
-  const soldeRestant = Math.max(0, totalTtc - acompteMontant);
-  // When the deposit covers the full TTC, the final facture is born already
-  // soldée — no further payment is expected, so reflect that in the status.
-  const initialStatut = acompteMontant > 0 && soldeRestant <= 0.01 ? "soldee" : "brouillon";
+  // soldeRestant / initialStatut are computed *inside* the tx from the
+  // locked row so they reflect the authoritative totals at conversion
+  // time, not a stale preflight snapshot.
 
   // ── Idempotency lock ───────────────────────────────────────────────────
   // Two near-simultaneous "Convert" calls (double-click, retry, two tabs)
@@ -481,12 +480,28 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
   // Choice: idempotent return (rather than 409) because the most common
   // trigger is a UI double-submit where the user expects success, not an
   // error toast — and the response is the same shape either way.
-  const txResult = await db.transaction(async (tx) => {
+  // Wrap the tx so the in-tx 400 re-validation (acompte > locked total
+  // TTC) surfaces as a clean HTTP 400 instead of a 500.
+  let txResult: Awaited<ReturnType<typeof runConvertTx>>;
+  try {
+    txResult = await runConvertTx();
+  } catch (err) {
+    const status = (err as { statusCode?: number } | null)?.statusCode;
+    if (status === 400) {
+      res.status(400).json({ error: (err as Error).message });
+      return;
+    }
+    throw err;
+  }
+
+  async function runConvertTx() {
+    const targetId = params.data!.id;
+    return db.transaction(async (tx) => {
     const lockedRows = await tx.execute(sql`
       SELECT id, statut, facture_id, total_ttc, total_tva_10, total_tva_20,
              sous_total_ht, notes, conditions, client_id
         FROM devis
-       WHERE id = ${params.data.id}
+       WHERE id = ${targetId}
        FOR UPDATE
     `);
     const locked = ((lockedRows as { rows?: unknown[] }).rows ?? lockedRows) as Array<{
@@ -526,6 +541,27 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
       ? opts.note_interne
       : devis.notes;
 
+    // ── Authoritative totals from the LOCKED row ────────────────────────
+    // Re-read totals from the locked devis so financial values written to
+    // the facture (and the FA ratio split) reflect the row at conversion
+    // time, not the preflight snapshot. Prevents value drift when a
+    // concurrent save lignes / edit mutates totals between the preflight
+    // read and the lock acquisition.
+    const lockedTotalTtc = parseNum(devis.total_ttc);
+    const lockedTva10 = parseNum(devis.total_tva_10);
+    const lockedTva20 = parseNum(devis.total_tva_20);
+    const lockedSousTotalHt = parseNum(devis.sous_total_ht);
+    if (acompteMontant > lockedTotalTtc + 0.01) {
+      // Authoritative re-validation against the locked total. The preflight
+      // check used the pre-lock snapshot and may now be stale.
+      throw Object.assign(new Error("L'acompte ne peut pas dépasser le total TTC"), {
+        statusCode: 400,
+      });
+    }
+    const lockedSoldeRestant = Math.max(0, lockedTotalTtc - acompteMontant);
+    const lockedInitialStatut =
+      acompteMontant > 0 && lockedSoldeRestant <= 0.01 ? "soldee" : "brouillon";
+
     // ── Atomic facture counter ─────────────────────────────────────────
     // Same UPDATE…RETURNING pattern already used for the FA counter:
     // race-free against concurrent transactions, and bound to this tx so
@@ -551,15 +587,15 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
       numero,
       devis_id: devis.id,
       client_id: devis.client_id,
-      sous_total_ht: parseNum(devis.sous_total_ht),
-      total_tva_10: parseNum(devis.total_tva_10),
-      total_tva_20: parseNum(devis.total_tva_20),
-      total_ttc: parseNum(devis.total_ttc),
+      sous_total_ht: lockedSousTotalHt,
+      total_tva_10: lockedTva10,
+      total_tva_20: lockedTva20,
+      total_ttc: lockedTotalTtc,
       total_paye: acompteMontant,
-      solde_restant: soldeRestant,
+      solde_restant: lockedSoldeRestant,
       notes: noteFinale,
       conditions: devis.conditions,
-      statut: initialStatut,
+      statut: lockedInitialStatut,
       date_echeance: echeanceIso,
     }).returning();
 
@@ -607,10 +643,10 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
       // them. We compute the proportional share of each tax bucket against
       // the global TTC, with deterministic cent-rounding, and derive HT as
       // (TTC − total VAT) so the columns reconcile to the cent.
-      const ratio = totalTtc > 0 ? acompteMontant / totalTtc : 0;
+      const ratio = lockedTotalTtc > 0 ? acompteMontant / lockedTotalTtc : 0;
       const faTtc = acompteMontant;
-      const faTva10 = Math.round(parseNum(devis.total_tva_10) * ratio * 100) / 100;
-      const faTva20 = Math.round(parseNum(devis.total_tva_20) * ratio * 100) / 100;
+      const faTva10 = Math.round(lockedTva10 * ratio * 100) / 100;
+      const faTva20 = Math.round(lockedTva20 * ratio * 100) / 100;
       const faTva = Math.round((faTva10 + faTva20) * 100) / 100;
       const faHt = Math.round((faTtc - faTva) * 100) / 100;
 
@@ -654,7 +690,7 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
       .where(eq(devisTable.id, devis.id));
 
     return { kind: "created" as const, facture: created, factureAcompte: createdFa };
-  });
+  }); }
 
   if (txResult.kind === "missing") {
     res.status(404).json({ error: "Devis introuvable" });
