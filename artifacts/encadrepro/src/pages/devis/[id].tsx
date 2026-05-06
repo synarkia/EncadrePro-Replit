@@ -7,9 +7,11 @@ import {
   useGetAtelier,
   useDeleteDevis,
   getListDevisQueryKey,
+  useListFacturesAcompteForFacture, getListFacturesAcompteForFactureQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, ArrowRightLeft, FileCheck, Printer, Pencil, Trash2, Loader2, ChevronDown, Download, Mail } from "lucide-react";
+import { ArrowLeft, Save, ArrowRightLeft, FileCheck, Printer, Pencil, Trash2, Loader2, ChevronDown, Download, Mail, FileText } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -165,6 +167,19 @@ export default function DevisDetail() {
     query: { enabled: !!devisId, queryKey: getGetDevisQueryKey(devisId) }
   });
   const { data: atelier } = useGetAtelier();
+
+  // Once a devis is converted, surface the linked facture(s) d'acompte so the
+  // user can re-open them at any time. Toast-only notification at conversion
+  // time wasn't persistent enough — this gives a permanent entry point.
+  // Hook is enabled only when the devis is converted AND has a facture_id; the
+  // FA list is keyed off the *facture* id, not the devis id.
+  const { data: facturesAcompte, isLoading: isLoadingFA } =
+    useListFacturesAcompteForFacture(devis?.facture_id ?? 0, {
+      query: {
+        enabled: !!devis?.facture_id && devis?.statut === "converti",
+        queryKey: getListFacturesAcompteForFactureQueryKey(devis?.facture_id ?? 0),
+      },
+    });
 
   const saveLignes = useSaveDevisLignes();
   const updateStatut = useUpdateDevisStatut();
@@ -916,6 +931,52 @@ export default function DevisDetail() {
             </div>
           </div>
         </div>
+
+        {/* ── Factures d'acompte associées ───────────────────────────────
+             Persistent entry point to the FA(s) generated during conversion.
+             Loading skeleton shows briefly while the request is in-flight;
+             nothing renders if the devis has no FA (acompte = 0 case). */}
+        {devis.facture_id && devis.statut === "converti" && (
+          isLoadingFA ? (
+            <Card className="glass-panel ml-auto max-w-sm" data-testid="factures-acompte-loading">
+              <CardContent className="pt-4">
+                <Skeleton className="h-12 w-full" />
+              </CardContent>
+            </Card>
+          ) : (facturesAcompte && facturesAcompte.length > 0) ? (
+            <Card className="glass-panel ml-auto max-w-sm" data-testid="devis-factures-acompte-section">
+              <CardHeader className="pb-3 border-b border-border/50">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  {facturesAcompte.length > 1 ? "Factures d'acompte" : "Facture d'acompte"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-2">
+                {facturesAcompte.map((fa) => (
+                  <Link key={fa.id} href={`/factures-acompte/${fa.id}`}>
+                    <div
+                      className="flex justify-between items-center p-2 rounded bg-muted/10 border border-border/30 hover:bg-muted/20 hover:border-primary/40 cursor-pointer transition-colors"
+                      data-testid={`devis-fa-link-${fa.id}`}
+                    >
+                      <div>
+                        <p className="text-sm font-medium font-mono">{fa.numero}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {formatDate(fa.date_paiement)} • {fa.mode_reglement}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-green-600 dark:text-green-400">
+                          {formatCurrency(fa.montant_ttc)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">TTC</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+          ) : null
+        )}
 
         {/* Notes display */}
         {devis.notes && (

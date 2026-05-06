@@ -110,7 +110,7 @@ Single-row config (id=1). Always upsert, never insert a second row.
 - `clients/index.tsx` — Client list with search
 - `clients/[id].tsx` — Client details + history
 - `devis/index.tsx` — Quotes list
-- `devis/[id].tsx` — Quote editor with QuoteLineCard layout + totals panel
+- `devis/[id].tsx` — Quote editor with QuoteLineCard layout + totals panel; converted devis also display a persistent "Facture(s) d'acompte" card linking to each FA's printable page
 - `factures/index.tsx` — Invoices list
 - `factures/[id].tsx` — Invoice details + payment tracking + linked factures d'acompte section + per-FA deduction line on print template
 - `factures-acompte/[id].tsx` — Printable standalone facture d'acompte page (per-rate VAT 10 % / 20 % when applicable)
