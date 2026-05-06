@@ -114,7 +114,15 @@ export function ConvertToFactureDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      // While a conversion is in flight we lock the dialog: closing now would
+      // dismount the component, leaving the user with no feedback channel and
+      // tempting them to click "Convertir" a second time. The backend
+      // idempotency lock would catch the duplicate, but it's still cleaner to
+      // never send it.
+      onOpenChange={(next) => { if (isPending && !next) return; onOpenChange(next); }}
+    >
       <DialogContent
         className="glass-panel max-w-lg"
         onKeyDown={(e) => {

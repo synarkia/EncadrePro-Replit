@@ -91,7 +91,7 @@ Single-row config (id=1). Always upsert, never insert a second row.
 - `dashboard.ts` — Stats, CA mensuel, recent devis/factures
 - `clients.ts` — CRUD + stats
 - `produits.ts` — CRUD + `GET /produits/search?q=&type=` + `GET /produits/fournisseurs`
-- `devis.ts` — CRUD + save lignes (flat `type_ligne`-tagged rows: matiere/faconnage/service, with `longueur_m`/`heures`/`parametres_json` + `projet_id`) + convert to facture; GET embeds `projets` array
+- `devis.ts` — CRUD + save lignes (flat `type_ligne`-tagged rows: matiere/faconnage/service, with `longueur_m`/`heures`/`parametres_json` + `projet_id`) + convert to facture; GET embeds `projets` array. **Convert is idempotent**: tx-scoped `SELECT … FOR UPDATE` on the devis row + atomic `UPDATE atelier … RETURNING` for the facture counter mean concurrent calls return the same facture (HTTP 200 on replay, 201 on the winner) and never burn numbers on rollback.
 - `projets.ts` — CRUD: `POST /devis/:id/projets`, `PATCH /projets/:id`, `DELETE /projets/:id`, `PUT /devis/:id/projets/reorder`
 - `factures.ts` — CRUD + paiements (auto-recalculates statut)
 - `factures-acompte.ts` — `GET /factures/:id/factures-acompte`, `GET /factures-acompte/:id`, `GET /factures-acompte/:id/pdf` (302 → printable page)

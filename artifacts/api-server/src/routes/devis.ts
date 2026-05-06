@@ -441,12 +441,15 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
   if (!body.success) { res.status(400).json({ error: "Invalid body", details: body.error.issues }); return; }
   const opts = body.data;
 
-  const [devis] = await db.select().from(devisTable).where(eq(devisTable.id, params.data.id));
-  if (!devis) { res.status(404).json({ error: "Devis introuvable" }); return; }
+  // Pre-flight existence check (cheap, outside the lock). The transaction
+  // below re-reads the row WITH a lock so concurrent calls can't race past
+  // the idempotency guard.
+  const [preview] = await db.select().from(devisTable).where(eq(devisTable.id, params.data.id));
+  if (!preview) { res.status(404).json({ error: "Devis introuvable" }); return; }
 
   // Validate acompte amount fits inside the devis total TTC.
   const acompteMontant = Math.max(0, Number(opts.acompte_montant ?? 0));
-  const totalTtc = Number(devis.total_ttc ?? 0);
+  const totalTtc = Number(preview.total_ttc ?? 0);
   if (acompteMontant > totalTtc + 0.01) {
     res.status(400).json({ error: "L'acompte ne peut pas dépasser le total TTC" });
     return;
@@ -456,37 +459,102 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
     return;
   }
 
-  // The atelier counter is incremented before the transaction. Worst case on a
-  // mid-flight rollback is a single skipped facture number — strongly preferred
-  // over the alternative (collisions on the unique numero index).
-  const numero = await getNextNumero("facture");
-
   // Default échéance = today (paiement comptant) when not provided.
   const echeanceIso = opts.date_echeance && opts.date_echeance.length >= 10
     ? opts.date_echeance.slice(0, 10)
     : new Date().toISOString().slice(0, 10);
-
-  const noteFinale = (opts.note_interne && opts.note_interne.trim().length > 0)
-    ? opts.note_interne
-    : devis.notes;
 
   const soldeRestant = Math.max(0, totalTtc - acompteMontant);
   // When the deposit covers the full TTC, the final facture is born already
   // soldée — no further payment is expected, so reflect that in the status.
   const initialStatut = acompteMontant > 0 && soldeRestant <= 0.01 ? "soldee" : "brouillon";
 
-  // Wrap every mutation in one transaction so a partial failure never leaves
-  // an orphan facture, half-copied lignes, or a devis flipped to "converti"
-  // without a matching facture row.
-  const { facture, factureAcompte } = await db.transaction(async (tx) => {
+  // ── Idempotency lock ───────────────────────────────────────────────────
+  // Two near-simultaneous "Convert" calls (double-click, retry, two tabs)
+  // could each pass the existence check above and end up creating two
+  // factures + burning two FA numbers. We guard against that with:
+  //   1. SELECT … FOR UPDATE on the devis row inside the transaction —
+  //      the second concurrent tx blocks here until the first commits.
+  //   2. Once it acquires the lock, it sees statut='converti' / facture_id
+  //      already set and returns the existing facture (idempotent 200)
+  //      instead of creating a duplicate.
+  // Choice: idempotent return (rather than 409) because the most common
+  // trigger is a UI double-submit where the user expects success, not an
+  // error toast — and the response is the same shape either way.
+  const txResult = await db.transaction(async (tx) => {
+    const lockedRows = await tx.execute(sql`
+      SELECT id, statut, facture_id, total_ttc, total_tva_10, total_tva_20,
+             sous_total_ht, notes, conditions, client_id
+        FROM devis
+       WHERE id = ${params.data.id}
+       FOR UPDATE
+    `);
+    const locked = ((lockedRows as { rows?: unknown[] }).rows ?? lockedRows) as Array<{
+      id: number; statut: string; facture_id: number | null;
+      total_ttc: string | number; total_tva_10: string | number; total_tva_20: string | number;
+      sous_total_ht: string | number; notes: string | null; conditions: string | null;
+      client_id: number;
+    }>;
+    const devis = locked[0];
+    if (!devis) {
+      return { kind: "missing" as const };
+    }
+
+    // Idempotent short-circuit: this devis has already been converted by a
+    // previous (or concurrently-committed) call. Surface the existing
+    // facture + FA so the client sees the same success it would have seen
+    // had it been the winning request.
+    // Defensive Number() coercion: node-pg returns int4 as a JS number, but
+    // we belt-and-suspender it here because raw tx.execute() bypasses
+    // Drizzle's typed mappers and a future driver/type-parser tweak should
+    // not silently break the idempotent path.
+    const factureFk = devis.facture_id == null ? null : Number(devis.facture_id);
+    if (devis.statut === "converti" || factureFk != null) {
+      if (factureFk == null || !Number.isFinite(factureFk)) {
+        // statut says "converti" but FK is missing — treat as a hard
+        // conflict instead of silently swallowing inconsistent state.
+        return { kind: "conflict" as const };
+      }
+      const [existing] = await tx.select().from(facturesTable).where(eq(facturesTable.id, factureFk));
+      if (!existing) return { kind: "conflict" as const };
+      const [existingFa] = await tx.select().from(facturesAcompteTable)
+        .where(eq(facturesAcompteTable.facture_id, existing.id));
+      return { kind: "existing" as const, facture: existing, factureAcompte: existingFa ?? null };
+    }
+
+    const noteFinale = (opts.note_interne && opts.note_interne.trim().length > 0)
+      ? opts.note_interne
+      : devis.notes;
+
+    // ── Atomic facture counter ─────────────────────────────────────────
+    // Same UPDATE…RETURNING pattern already used for the FA counter:
+    // race-free against concurrent transactions, and bound to this tx so
+    // a rollback after the increment also rolls back the counter — no
+    // burned facture numbers on failure.
+    const factureCounterRes = await tx.execute(sql`
+      UPDATE atelier
+         SET compteur_facture = compteur_facture + 1
+       WHERE id = 1
+      RETURNING compteur_facture AS next_num, prefixe_facture AS prefixe
+    `);
+    const factureCounterRows = ((factureCounterRes as { rows?: unknown[] }).rows ?? factureCounterRes) as Array<
+      { next_num: number; prefixe: string }
+    >;
+    const factureCounter = factureCounterRows[0];
+    if (!factureCounter) {
+      throw new Error("Atelier non configuré");
+    }
+    const year = new Date().getFullYear();
+    const numero = `${factureCounter.prefixe}-${year}-${String(Number(factureCounter.next_num)).padStart(3, "0")}`;
+
     const [created] = await tx.insert(facturesTable).values({
       numero,
       devis_id: devis.id,
       client_id: devis.client_id,
-      sous_total_ht: devis.sous_total_ht,
-      total_tva_10: devis.total_tva_10,
-      total_tva_20: devis.total_tva_20,
-      total_ttc: devis.total_ttc,
+      sous_total_ht: parseNum(devis.sous_total_ht),
+      total_tva_10: parseNum(devis.total_tva_10),
+      total_tva_20: parseNum(devis.total_tva_20),
+      total_ttc: parseNum(devis.total_ttc),
       total_paye: acompteMontant,
       solde_restant: soldeRestant,
       notes: noteFinale,
@@ -585,8 +653,21 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
       .set({ statut: "converti", facture_id: created.id })
       .where(eq(devisTable.id, devis.id));
 
-    return { facture: created, factureAcompte: createdFa };
+    return { kind: "created" as const, facture: created, factureAcompte: createdFa };
   });
+
+  if (txResult.kind === "missing") {
+    res.status(404).json({ error: "Devis introuvable" });
+    return;
+  }
+  if (txResult.kind === "conflict") {
+    res.status(409).json({ error: "Devis déjà converti mais facture introuvable (état incohérent)" });
+    return;
+  }
+  const { facture, factureAcompte } = txResult;
+  // For the idempotent "existing" case we return 200 (vs 201 for "created")
+  // so callers can distinguish a fresh conversion from a replay if they care.
+  const responseStatus = txResult.kind === "created" ? 201 : 200;
 
   const factureRows = await execRows<{
     id: number; numero: string; devis_id: number; devis_numero: string | null; client_id: number;
@@ -611,7 +692,7 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
   );
 
   const f = factureRows[0];
-  res.status(201).json({
+  res.status(responseStatus).json({
     id: f.id, numero: f.numero, devis_id: f.devis_id ?? null, devis_numero: f.devis_numero ?? null,
     client_id: f.client_id, client_nom: f.client_nom ?? null,
     client_prenom: f.client_prenom ?? null,
