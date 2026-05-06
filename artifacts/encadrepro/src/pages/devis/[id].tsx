@@ -173,7 +173,7 @@ export default function DevisDetail() {
   // time wasn't persistent enough — this gives a permanent entry point.
   // Hook is enabled only when the devis is converted AND has a facture_id; the
   // FA list is keyed off the *facture* id, not the devis id.
-  const { data: facturesAcompte, isLoading: isLoadingFA } =
+  const { data: facturesAcompte, isLoading: isLoadingFA, isError: isErrorFA } =
     useListFacturesAcompteForFacture(devis?.facture_id ?? 0, {
       query: {
         enabled: !!devis?.facture_id && devis?.statut === "converti",
@@ -941,6 +941,17 @@ export default function DevisDetail() {
             <Card className="glass-panel ml-auto max-w-sm" data-testid="factures-acompte-loading">
               <CardContent className="pt-4">
                 <Skeleton className="h-12 w-full" />
+              </CardContent>
+            </Card>
+          ) : isErrorFA ? (
+            // Discreet error: distinct from the empty-state (which renders
+            // nothing) so a transient network/API failure isn't silently
+            // misread as "no FA linked".
+            <Card className="glass-panel ml-auto max-w-sm" data-testid="factures-acompte-error">
+              <CardContent className="pt-4">
+                <p className="text-xs text-muted-foreground">
+                  Impossible de charger les factures d'acompte associées.
+                </p>
               </CardContent>
             </Card>
           ) : (facturesAcompte && facturesAcompte.length > 0) ? (
