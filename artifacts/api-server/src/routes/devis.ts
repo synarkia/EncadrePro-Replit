@@ -89,7 +89,7 @@ async function recalcDevis(devisId: number): Promise<void> {
 // ─── Helper: get devis with client name ───────────────────────────────────────
 type DevisWithClient = {
   id: number; numero: string; client_id: number;
-  client_nom: string; client_prenom: string;
+  client_nom: string; client_prenom: string; client_entreprise: string | null;
   client_adresse: string | null; client_code_postal: string | null; client_ville: string | null;
   client_email: string | null; client_telephone: string | null;
   date_creation: string; date_validite: string; statut: string; sous_total_ht: string;
@@ -100,7 +100,7 @@ type DevisWithClient = {
 async function getDevisWithClient(id: number): Promise<DevisWithClient | undefined> {
   const rows = await execRows<DevisWithClient>(
     sql`SELECT d.*,
-               c.nom as client_nom, c.prenom as client_prenom,
+               c.nom as client_nom, c.prenom as client_prenom, c.entreprise as client_entreprise,
                c.adresse as client_adresse, c.code_postal as client_code_postal,
                c.ville as client_ville, c.email as client_email, c.telephone as client_telephone
         FROM devis d LEFT JOIN clients c ON c.id = d.client_id WHERE d.id = ${id}`
@@ -112,7 +112,7 @@ function mapDevis(r: DevisWithClient) {
   const s = serializeDates(r as unknown as Record<string, unknown>);
   return {
     id: r.id, numero: r.numero, client_id: r.client_id, client_nom: r.client_nom ?? null,
-    client_prenom: r.client_prenom ?? null,
+    client_prenom: r.client_prenom ?? null, client_entreprise: r.client_entreprise ?? null,
     client_adresse: r.client_adresse ?? null, client_code_postal: r.client_code_postal ?? null,
     client_ville: r.client_ville ?? null, client_email: r.client_email ?? null,
     client_telephone: r.client_telephone ?? null,
@@ -132,7 +132,7 @@ router.get("/devis", async (req, res): Promise<void> => {
   const clientId = typeof req.query.client_id === "string" ? parseInt(req.query.client_id, 10) : null;
 
   let query = sql`SELECT d.*,
-        c.nom as client_nom, c.prenom as client_prenom,
+        c.nom as client_nom, c.prenom as client_prenom, c.entreprise as client_entreprise,
         c.adresse as client_adresse, c.code_postal as client_code_postal,
         c.ville as client_ville, c.email as client_email, c.telephone as client_telephone
       FROM devis d LEFT JOIN clients c ON c.id = d.client_id WHERE 1=1`;
@@ -707,7 +707,7 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
 
   const factureRows = await execRows<{
     id: number; numero: string; devis_id: number; devis_numero: string | null; client_id: number;
-    client_nom: string; client_prenom: string;
+    client_nom: string; client_prenom: string; client_entreprise: string | null;
     client_adresse: string | null; client_code_postal: string | null; client_ville: string | null;
     client_email: string | null; client_telephone: string | null;
     date_creation: string; date_echeance: string;
@@ -717,7 +717,7 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
     cree_le: string; modifie_le: string;
   }>(
     sql`SELECT f.*,
-               c.nom as client_nom, c.prenom as client_prenom,
+               c.nom as client_nom, c.prenom as client_prenom, c.entreprise as client_entreprise,
                c.adresse as client_adresse, c.code_postal as client_code_postal,
                c.ville as client_ville, c.email as client_email, c.telephone as client_telephone,
                d.numero as devis_numero
@@ -731,7 +731,7 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
   res.status(responseStatus).json({
     id: f.id, numero: f.numero, devis_id: f.devis_id ?? null, devis_numero: f.devis_numero ?? null,
     client_id: f.client_id, client_nom: f.client_nom ?? null,
-    client_prenom: f.client_prenom ?? null,
+    client_prenom: f.client_prenom ?? null, client_entreprise: f.client_entreprise ?? null,
     client_adresse: f.client_adresse ?? null, client_code_postal: f.client_code_postal ?? null,
     client_ville: f.client_ville ?? null, client_email: f.client_email ?? null,
     client_telephone: f.client_telephone ?? null,
@@ -756,6 +756,7 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
           client_id: f.client_id,
           client_nom: f.client_nom ?? null,
           client_prenom: f.client_prenom ?? null,
+          client_entreprise: f.client_entreprise ?? null,
           client_adresse: f.client_adresse ?? null,
           client_code_postal: f.client_code_postal ?? null,
           client_ville: f.client_ville ?? null,

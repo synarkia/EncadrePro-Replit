@@ -10,6 +10,7 @@ export interface Client {
   id: number;
   nom: string;
   prenom?: string | null;
+  entreprise?: string | null;
   email?: string | null;
   telephone?: string | null;
   adresse?: string | null;

@@ -28,7 +28,7 @@ router.get("/clients", async (req, res): Promise<void> => {
   const sortBy = typeof req.query.sort === "string" ? req.query.sort : "nom";
 
   type ClientRow = {
-    id: number; nom: string; prenom: string | null; email: string | null;
+    id: number; nom: string; prenom: string | null; entreprise: string | null; email: string | null;
     telephone: string | null; adresse: string | null; ville: string | null;
     code_postal: string | null; notes: string | null; cree_le: string; modifie_le: string;
     ca_total: string; devis_count: string; derniere_activite: string | null;
@@ -45,7 +45,7 @@ router.get("/clients", async (req, res): Promise<void> => {
   const searchConds: string[] = [];
   if (search) {
     const esc = search.replace(/'/g, "''");
-    searchConds.push(`(c.nom ILIKE '%${esc}%' OR c.prenom ILIKE '%${esc}%' OR c.email ILIKE '%${esc}%' OR c.telephone ILIKE '%${esc}%')`);
+    searchConds.push(`(c.nom ILIKE '%${esc}%' OR c.prenom ILIKE '%${esc}%' OR c.entreprise ILIKE '%${esc}%' OR c.email ILIKE '%${esc}%' OR c.telephone ILIKE '%${esc}%')`);
   }
   if (actifsOnly) searchConds.push("COALESCE(ca.ca_total, 0) > 0");
   const whereClause = searchConds.length > 0 ? `WHERE ${searchConds.join(" AND ")}` : "";
@@ -63,7 +63,7 @@ router.get("/clients", async (req, res): Promise<void> => {
       GROUP BY client_id
     )
     SELECT
-      c.id, c.nom, c.prenom, c.email, c.telephone, c.adresse, c.ville, c.code_postal,
+      c.id, c.nom, c.prenom, c.entreprise, c.email, c.telephone, c.adresse, c.ville, c.code_postal,
       c.notes, c.cree_le, c.modifie_le,
       COALESCE(ca.ca_total, 0) AS ca_total,
       COALESCE(d.devis_count, 0) AS devis_count,
@@ -78,6 +78,7 @@ router.get("/clients", async (req, res): Promise<void> => {
   const rows = await execRows<ClientRow>(sql.raw(rawQuery));
   const mapped = rows.map(r => ({
     ...serializeDates(r),
+    entreprise: r.entreprise ?? null,
     ca_total: parseNum(r.ca_total),
     devis_count: parseInt(r.devis_count, 10),
     derniere_activite: r.derniere_activite ?? null,
@@ -93,12 +94,12 @@ router.get("/clients/search", async (req, res): Promise<void> => {
   if (q.length < 2) { res.json([]); return; }
 
   const escaped = q.replace(/'/g, "''");
-  type SearchRow = { id: number; nom: string; prenom: string | null; telephone: string | null; email: string | null; ca_total: string; };
+  type SearchRow = { id: number; nom: string; prenom: string | null; entreprise: string | null; telephone: string | null; email: string | null; ca_total: string; };
   const rows = await execRows<SearchRow>(sql.raw(`
-    SELECT c.id, c.nom, c.prenom, c.telephone, c.email,
+    SELECT c.id, c.nom, c.prenom, c.entreprise, c.telephone, c.email,
       COALESCE((SELECT SUM(total_ttc) FROM factures WHERE client_id = c.id AND statut IN ('envoyee','partiellement_payee','soldee')), 0) AS ca_total
     FROM clients c
-    WHERE c.nom ILIKE '%${escaped}%' OR c.prenom ILIKE '%${escaped}%' OR c.email ILIKE '%${escaped}%' OR c.telephone ILIKE '%${escaped}%'
+    WHERE c.nom ILIKE '%${escaped}%' OR c.prenom ILIKE '%${escaped}%' OR c.entreprise ILIKE '%${escaped}%' OR c.email ILIKE '%${escaped}%' OR c.telephone ILIKE '%${escaped}%'
     ORDER BY c.nom
     LIMIT 10
   `));
@@ -107,6 +108,7 @@ router.get("/clients/search", async (req, res): Promise<void> => {
     id: r.id,
     nom: r.nom,
     prenom: r.prenom ?? null,
+    entreprise: r.entreprise ?? null,
     telephone: r.telephone ?? null,
     email: r.email ?? null,
     ca_total: parseNum(r.ca_total),

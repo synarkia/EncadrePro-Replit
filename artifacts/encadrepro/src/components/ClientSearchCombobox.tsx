@@ -11,6 +11,7 @@ export type ClientSearchResult = {
   id: number;
   nom: string;
   prenom: string | null;
+  entreprise: string | null;
   telephone: string | null;
   email: string | null;
   ca_total: number;
@@ -19,6 +20,7 @@ export type ClientSearchResult = {
 type NewClientForm = {
   prenom: string;
   nom: string;
+  entreprise: string;
   telephone: string;
   email: string;
   adresse: string;
@@ -46,7 +48,7 @@ export function ClientSearchCombobox({
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [showNewForm, setShowNewForm] = useState(false);
-  const [newForm, setNewForm] = useState<NewClientForm>({ prenom: "", nom: "", telephone: "", email: "", adresse: "" });
+  const [newForm, setNewForm] = useState<NewClientForm>({ prenom: "", nom: "", entreprise: "", telephone: "", email: "", adresse: "" });
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -114,21 +116,24 @@ export function ClientSearchCombobox({
         body: JSON.stringify({
           nom: newForm.nom.trim(),
           prenom: newForm.prenom.trim() || null,
+          entreprise: newForm.entreprise.trim() || null,
           telephone: newForm.telephone.trim() || null,
           email: newForm.email.trim() || null,
           adresse: newForm.adresse.trim() || null,
         }),
       });
       if (!res.ok) throw new Error("Erreur serveur");
-      const created = await res.json() as { id: number; nom: string; prenom?: string | null; telephone?: string | null; email?: string | null };
+      const created = await res.json() as { id: number; nom: string; prenom?: string | null; entreprise?: string | null; telephone?: string | null; email?: string | null };
       const newClient: ClientSearchResult = {
         id: created.id, nom: created.nom,
-        prenom: created.prenom ?? null, telephone: created.telephone ?? null,
+        prenom: created.prenom ?? null,
+        entreprise: created.entreprise ?? null,
+        telephone: created.telephone ?? null,
         email: created.email ?? null, ca_total: 0,
       };
-      toast({ title: "Client créé", description: `${newForm.prenom} ${newForm.nom}`.trim() });
+      toast({ title: "Client créé", description: created.entreprise || `${newForm.prenom} ${newForm.nom}`.trim() });
       handleSelect(newClient);
-      setNewForm({ prenom: "", nom: "", telephone: "", email: "", adresse: "" });
+      setNewForm({ prenom: "", nom: "", entreprise: "", telephone: "", email: "", adresse: "" });
     } catch {
       toast({ title: "Erreur", description: "Impossible de créer le client.", variant: "destructive" });
     } finally {
@@ -137,7 +142,12 @@ export function ClientSearchCombobox({
   };
 
   const initials = (client: ClientSearchResult) =>
-    `${client.prenom?.[0] ?? ""}${client.nom[0] ?? ""}`.toUpperCase() || "?";
+    (client.entreprise
+      ? client.entreprise[0]
+      : `${client.prenom?.[0] ?? ""}${client.nom[0] ?? ""}`)?.toUpperCase() || "?";
+
+  const displayName = (client: ClientSearchResult) =>
+    client.entreprise || `${client.prenom ?? ""} ${client.nom}`.trim();
 
   if (selectedClient) {
     return (
@@ -146,7 +156,10 @@ export function ClientSearchCombobox({
           {initials(selectedClient)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm">{selectedClient.prenom} {selectedClient.nom}</p>
+          <p className="font-semibold text-sm">{displayName(selectedClient)}</p>
+          {selectedClient.entreprise && (selectedClient.prenom || selectedClient.nom) && (
+            <p className="text-[10px] text-muted-foreground/80">Contact : {[selectedClient.prenom, selectedClient.nom].filter(Boolean).join(" ")}</p>
+          )}
           <div className="flex gap-3 text-[11px] text-muted-foreground mt-0.5">
             {selectedClient.telephone && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{selectedClient.telephone}</span>}
             {selectedClient.email && <span className="truncate max-w-[160px]">{selectedClient.email}</span>}
@@ -211,6 +224,12 @@ export function ClientSearchCombobox({
                   autoFocus
                 />
               </div>
+              <Input
+                value={newForm.entreprise}
+                onChange={e => setNewForm(f => ({ ...f, entreprise: e.target.value }))}
+                placeholder="Entreprise (musée, galerie...)"
+                className="h-8 text-sm bg-background/60 border-border/60"
+              />
               <div className="grid grid-cols-2 gap-2">
                 <div className="relative">
                   <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
@@ -264,7 +283,10 @@ export function ClientSearchCombobox({
                       {initials(c)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{c.prenom} {c.nom}</p>
+                      <p className="text-sm font-medium">{displayName(c)}</p>
+                      {c.entreprise && (c.prenom || c.nom) && (
+                        <p className="text-[10px] text-muted-foreground/70">{[c.prenom, c.nom].filter(Boolean).join(" ")}</p>
+                      )}
                       <div className="flex gap-3 text-[11px] text-muted-foreground mt-0.5">
                         {c.telephone && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{c.telephone}</span>}
                         {c.email && <span className="truncate max-w-[180px]">{c.email}</span>}

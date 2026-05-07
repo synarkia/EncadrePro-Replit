@@ -147,7 +147,7 @@ export default function Dashboard() {
                     <Link key={doc.id} href={`/devis/${doc.id}`} className="flex items-center justify-between p-2 rounded-md hover:bg-white/5 transition-colors group">
                       <div>
                         <p className="text-sm font-medium group-hover:text-primary transition-colors">{doc.numero}</p>
-                        <p className="text-xs text-muted-foreground">{doc.client_prenom} {doc.client_nom}</p>
+                        <p className="text-xs text-muted-foreground">{doc.client_entreprise || [doc.client_prenom, doc.client_nom].filter(Boolean).join(" ").trim() || "—"}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-bold text-accent">{formatCurrency(doc.total_ttc)}</p>
@@ -180,7 +180,7 @@ export default function Dashboard() {
                     <Link key={doc.id} href={`/factures/${doc.id}`} className="flex items-center justify-between p-2 rounded-md hover:bg-white/5 transition-colors group">
                       <div>
                         <p className="text-sm font-medium group-hover:text-primary transition-colors">{doc.numero}</p>
-                        <p className="text-xs text-muted-foreground">{doc.client_prenom} {doc.client_nom}</p>
+                        <p className="text-xs text-muted-foreground">{doc.client_entreprise || [doc.client_prenom, doc.client_nom].filter(Boolean).join(" ").trim() || "—"}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-bold text-accent">{formatCurrency(doc.total_ttc)}</p>

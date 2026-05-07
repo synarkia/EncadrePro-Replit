@@ -9,6 +9,7 @@
 export interface CreateClientBody {
   nom: string;
   prenom?: string | null;
+  entreprise?: string | null;
   email?: string | null;
   telephone?: string | null;
   adresse?: string | null;

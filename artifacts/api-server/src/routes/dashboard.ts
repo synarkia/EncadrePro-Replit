@@ -69,10 +69,12 @@ router.get("/dashboard/ca-mensuel", async (_req, res): Promise<void> => {
 
 router.get("/dashboard/recent-devis", async (_req, res): Promise<void> => {
   const rows = await execRows<{
-    id: number; numero: string; client_nom: string; client_prenom: string;
+    id: number; numero: string; client_nom: string | null; client_prenom: string | null;
+    client_entreprise: string | null;
     total_ttc: string; statut: string; cree_le: string;
   }>(
     sql`SELECT d.id, d.numero, c.nom as client_nom, c.prenom as client_prenom,
+               c.entreprise as client_entreprise,
                d.total_ttc, d.statut, d.cree_le
         FROM devis d LEFT JOIN clients c ON c.id = d.client_id
         ORDER BY d.cree_le DESC LIMIT 5`
@@ -81,8 +83,9 @@ router.get("/dashboard/recent-devis", async (_req, res): Promise<void> => {
   const data = rows.map((r) => ({
     id: r.id,
     numero: r.numero,
-    client_nom: r.client_nom ?? "",
+    client_nom: r.client_nom ?? null,
     client_prenom: r.client_prenom ?? null,
+    client_entreprise: r.client_entreprise ?? null,
     total_ttc: parseFloat(r.total_ttc ?? "0"),
     statut: r.statut,
     cree_le: r.cree_le,
@@ -93,10 +96,12 @@ router.get("/dashboard/recent-devis", async (_req, res): Promise<void> => {
 
 router.get("/dashboard/recent-factures", async (_req, res): Promise<void> => {
   const rows = await execRows<{
-    id: number; numero: string; client_nom: string; client_prenom: string;
+    id: number; numero: string; client_nom: string | null; client_prenom: string | null;
+    client_entreprise: string | null;
     total_ttc: string; statut: string; cree_le: string;
   }>(
     sql`SELECT f.id, f.numero, c.nom as client_nom, c.prenom as client_prenom,
+               c.entreprise as client_entreprise,
                f.total_ttc, f.statut, f.cree_le
         FROM factures f LEFT JOIN clients c ON c.id = f.client_id
         ORDER BY f.cree_le DESC LIMIT 5`
@@ -105,8 +110,9 @@ router.get("/dashboard/recent-factures", async (_req, res): Promise<void> => {
   const data = rows.map((r) => ({
     id: r.id,
     numero: r.numero,
-    client_nom: r.client_nom ?? "",
+    client_nom: r.client_nom ?? null,
     client_prenom: r.client_prenom ?? null,
+    client_entreprise: r.client_entreprise ?? null,
     total_ttc: parseFloat(r.total_ttc ?? "0"),
     statut: r.statut,
     cree_le: r.cree_le,

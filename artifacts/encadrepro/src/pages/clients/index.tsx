@@ -23,6 +23,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 const clientSchema = z.object({
   nom: z.string().min(1, "Le nom est requis"),
   prenom: z.string().optional(),
+  entreprise: z.string().optional(),
   email: z.string().email("Email invalide").optional().or(z.literal("")),
   telephone: z.string().optional(),
   adresse: z.string().optional(),
@@ -53,7 +54,7 @@ export default function ClientsList() {
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
-    defaultValues: { nom: "", prenom: "", email: "", telephone: "", adresse: "", code_postal: "", ville: "", notes: "" }
+    defaultValues: { nom: "", prenom: "", entreprise: "", email: "", telephone: "", adresse: "", code_postal: "", ville: "", notes: "" }
   });
 
   const onSubmit = (data: ClientFormValues) => {
@@ -121,6 +122,13 @@ export default function ClientsList() {
                     <FormItem><FormLabel>Nom *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
+                <FormField control={form.control} name="entreprise" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Entreprise</FormLabel>
+                    <FormControl><Input placeholder="Pour les sociétés (musée, galerie...)" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="email" render={({ field }) => (
                     <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
@@ -219,13 +227,16 @@ export default function ClientsList() {
                   <div className="flex items-center gap-4 min-w-0">
                     {/* Avatar */}
                     <div className="h-11 w-11 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-sm border border-primary/25 shrink-0">
-                      {client.prenom?.[0] ?? ""}{client.nom[0] ?? ""}
+                      {client.entreprise ? client.entreprise[0]?.toUpperCase() : `${client.prenom?.[0] ?? ""}${client.nom[0] ?? ""}`}
                     </div>
                     {/* Info */}
                     <div className="min-w-0">
                       <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                        {client.prenom} {client.nom}
+                        {client.entreprise || `${client.prenom ?? ""} ${client.nom}`.trim()}
                       </h3>
+                      {client.entreprise && (client.prenom || client.nom) && (
+                        <p className="text-[11px] text-muted-foreground">{[client.prenom, client.nom].filter(Boolean).join(" ")}</p>
+                      )}
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
                         {client.telephone && <span>{client.telephone}</span>}
                         {client.email && <span className="truncate max-w-[200px]">{client.email}</span>}

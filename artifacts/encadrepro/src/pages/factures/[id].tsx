@@ -245,7 +245,7 @@ export default function FactureDetail() {
 
   const openEmail = useCallback(() => {
     if (!facture) return;
-    const fullName = [facture.client_prenom, facture.client_nom].filter(Boolean).join(" ").trim();
+    const fullName = facture.client_entreprise || [facture.client_prenom, facture.client_nom].filter(Boolean).join(" ").trim();
     const greeting = fullName ? `Bonjour ${fullName},` : "Bonjour,";
     const atelierNom = atelier?.nom || "l'atelier";
     setEmailTo(facture.client_email || "");
@@ -382,7 +382,7 @@ export default function FactureDetail() {
           <div className="print-client-block">
             <div className="print-meta-label">Adressée à</div>
             <p className="print-client-name">
-              {[facture.client_prenom, facture.client_nom].filter(Boolean).join(" ") || "—"}
+              {facture.client_entreprise || [facture.client_prenom, facture.client_nom].filter(Boolean).join(" ") || "—"}
             </p>
             {(() => {
               const addrLines: string[] = [];
@@ -648,7 +648,7 @@ export default function FactureDetail() {
               </div>
               <p className="text-muted-foreground mt-1 text-sm">
                 <Link href={`/clients/${facture.client_id}`} className="hover:text-primary hover:underline transition-colors font-medium">
-                  {facture.client_prenom} {facture.client_nom}
+                  {facture.client_entreprise || `${facture.client_prenom ?? ""} ${facture.client_nom ?? ""}`.trim() || "—"}
                 </Link>
                 {facture.date_echeance && <span> • Échéance {formatDate(facture.date_echeance)}</span>}
               </p>

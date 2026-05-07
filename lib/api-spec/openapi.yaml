@@ -1118,12 +1118,13 @@ components:
       properties:
         id: { type: integer }
         numero: { type: string }
-        client_nom: { type: string }
-        client_prenom: { type: string }
+        client_nom: { type: string, nullable: true }
+        client_prenom: { type: string, nullable: true }
+        client_entreprise: { type: string, nullable: true }
         total_ttc: { type: number }
         statut: { type: string }
         cree_le: { type: string }
-      required: [id, numero, client_nom, total_ttc, statut, cree_le]
+      required: [id, numero, total_ttc, statut, cree_le]
 
     # ── CLIENTS ──
     Client:
@@ -1132,6 +1133,7 @@ components:
         id: { type: integer }
         nom: { type: string }
         prenom: { type: string, nullable: true }
+        entreprise: { type: string, nullable: true }
         email: { type: string, nullable: true }
         telephone: { type: string, nullable: true }
         adresse: { type: string, nullable: true }
@@ -1150,6 +1152,7 @@ components:
       properties:
         nom: { type: string }
         prenom: { type: string, nullable: true }
+        entreprise: { type: string, nullable: true }
         email: { type: string, nullable: true }
         telephone: { type: string, nullable: true }
         adresse: { type: string, nullable: true }
@@ -1365,6 +1368,7 @@ components:
         client_id: { type: integer }
         client_nom: { type: string, nullable: true }
         client_prenom: { type: string, nullable: true }
+        client_entreprise: { type: string, nullable: true }
         client_adresse: { type: string, nullable: true }
         client_code_postal: { type: string, nullable: true }
         client_ville: { type: string, nullable: true }
@@ -1494,6 +1498,7 @@ components:
         client_id: { type: integer, nullable: true }
         client_nom: { type: string, nullable: true }
         client_prenom: { type: string, nullable: true }
+        client_entreprise: { type: string, nullable: true }
         client_adresse: { type: string, nullable: true }
         client_code_postal: { type: string, nullable: true }
         client_ville: { type: string, nullable: true }
@@ -1545,6 +1550,7 @@ components:
         client_id: { type: integer }
         client_nom: { type: string, nullable: true }
         client_prenom: { type: string, nullable: true }
+        client_entreprise: { type: string, nullable: true }
         client_adresse: { type: string, nullable: true }
         client_code_postal: { type: string, nullable: true }
         client_ville: { type: string, nullable: true }

@@ -13,7 +13,7 @@ type FactureAcompteRow = {
   facture_total_ttc: string | null;
   devis_id: number | null; devis_numero: string | null;
   client_id: number | null;
-  client_nom: string | null; client_prenom: string | null;
+  client_nom: string | null; client_prenom: string | null; client_entreprise: string | null;
   client_adresse: string | null; client_code_postal: string | null;
   client_ville: string | null; client_email: string | null; client_telephone: string | null;
   montant_ht: string; montant_tva: string;
@@ -32,7 +32,7 @@ function selectClause() {
                     f.total_ttc AS facture_total_ttc,
                     f.client_id AS client_id,
                     d.numero  AS devis_numero,
-                    c.nom AS client_nom, c.prenom AS client_prenom,
+                    c.nom AS client_nom, c.prenom AS client_prenom, c.entreprise AS client_entreprise,
                     c.adresse AS client_adresse, c.code_postal AS client_code_postal,
                     c.ville AS client_ville, c.email AS client_email,
                     c.telephone AS client_telephone
@@ -55,6 +55,7 @@ function mapRow(r: FactureAcompteRow) {
     client_id: r.client_id ?? null,
     client_nom: r.client_nom ?? null,
     client_prenom: r.client_prenom ?? null,
+    client_entreprise: r.client_entreprise ?? null,
     client_adresse: r.client_adresse ?? null,
     client_code_postal: r.client_code_postal ?? null,
     client_ville: r.client_ville ?? null,

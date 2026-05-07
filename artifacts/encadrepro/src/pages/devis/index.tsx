@@ -142,7 +142,7 @@ export default function DevisList() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors text-lg">
-                        {devis.client_prenom} {devis.client_nom}
+                        {devis.client_entreprise || `${devis.client_prenom ?? ""} ${devis.client_nom ?? ""}`.trim() || "—"}
                       </h3>
                       <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
                         <span>Créé le {formatDate(devis.date_creation)}</span>

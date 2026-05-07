@@ -101,7 +101,7 @@ export default function FactureAcomptePrint() {
           <div className="print-client-block">
             <div className="print-meta-label">Adressée à</div>
             <p className="print-client-name">
-              {[fa.client_prenom, fa.client_nom].filter(Boolean).join(" ") || "—"}
+              {fa.client_entreprise || [fa.client_prenom, fa.client_nom].filter(Boolean).join(" ") || "—"}
             </p>
             {(() => {
               const addrLines: string[] = [];
@@ -243,7 +243,7 @@ export default function FactureAcomptePrint() {
             <div>
               <h1 className="text-2xl font-bold">Facture d'acompte {fa.numero}</h1>
               <p className="text-muted-foreground mt-1 text-sm">
-                {fa.client_prenom} {fa.client_nom}
+                {fa.client_entreprise || `${fa.client_prenom ?? ""} ${fa.client_nom ?? ""}`.trim() || "—"}
                 {fa.facture_numero && (
                   <> • Rattachée à <span className="text-primary">{fa.facture_numero}</span></>
                 )}

@@ -78,8 +78,9 @@ export interface CaMensuel {
 export interface RecentDoc {
   id: number;
   numero: string;
-  client_nom: string;
-  client_prenom?: string;
+  client_nom?: string | null;
+  client_prenom?: string | null;
+  client_entreprise?: string | null;
   total_ttc: number;
   statut: string;
   cree_le: string;
@@ -89,6 +90,7 @@ export interface Client {
   id: number;
   nom: string;
   prenom?: string | null;
+  entreprise?: string | null;
   email?: string | null;
   telephone?: string | null;
   adresse?: string | null;
@@ -105,6 +107,7 @@ export interface Client {
 export interface CreateClientBody {
   nom: string;
   prenom?: string | null;
+  entreprise?: string | null;
   email?: string | null;
   telephone?: string | null;
   adresse?: string | null;
@@ -119,6 +122,7 @@ export interface Devis {
   client_id: number;
   client_nom?: string | null;
   client_prenom?: string | null;
+  client_entreprise?: string | null;
   client_adresse?: string | null;
   client_code_postal?: string | null;
   client_ville?: string | null;
@@ -146,6 +150,7 @@ export interface Facture {
   client_id: number;
   client_nom?: string | null;
   client_prenom?: string | null;
+  client_entreprise?: string | null;
   client_adresse?: string | null;
   client_code_postal?: string | null;
   client_ville?: string | null;
@@ -505,6 +510,7 @@ export interface FactureAcompte {
   client_id?: number | null;
   client_nom?: string | null;
   client_prenom?: string | null;
+  client_entreprise?: string | null;
   client_adresse?: string | null;
   client_code_postal?: string | null;
   client_ville?: string | null;

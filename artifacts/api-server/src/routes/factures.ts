@@ -24,7 +24,7 @@ const parseNum = (v: unknown) => parseFloat(String(v ?? "0"));
 // ─── Type helpers ─────────────────────────────────────────────────────────────
 type FactureWithClient = {
   id: number; numero: string; devis_id: number; devis_numero: string | null; client_id: number;
-  client_nom: string; client_prenom: string;
+  client_nom: string; client_prenom: string; client_entreprise: string | null;
   client_adresse: string | null; client_code_postal: string | null; client_ville: string | null;
   client_email: string | null; client_telephone: string | null;
   date_creation: string; date_echeance: string;
@@ -37,7 +37,7 @@ type FactureWithClient = {
 async function getFactureWithClient(id: number): Promise<FactureWithClient | undefined> {
   const rows = await execRows<FactureWithClient>(
     sql`SELECT f.*,
-               c.nom as client_nom, c.prenom as client_prenom,
+               c.nom as client_nom, c.prenom as client_prenom, c.entreprise as client_entreprise,
                c.adresse as client_adresse, c.code_postal as client_code_postal,
                c.ville as client_ville, c.email as client_email, c.telephone as client_telephone,
                d.numero as devis_numero
@@ -54,7 +54,7 @@ function mapFacture(f: FactureWithClient) {
   return {
     id: f.id, numero: f.numero, devis_id: f.devis_id ?? null, devis_numero: f.devis_numero ?? null,
     client_id: f.client_id, client_nom: f.client_nom ?? null,
-    client_prenom: f.client_prenom ?? null,
+    client_prenom: f.client_prenom ?? null, client_entreprise: f.client_entreprise ?? null,
     client_adresse: f.client_adresse ?? null, client_code_postal: f.client_code_postal ?? null,
     client_ville: f.client_ville ?? null, client_email: f.client_email ?? null,
     client_telephone: f.client_telephone ?? null,
@@ -109,7 +109,7 @@ router.get("/factures", async (req, res): Promise<void> => {
   const clientId = typeof req.query.client_id === "string" ? parseInt(req.query.client_id, 10) : null;
 
   let query = sql`SELECT f.*,
-        c.nom as client_nom, c.prenom as client_prenom,
+        c.nom as client_nom, c.prenom as client_prenom, c.entreprise as client_entreprise,
         c.adresse as client_adresse, c.code_postal as client_code_postal,
         c.ville as client_ville, c.email as client_email, c.telephone as client_telephone,
         d.numero as devis_numero

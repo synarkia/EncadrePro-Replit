@@ -17,6 +17,7 @@ export interface FactureAcompte {
   client_id?: number | null;
   client_nom?: string | null;
   client_prenom?: string | null;
+  client_entreprise?: string | null;
   client_adresse?: string | null;
   client_code_postal?: string | null;
   client_ville?: string | null;

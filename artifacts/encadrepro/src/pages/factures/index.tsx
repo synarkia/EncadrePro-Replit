@@ -93,7 +93,7 @@ export default function FacturesList() {
                       </div>
                       <div>
                         <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors text-lg">
-                          {facture.client_prenom} {facture.client_nom}
+                          {facture.client_entreprise || `${facture.client_prenom ?? ""} ${facture.client_nom ?? ""}`.trim() || "—"}
                         </h3>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
                           <span>Émise le {formatDate(facture.date_creation)}</span>

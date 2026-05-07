@@ -9,8 +9,9 @@
 export interface RecentDoc {
   id: number;
   numero: string;
-  client_nom: string;
-  client_prenom?: string;
+  client_nom?: string | null;
+  client_prenom?: string | null;
+  client_entreprise?: string | null;
   total_ttc: number;
   statut: string;
   cree_le: string;

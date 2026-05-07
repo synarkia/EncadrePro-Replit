@@ -211,7 +211,7 @@ export default function DevisDetail() {
 
   const openEmail = useCallback(() => {
     if (!devis) return;
-    const fullName = [devis.client_prenom, devis.client_nom].filter(Boolean).join(" ").trim();
+    const fullName = devis.client_entreprise || [devis.client_prenom, devis.client_nom].filter(Boolean).join(" ").trim();
     const greeting = fullName ? `Bonjour ${fullName},` : "Bonjour,";
     const atelierNom = atelier?.nom || "l'atelier";
     setEmailTo(devis.client_email || "");
@@ -584,7 +584,7 @@ export default function DevisDetail() {
           <div className="print-client-block">
             <div className="print-meta-label">Adressée à</div>
             <p className="print-client-name">
-              {[devis.client_prenom, devis.client_nom].filter(Boolean).join(" ") || "—"}
+              {devis.client_entreprise || [devis.client_prenom, devis.client_nom].filter(Boolean).join(" ") || "—"}
             </p>
             {/* Address lines + a hairline-separated reference block, populated
                 from the typed client fields returned by GET /devis/:id. */}
@@ -800,7 +800,7 @@ export default function DevisDetail() {
               </div>
               <p className="text-muted-foreground mt-0.5 text-sm">
                 <Link href={`/clients/${devis.client_id}`} className="hover:text-primary hover:underline transition-colors font-medium">
-                  {devis.client_prenom} {devis.client_nom}
+                  {devis.client_entreprise || `${devis.client_prenom ?? ""} ${devis.client_nom ?? ""}`.trim() || "—"}
                 </Link>
                 {" · "}Créé le {formatDate(devis.date_creation)}
                 {devis.date_validite && ` · Valide jusqu'au ${formatDate(devis.date_validite)}`}

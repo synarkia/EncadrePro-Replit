@@ -8,6 +8,7 @@ export const clientsTable = pgTable("clients", {
   id: serial("id").primaryKey(),
   nom: text("nom").notNull(),
   prenom: text("prenom"),
+  entreprise: text("entreprise"),
   email: text("email"),
   telephone: text("telephone"),
   adresse: text("adresse"),

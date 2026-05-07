@@ -35,6 +35,7 @@ import * as z from "zod";
 const clientSchema = z.object({
   nom: z.string().min(1, "Le nom est requis"),
   prenom: z.string().optional().or(z.literal("")),
+  entreprise: z.string().optional().or(z.literal("")),
   email: z.string().email("Email invalide").optional().or(z.literal("")),
   telephone: z.string().optional().or(z.literal("")),
   adresse: z.string().optional().or(z.literal("")),
@@ -90,6 +91,7 @@ export default function ClientDetail() {
     values: client ? {
       nom: client.nom ?? "",
       prenom: client.prenom ?? "",
+      entreprise: client.entreprise ?? "",
       email: client.email ?? "",
       telephone: client.telephone ?? "",
       adresse: client.adresse ?? "",
@@ -136,7 +138,8 @@ export default function ClientDetail() {
   );
   if (!client) return <div className="p-8 text-muted-foreground">Client introuvable</div>;
 
-  const fullName = [client.prenom, client.nom].filter(Boolean).join(" ");
+  const personName = [client.prenom, client.nom].filter(Boolean).join(" ").trim();
+  const fullName = client.entreprise || personName || "—";
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -158,6 +161,13 @@ export default function ClientDetail() {
                   <FormItem><FormLabel>Nom *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
               </div>
+              <FormField control={form.control} name="entreprise" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Entreprise</FormLabel>
+                  <FormControl><Input placeholder="Pour les sociétés (musée, galerie...)" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="email" render={({ field }) => (
                   <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
@@ -203,10 +213,13 @@ export default function ClientDetail() {
             {/* Avatar + Name */}
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-lg font-bold text-primary">
-                {client.prenom?.[0] ?? ""}{client.nom[0] ?? ""}
+                {client.entreprise ? client.entreprise[0]?.toUpperCase() : `${client.prenom?.[0] ?? ""}${client.nom[0] ?? ""}`}
               </div>
               <div>
                 <h1 className="text-2xl font-bold">{fullName}</h1>
+                {client.entreprise && personName && (
+                  <p className="text-sm text-muted-foreground">Contact : {personName}</p>
+                )}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
                   {client.telephone && (
                     <span className="flex items-center gap-1 text-sm text-muted-foreground">
