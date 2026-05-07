@@ -34,6 +34,8 @@ const atelierSchema = z.object({
   prefixe_devis: z.string().min(1, "Requis"),
   prefixe_facture: z.string().min(1, "Requis"),
   tva_defaut: z.coerce.number().min(0).max(100),
+  validite_devis_jours: z.coerce.number().int().min(1).max(365),
+  delai_paiement_jours: z.coerce.number().int().min(1).max(365),
   conditions_generales: z.string().optional().or(z.literal("")),
   smtp_host: z.string().optional().or(z.literal("")),
   smtp_port: z.preprocess((v) => v === "" || v === null ? undefined : v, z.coerce.number().int().optional()),
@@ -54,6 +56,7 @@ export default function Parametres() {
     defaultValues: {
       nom: "", tagline: "", subtitre: "", siret: "", adresse: "", telephone: "", email: "", logo_path: null,
       prefixe_devis: "DEV-", prefixe_facture: "FAC-", tva_defaut: 20,
+      validite_devis_jours: 30, delai_paiement_jours: 30,
       conditions_generales: "", smtp_host: "", smtp_port: 587, smtp_user: "", smtp_pass: ""
     }
   });
@@ -72,6 +75,8 @@ export default function Parametres() {
         prefixe_devis: atelier.prefixe_devis,
         prefixe_facture: atelier.prefixe_facture,
         tva_defaut: atelier.tva_defaut,
+        validite_devis_jours: atelier.validite_devis_jours ?? 30,
+        delai_paiement_jours: atelier.delai_paiement_jours ?? 30,
         conditions_generales: atelier.conditions_generales || "",
         smtp_host: atelier.smtp_host || "",
         smtp_port: atelier.smtp_port || 587,
@@ -268,6 +273,22 @@ export default function Parametres() {
                 )} />
                 <FormField control={form.control} name="tva_defaut" render={({ field }) => (
                   <FormItem><FormLabel>TVA par défaut (%)</FormLabel><FormControl><Input type="number" {...field} className="bg-background/50" /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <div className="grid grid-cols-2 gap-6">
+                <FormField control={form.control} name="validite_devis_jours" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Validité devis (jours)</FormLabel>
+                    <FormControl><Input type="number" min={1} max={365} {...field} className="bg-background/50" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="delai_paiement_jours" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Délai de paiement (jours)</FormLabel>
+                    <FormControl><Input type="number" min={1} max={365} {...field} className="bg-background/50" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
               </div>
               <FormField control={form.control} name="conditions_generales" render={({ field }) => (

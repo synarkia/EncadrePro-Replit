@@ -57,6 +57,7 @@ export async function convertDevisToFacture(opts: ConvertDevisOpts): Promise<Con
   return db.transaction(async (tx) => {
     const lockedRows = await tx.execute(sql`
       SELECT id, statut, facture_id, total_ttc, total_tva_10, total_tva_20,
+             total_tva_55, total_tva_0,
              sous_total_ht, notes, conditions, client_id
         FROM devis
        WHERE id = ${targetId}
@@ -65,6 +66,7 @@ export async function convertDevisToFacture(opts: ConvertDevisOpts): Promise<Con
     const locked = ((lockedRows as { rows?: unknown[] }).rows ?? lockedRows) as Array<{
       id: number; statut: string; facture_id: number | null;
       total_ttc: string | number; total_tva_10: string | number; total_tva_20: string | number;
+      total_tva_55: string | number; total_tva_0: string | number;
       sous_total_ht: string | number; notes: string | null; conditions: string | null;
       client_id: number;
     }>;
@@ -92,6 +94,8 @@ export async function convertDevisToFacture(opts: ConvertDevisOpts): Promise<Con
     const lockedTotalTtc     = parseNum(devis.total_ttc);
     const lockedTva10        = parseNum(devis.total_tva_10);
     const lockedTva20        = parseNum(devis.total_tva_20);
+    const lockedTva55        = parseNum(devis.total_tva_55);
+    const lockedTva0         = parseNum(devis.total_tva_0);
     const lockedSousTotalHt  = parseNum(devis.sous_total_ht);
     if (acompteMontant > lockedTotalTtc + 0.01) {
       throw Object.assign(new Error("L'acompte ne peut pas dépasser le total TTC"), { statusCode: 400 });
@@ -122,6 +126,8 @@ export async function convertDevisToFacture(opts: ConvertDevisOpts): Promise<Con
       sous_total_ht: lockedSousTotalHt,
       total_tva_10: lockedTva10,
       total_tva_20: lockedTva20,
+      total_tva_55: lockedTva55,
+      total_tva_0: lockedTva0,
       total_ttc: lockedTotalTtc,
       total_paye: acompteMontant,
       solde_restant: lockedSoldeRestant,

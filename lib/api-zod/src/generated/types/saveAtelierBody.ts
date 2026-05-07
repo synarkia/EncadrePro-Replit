@@ -26,6 +26,8 @@ export interface SaveAtelierBody {
   prefixe_facture?: string;
   prefixe_facture_acompte?: string;
   tva_defaut?: number;
+  validite_devis_jours?: number;
+  delai_paiement_jours?: number;
   email_template?: string | null;
   smtp_host?: string | null;
   smtp_port?: number | null;

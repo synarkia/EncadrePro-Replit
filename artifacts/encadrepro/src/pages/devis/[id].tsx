@@ -56,9 +56,8 @@ const STATUT_OPTIONS: { value: string; label: string }[] = [
 function calcQ(unite: string, widthCm: number, heightCm: number, qte: number): number {
   const wM = widthCm / 100;
   const hM = heightCm / 100;
-  // Linear meters: typed dimensions are summed and used as-is (no perimeter doubling).
-  // Must stay in lock-step with QuoteLineCard.calcQuantite and api-server devis.calcLigne.
-  if (unite === "ml" || unite === "metre_lineaire") return (wM + hM) * qte;
+  // Full perimeter: 2 × (width + height). Must stay in lock-step with QuoteLineCard.calcQuantite and api-server devis.calcLigne.
+  if (unite === "ml" || unite === "metre_lineaire") return (wM + hM) * 2 * qte;
   if (unite === "m²" || unite === "metre_carre") return wM * hM * qte;
   return qte;
 }
@@ -412,7 +411,10 @@ export default function DevisDetail() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetDevisQueryKey(devisId) });
         toast({ title: "Devis enregistré", description: "Les lignes ont été sauvegardées." });
-      }
+      },
+      onError: () => {
+        toast({ title: "Erreur", description: "Impossible de sauvegarder les lignes.", variant: "destructive" });
+      },
     });
   };
 
@@ -497,17 +499,16 @@ export default function DevisDetail() {
 
   // ── Preview totals (live calculation from UI state) ───────────────────────
   const previewTotals = useMemo(() => {
-    let ht = 0, tva10 = 0, tva20 = 0;
+    let ht = 0, tva10 = 0, tva20 = 0, tva55 = 0;
     lignes.forEach(l => {
-      // Single source of truth for per-line HT — branches on l.type_ligne and
-      // applies the V1 TN/TA formula for matière. Stays in lock-step with
-      // QuoteLineCard's display and api-server's persisted total.
       const lineHT = computeQuoteLineHT(l);
       ht += lineHT;
-      if (l.taux_tva === 10) tva10 += lineHT * 0.1;
-      else if (l.taux_tva === 20) tva20 += lineHT * 0.2;
+      const rate = Number(l.taux_tva);
+      if (rate === 20) tva20 += lineHT * 0.20;
+      else if (rate === 10) tva10 += lineHT * 0.10;
+      else if (rate === 5.5) tva55 += lineHT * 0.055;
     });
-    return { ht, tva10, tva20, ttc: ht + tva10 + tva20 };
+    return { ht, tva10, tva20, tva55, ttc: ht + tva10 + tva20 + tva55 };
   }, [lignes]);
 
   if (isLoading) return (
@@ -720,6 +721,12 @@ export default function DevisDetail() {
                 <span className="print-totals-value">{formatCurrency(devis.total_tva_10)}</span>
               </div>
             )}
+            {(devis.total_tva_55 ?? 0) > 0 && (
+              <div className="print-totals-row is-vat">
+                <span className="print-totals-label">TVA <small>5,5%</small></span>
+                <span className="print-totals-value">{formatCurrency(devis.total_tva_55)}</span>
+              </div>
+            )}
             <div className="print-totals-row is-grand">
               <span className="print-totals-label">Total TTC</span>
               <span className="print-totals-value">{formatCurrency(devis.total_ttc)}</span>
@@ -913,16 +920,22 @@ export default function DevisDetail() {
               <span className="text-muted-foreground">Sous-total HT</span>
               <span className="font-semibold tabular-nums">{formatCurrency(previewTotals.ht)}</span>
             </div>
+            {previewTotals.tva20 > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">TVA 20%</span>
+                <span className="tabular-nums">{formatCurrency(previewTotals.tva20)}</span>
+              </div>
+            )}
             {previewTotals.tva10 > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">TVA 10%</span>
                 <span className="tabular-nums">{formatCurrency(previewTotals.tva10)}</span>
               </div>
             )}
-            {previewTotals.tva20 > 0 && (
+            {previewTotals.tva55 > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">TVA 20%</span>
-                <span className="tabular-nums">{formatCurrency(previewTotals.tva20)}</span>
+                <span className="text-muted-foreground">TVA 5,5%</span>
+                <span className="tabular-nums">{formatCurrency(previewTotals.tva55)}</span>
               </div>
             )}
             <div className="pt-3 border-t border-border/50 flex justify-between items-baseline">

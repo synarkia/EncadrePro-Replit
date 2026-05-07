@@ -134,6 +134,8 @@ export interface Devis {
   sous_total_ht: number;
   total_tva_10: number;
   total_tva_20: number;
+  total_tva_55: number;
+  total_tva_0: number;
   total_ttc: number;
   notes?: string | null;
   conditions?: string | null;
@@ -162,6 +164,8 @@ export interface Facture {
   sous_total_ht: number;
   total_tva_10: number;
   total_tva_20: number;
+  total_tva_55: number;
+  total_tva_0: number;
   total_ttc: number;
   total_paye: number;
   solde_restant: number;
@@ -606,6 +610,8 @@ export interface Atelier {
   compteur_facture: number;
   compteur_facture_acompte: number;
   tva_defaut: number;
+  validite_devis_jours: number;
+  delai_paiement_jours: number;
   email_template?: string | null;
   smtp_host?: string | null;
   smtp_port?: number | null;
@@ -633,6 +639,8 @@ export interface SaveAtelierBody {
   prefixe_facture?: string;
   prefixe_facture_acompte?: string;
   tva_defaut?: number;
+  validite_devis_jours?: number;
+  delai_paiement_jours?: number;
   email_template?: string | null;
   smtp_host?: string | null;
   smtp_port?: number | null;

@@ -40,6 +40,8 @@ export const atelierTable = pgTable("atelier", {
   compteur_facture: integer("compteur_facture").notNull().default(0),
   compteur_facture_acompte: integer("compteur_facture_acompte").notNull().default(0),
   tva_defaut: numeric("tva_defaut", { precision: 5, scale: 2, mode: "number" }).notNull().default(20),
+  validite_devis_jours: integer("validite_devis_jours").notNull().default(30),
+  delai_paiement_jours: integer("delai_paiement_jours").notNull().default(30),
 
   // ── Email ─────────────────────────────────────────────────────────────────
   email_template: text("email_template"),
