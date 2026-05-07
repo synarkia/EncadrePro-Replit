@@ -20,13 +20,22 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate } from "@/lib/format";
 
+const PHONE_RE = /^(0|\+33\s?|0033\s?)[1-9](\s?\d{2}){4}$/;
+const POSTAL_RE = /^\d{5}$/;
+
 const clientSchema = z.object({
   nom: z.string().min(1, "Le nom est requis"),
   prenom: z.string().optional(),
   email: z.string().email("Email invalide").optional().or(z.literal("")),
-  telephone: z.string().optional(),
+  telephone: z.string()
+    .refine(val => PHONE_RE.test(val.replace(/[\s.\-]/g, "")), "Format invalide (ex: 06 12 34 56 78)")
+    .optional()
+    .or(z.literal("")),
   adresse: z.string().optional(),
-  code_postal: z.string().optional(),
+  code_postal: z.string()
+    .refine(val => POSTAL_RE.test(val), "Code postal invalide (5 chiffres)")
+    .optional()
+    .or(z.literal("")),
   ville: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -47,6 +56,7 @@ export default function ClientsList() {
   const [actifsOnly, setActifsOnly] = useState(false);
   const { data: clients, isLoading } = useListClients({ search: search || undefined });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isDuplicateWarned, setIsDuplicateWarned] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const createClient = useCreateClient();
@@ -57,6 +67,24 @@ export default function ClientsList() {
   });
 
   const onSubmit = (data: ClientFormValues) => {
+    if (!isDuplicateWarned && clients) {
+      const nomNorm = data.nom.trim().toLowerCase();
+      const prenomNorm = (data.prenom || "").trim().toLowerCase();
+      const dup = clients.find(c =>
+        c.nom.toLowerCase() === nomNorm &&
+        (c.prenom ?? "").toLowerCase() === prenomNorm
+      );
+      if (dup) {
+        setIsDuplicateWarned(true);
+        toast({
+          title: "Client similaire détecté",
+          description: `"${[data.prenom, data.nom].filter(Boolean).join(" ")}" existe déjà. Cliquez à nouveau sur Créer pour confirmer.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    setIsDuplicateWarned(false);
     createClient.mutate({ data }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListClientsQueryKey() });
@@ -101,7 +129,7 @@ export default function ClientsList() {
           </p>
         </div>
 
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <Dialog open={isCreateOpen} onOpenChange={v => { setIsCreateOpen(v); if (!v) { form.reset(); setIsDuplicateWarned(false); } }}>
           <DialogTrigger asChild>
             <Button className="shadow-lg shadow-primary/20">
               <Plus className="mr-2 h-4 w-4" /> Nouveau client

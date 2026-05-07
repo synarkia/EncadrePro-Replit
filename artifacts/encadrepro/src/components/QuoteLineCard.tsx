@@ -283,7 +283,20 @@ export function QuoteLineCard({
             <span aria-hidden>{kind.emoji}</span>
             {kind.label}
           </span>
-          {!isEditable && (<span className="text-sm font-medium flex-1 truncate">{line.designation}</span>)}
+          {!isEditable && (
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-sm font-medium flex-1 truncate min-w-0">{line.designation}</span>
+                </TooltipTrigger>
+                {line.designation && (
+                  <TooltipContent side="bottom" className="max-w-xs break-words">
+                    {line.designation}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-sm font-bold text-accent tabular-nums">{formatCurrency(totalHT)}</span>
             <span className="text-[10px] text-muted-foreground">HT</span>
@@ -560,9 +573,9 @@ export function QuoteLineCard({
             {isEditable ? (
               <div className="flex items-center gap-1 ml-auto shrink-0">
                 <span className="text-[10px] text-muted-foreground">PU HT</span>
-                <Input type="number" step="0.01" min="0"
-                  value={line.prix_unitaire_ht}
-                  onChange={e => update({ prix_unitaire_ht: parseFloat(e.target.value) || 0 })}
+                <Input type="number" step="0.01"
+                  value={line.prix_unitaire_ht === 0 ? "" : line.prix_unitaire_ht}
+                  onChange={e => update({ prix_unitaire_ht: Math.max(0, parseFloat(e.target.value) || 0) })}
                   className="h-8 w-24 text-right text-sm font-semibold bg-background/50 border-border/50"
                   data-testid={`quote-line-pu-${line.id}`}
                 />

@@ -350,6 +350,10 @@ export default function Catalogue() {
   const handleCreate = () => {
     const prix = parseFloat(createForm.prix_ht);
     if (!createForm.designation || isNaN(prix)) return;
+    if (prix < 0) {
+      toast({ title: "Prix invalide", description: "Le prix HT ne peut pas être négatif.", variant: "destructive" });
+      return;
+    }
     createProduit.mutate({ data: buildPayload(createForm) }, {
       onSuccess: () => {
         invalidate();
@@ -385,6 +389,10 @@ export default function Catalogue() {
     if (!editingId) return;
     const prix = parseFloat(editForm.prix_ht);
     if (!editForm.designation || isNaN(prix)) return;
+    if (prix < 0) {
+      toast({ title: "Prix invalide", description: "Le prix HT ne peut pas être négatif.", variant: "destructive" });
+      return;
+    }
     updateProduit.mutate({ id: editingId, data: buildPayload(editForm) }, {
       onSuccess: () => {
         invalidate();
