@@ -29,20 +29,20 @@ router.get("/clients", async (req, res): Promise<void> => {
   const sortBy = typeof req.query.sort === "string" ? req.query.sort : "nom";
 
   type ClientRow = {
-    id: number; nom: string; prenom: string | null; entreprise: string | null; email: string | null;
+    id: number; nom: string | null; prenom: string | null; entreprise: string | null; email: string | null;
     telephone: string | null; adresse: string | null; ville: string | null;
     code_postal: string | null; notes: string | null; cree_le: string; modifie_le: string;
     ca_total: string; devis_count: string; derniere_activite: string | null;
   };
 
   const orderExpr: Record<string, string> = {
-    nom: "c.nom ASC",
-    entreprise: "c.entreprise ASC NULLS LAST, c.nom ASC",
-    ca: "ca_total DESC, c.nom ASC",
-    activite: "derniere_activite DESC NULLS LAST, c.nom ASC",
-    devis: "devis_count DESC, c.nom ASC",
+    nom: "c.nom ASC NULLS LAST, c.entreprise ASC NULLS LAST",
+    entreprise: "c.entreprise ASC NULLS LAST, c.nom ASC NULLS LAST",
+    ca: "ca_total DESC, c.nom ASC NULLS LAST",
+    activite: "derniere_activite DESC NULLS LAST, c.nom ASC NULLS LAST",
+    devis: "devis_count DESC, c.nom ASC NULLS LAST",
   };
-  const orderClause = orderExpr[sortBy] ?? "c.nom ASC";
+  const orderClause = orderExpr[sortBy] ?? "c.nom ASC NULLS LAST";
 
   const searchConds: string[] = [];
   if (search) {
@@ -97,13 +97,13 @@ router.get("/clients/search", async (req, res): Promise<void> => {
   if (q.length < 2) { res.json([]); return; }
 
   const escaped = q.replace(/'/g, "''");
-  type SearchRow = { id: number; nom: string; prenom: string | null; entreprise: string | null; telephone: string | null; email: string | null; ca_total: string; };
+  type SearchRow = { id: number; nom: string | null; prenom: string | null; entreprise: string | null; telephone: string | null; email: string | null; ca_total: string; };
   const rows = await execRows<SearchRow>(sql.raw(`
     SELECT c.id, c.nom, c.prenom, c.entreprise, c.telephone, c.email,
       COALESCE((SELECT SUM(total_ttc) FROM factures WHERE client_id = c.id AND statut IN ('envoyee','partiellement_payee','soldee')), 0) AS ca_total
     FROM clients c
     WHERE c.nom ILIKE '%${escaped}%' OR c.prenom ILIKE '%${escaped}%' OR c.entreprise ILIKE '%${escaped}%' OR c.email ILIKE '%${escaped}%' OR c.telephone ILIKE '%${escaped}%'
-    ORDER BY c.nom
+    ORDER BY c.entreprise ASC NULLS LAST, c.nom ASC NULLS LAST
     LIMIT 10
   `));
 
