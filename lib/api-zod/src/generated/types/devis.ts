@@ -23,6 +23,8 @@ export interface Devis {
   sous_total_ht: number;
   total_tva_10: number;
   total_tva_20: number;
+  total_tva_55: number;
+  total_tva_0: number;
   total_ttc: number;
   notes?: string | null;
   conditions?: string | null;

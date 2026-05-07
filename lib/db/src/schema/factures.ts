@@ -17,6 +17,8 @@ export const facturesTable = pgTable("factures", {
   sous_total_ht: numeric("sous_total_ht", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
   total_tva_10: numeric("total_tva_10", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
   total_tva_20: numeric("total_tva_20", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+  total_tva_55: numeric("total_tva_55", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+  total_tva_0: numeric("total_tva_0", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
   total_ttc: numeric("total_ttc", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
   total_paye: numeric("total_paye", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
   solde_restant: numeric("solde_restant", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),

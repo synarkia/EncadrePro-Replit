@@ -25,6 +25,8 @@ export interface Facture {
   sous_total_ht: number;
   total_tva_10: number;
   total_tva_20: number;
+  total_tva_55: number;
+  total_tva_0: number;
   total_ttc: number;
   total_paye: number;
   solde_restant: number;

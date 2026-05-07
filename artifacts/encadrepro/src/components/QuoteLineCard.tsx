@@ -68,8 +68,8 @@ export type QuoteLine = {
 function calcQuantite(unite: string, widthCm: number, heightCm: number, qte: number): number {
   const wM = widthCm / 100;
   const hM = heightCm / 100;
-  // No perimeter doubling — the typed dimension(s) are summed and used as-is.
-  if (unite === "ml" || unite === "metre_lineaire") return (wM + hM) * qte;
+  // Full perimeter: 2 × (width + height). Stays in lock-step with devis.ts calcLigne.
+  if (unite === "ml" || unite === "metre_lineaire") return (wM + hM) * 2 * qte;
   if (unite === "m²" || unite === "metre_carre") return wM * hM * qte;
   return qte;
 }

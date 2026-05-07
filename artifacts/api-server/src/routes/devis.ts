@@ -37,11 +37,9 @@ function calcLigne(unite: string, widthCm: number | null, heightCm: number | nul
   const wM = (widthCm ?? 0) / 100;
   const hM = (heightCm ?? 0) / 100;
   if (unite === "ml" || unite === "metre_lineaire") {
-    // V1 stored a single "longueur" in widthCm — sum widthCm + heightCm so
-    // callers that only fill one of the two still get the typed length.
-    // No ×2 perimeter doubling: clients should pre-compute perimeter
-    // themselves if they want it billed as such.
-    return (wM + hM) * quantite;
+    // Full perimeter: 2 × (width + height). Stays in lock-step with
+    // factures.ts and the QuoteLineCard / calcQ helpers in the frontend.
+    return (wM + hM) * 2 * quantite;
   }
   if (unite === "m²" || unite === "metre_carre") {
     return wM * hM * quantite;
@@ -71,15 +69,18 @@ async function getNextNumero(type: "devis" | "facture"): Promise<string> {
 async function recalcDevis(devisId: number): Promise<void> {
   const lignes = await db.select().from(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devisId));
 
-  let ht = 0, tva10 = 0, tva20 = 0;
+  let ht = 0, tva10 = 0, tva20 = 0, tva55 = 0, tva0 = 0;
   for (const l of lignes) {
     ht += l.total_ht;
-    if (l.taux_tva === 10) tva10 += l.total_ht * 0.1;
-    else tva20 += l.total_ht * 0.2;
+    const rate = Number(l.taux_tva);
+    if (rate === 20) tva20 += l.total_ht * 0.20;
+    else if (rate === 10) tva10 += l.total_ht * 0.10;
+    else if (rate === 5.5) tva55 += l.total_ht * 0.055;
+    // rate === 0: no TVA, tva0 stays 0 (column tracks HT base at 0%)
   }
 
   await db.update(devisTable)
-    .set({ sous_total_ht: ht, total_tva_10: tva10, total_tva_20: tva20, total_ttc: ht + tva10 + tva20 })
+    .set({ sous_total_ht: ht, total_tva_10: tva10, total_tva_20: tva20, total_tva_55: tva55, total_tva_0: tva0, total_ttc: ht + tva10 + tva20 + tva55 })
     .where(eq(devisTable.id, devisId));
 }
 
@@ -90,7 +91,7 @@ type DevisWithClient = {
   client_adresse: string | null; client_code_postal: string | null; client_ville: string | null;
   client_email: string | null; client_telephone: string | null;
   date_creation: string; date_validite: string; statut: string; sous_total_ht: string;
-  total_tva_10: string; total_tva_20: string; total_ttc: string; notes: string;
+  total_tva_10: string; total_tva_20: string; total_tva_55: string; total_tva_0: string; total_ttc: string; notes: string;
   conditions: string; facture_id: number; cree_le: string; modifie_le: string;
 };
 
@@ -116,7 +117,8 @@ function mapDevis(r: DevisWithClient) {
     date_creation: r.date_creation,
     date_validite: r.date_validite ?? null, statut: r.statut,
     sous_total_ht: parseNum(r.sous_total_ht), total_tva_10: parseNum(r.total_tva_10),
-    total_tva_20: parseNum(r.total_tva_20), total_ttc: parseNum(r.total_ttc),
+    total_tva_20: parseNum(r.total_tva_20), total_tva_55: parseNum(r.total_tva_55),
+    total_tva_0: parseNum(r.total_tva_0), total_ttc: parseNum(r.total_ttc),
     notes: r.notes ?? null, conditions: r.conditions ?? null, facture_id: r.facture_id ?? null,
     cree_le: s.cree_le as string, modifie_le: s.modifie_le as string,
   };
@@ -149,14 +151,15 @@ router.post("/devis", async (req, res): Promise<void> => {
     return;
   }
 
-  const [existingAtelier] = await db.select().from(atelierTable).where(eq(atelierTable.id, 1));
+  let [existingAtelier] = await db.select().from(atelierTable).where(eq(atelierTable.id, 1));
   if (!existingAtelier) {
     await db.insert(atelierTable).values({ id: 1, nom: "Mon Atelier" });
+    [existingAtelier] = await db.select().from(atelierTable).where(eq(atelierTable.id, 1));
   }
 
   const numero = await getNextNumero("devis");
   const validite = new Date();
-  validite.setDate(validite.getDate() + 30);
+  validite.setDate(validite.getDate() + (existingAtelier?.validite_devis_jours ?? 30));
 
   const [devis] = await db.insert(devisTable).values({
     numero,
@@ -435,9 +438,16 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
   const [devis] = await db.select().from(devisTable).where(eq(devisTable.id, params.data.id));
   if (!devis) { res.status(404).json({ error: "Devis introuvable" }); return; }
 
+  const lignesDevis = await db.select().from(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devis.id));
+  if (lignesDevis.length === 0) {
+    res.status(400).json({ error: "Impossible de convertir un devis sans lignes. Ajoutez au moins une ligne avant de convertir." });
+    return;
+  }
+
+  const [atelierRow] = await db.select().from(atelierTable).where(eq(atelierTable.id, 1));
   const numero = await getNextNumero("facture");
   const echeance = new Date();
-  echeance.setDate(echeance.getDate() + 30);
+  echeance.setDate(echeance.getDate() + (atelierRow?.delai_paiement_jours ?? 30));
 
   const [facture] = await db.insert(facturesTable).values({
     numero,
@@ -446,6 +456,8 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
     sous_total_ht: devis.sous_total_ht,
     total_tva_10: devis.total_tva_10,
     total_tva_20: devis.total_tva_20,
+    total_tva_55: devis.total_tva_55,
+    total_tva_0: devis.total_tva_0,
     total_ttc: devis.total_ttc,
     total_paye: 0,
     solde_restant: devis.total_ttc,
@@ -455,8 +467,7 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
     date_echeance: echeance.toISOString().slice(0, 10),
   }).returning();
 
-  const lignes = await db.select().from(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devis.id));
-  for (const l of lignes) {
+  for (const l of lignesDevis) {
     await db.insert(lignesFactureTable).values({
       facture_id: facture.id,
       produit_id: l.produit_id,
@@ -486,7 +497,7 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
     client_adresse: string | null; client_code_postal: string | null; client_ville: string | null;
     client_email: string | null; client_telephone: string | null;
     date_creation: string; date_echeance: string;
-    statut: string; sous_total_ht: string; total_tva_10: string; total_tva_20: string;
+    statut: string; sous_total_ht: string; total_tva_10: string; total_tva_20: string; total_tva_55: string; total_tva_0: string;
     total_ttc: string; total_paye: string; solde_restant: string; notes: string;
     conditions: string; prestation_periode: string | null; bon_de_commande: string | null;
     cree_le: string; modifie_le: string;
@@ -513,7 +524,8 @@ router.post("/devis/:id/convertir", async (req, res): Promise<void> => {
     date_creation: f.date_creation,
     date_echeance: f.date_echeance ?? null, statut: f.statut,
     sous_total_ht: parseNum(f.sous_total_ht), total_tva_10: parseNum(f.total_tva_10),
-    total_tva_20: parseNum(f.total_tva_20), total_ttc: parseNum(f.total_ttc),
+    total_tva_20: parseNum(f.total_tva_20), total_tva_55: parseNum(f.total_tva_55),
+    total_tva_0: parseNum(f.total_tva_0), total_ttc: parseNum(f.total_ttc),
     total_paye: parseNum(f.total_paye), solde_restant: parseNum(f.solde_restant),
     notes: f.notes ?? null, conditions: f.conditions ?? null,
     prestation_periode: f.prestation_periode ?? null,

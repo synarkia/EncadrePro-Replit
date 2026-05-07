@@ -169,7 +169,7 @@ export default function FactureDetail() {
   };
 
   const previewTotals = useMemo(() => {
-    let ht = 0, tva10 = 0, tva20 = 0;
+    let ht = 0, tva10 = 0, tva20 = 0, tva55 = 0;
     lignes.forEach(l => {
       let q = Number(l.quantite) || 0;
       if (l.unite_calcul === 'metre_lineaire') {
@@ -184,10 +184,12 @@ export default function FactureDetail() {
       const remisePct = Math.max(0, Math.min(100, Number(l.remise_pct) || 0));
       const lineHt = q * (Number(l.prix_unitaire_ht) || 0) * (1 - remisePct / 100);
       ht += lineHt;
-      if (Number(l.taux_tva) === 10) tva10 += lineHt * 0.1;
-      else if (Number(l.taux_tva) === 20) tva20 += lineHt * 0.2;
+      const rate = Number(l.taux_tva);
+      if (rate === 20) tva20 += lineHt * 0.20;
+      else if (rate === 10) tva10 += lineHt * 0.10;
+      else if (rate === 5.5) tva55 += lineHt * 0.055;
     });
-    return { ht, tva10, tva20, ttc: ht + tva10 + tva20 };
+    return { ht, tva10, tva20, tva55, ttc: ht + tva10 + tva20 + tva55 };
   }, [lignes]);
 
   const handleChangeStatut = (newStatut: string) => {
@@ -495,6 +497,14 @@ export default function FactureDetail() {
                 <span className="print-totals-value">{formatCurrency(facture.total_tva_10)}</span>
               </div>
             )}
+            {(facture.total_tva_55 ?? 0) > 0 && (
+              <div className="print-totals-row is-vat">
+                <span className="print-totals-label">
+                  TVA <small>5,5 % sur {formatCurrency((facture.total_tva_55 ?? 0) / 0.055)}</small>
+                </span>
+                <span className="print-totals-value">{formatCurrency(facture.total_tva_55 ?? 0)}</span>
+              </div>
+            )}
             <div className="print-totals-row is-grand">
               <span className="print-totals-label">Total TTC</span>
               <span className="print-totals-value">{formatCurrency(facture.total_ttc)}</span>
@@ -774,8 +784,9 @@ export default function FactureDetail() {
                           } else if (ligne.unite_calcul === 'metre_carre') {
                             dispQ = (Number(ligne.largeur_m)||0) * (Number(ligne.hauteur_m)||0) * dispQ;
                           }
+                          const remisePctDisp = Math.max(0, Math.min(100, Number(ligne.remise_pct) || 0));
                           const totalHt = isEditable
-                            ? dispQ * (Number(ligne.prix_unitaire_ht)||0)
+                            ? dispQ * (Number(ligne.prix_unitaire_ht)||0) * (1 - remisePctDisp / 100)
                             : (ligne.total_ht ?? dispQ * (Number(ligne.prix_unitaire_ht)||0));
 
                           return (
@@ -877,8 +888,9 @@ export default function FactureDetail() {
                   {isEditable ? (
                     <>
                       <div className="flex justify-between text-sm"><span className="text-muted-foreground">Sous-total HT</span><span className="font-medium">{formatCurrency(previewTotals.ht)}</span></div>
-                      {previewTotals.tva10 > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">TVA 10%</span><span>{formatCurrency(previewTotals.tva10)}</span></div>}
                       {previewTotals.tva20 > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">TVA 20%</span><span>{formatCurrency(previewTotals.tva20)}</span></div>}
+                      {previewTotals.tva10 > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">TVA 10%</span><span>{formatCurrency(previewTotals.tva10)}</span></div>}
+                      {previewTotals.tva55 > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">TVA 5,5%</span><span>{formatCurrency(previewTotals.tva55)}</span></div>}
                       <div className="pt-3 border-t border-border/50 flex justify-between items-center">
                         <span className="font-bold text-lg">Total TTC</span>
                         <span className="font-bold text-2xl text-primary">{formatCurrency(previewTotals.ttc)}</span>
@@ -887,8 +899,9 @@ export default function FactureDetail() {
                   ) : (
                     <>
                       <div className="flex justify-between text-sm"><span className="text-muted-foreground">Sous-total HT</span><span className="font-medium">{formatCurrency(facture.sous_total_ht)}</span></div>
-                      {facture.total_tva_10 > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">TVA 10%</span><span>{formatCurrency(facture.total_tva_10)}</span></div>}
                       {facture.total_tva_20 > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">TVA 20%</span><span>{formatCurrency(facture.total_tva_20)}</span></div>}
+                      {facture.total_tva_10 > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">TVA 10%</span><span>{formatCurrency(facture.total_tva_10)}</span></div>}
+                      {(facture.total_tva_55 ?? 0) > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">TVA 5,5%</span><span>{formatCurrency(facture.total_tva_55 ?? 0)}</span></div>}
                       <div className="pt-3 border-t border-border/50 flex justify-between items-center">
                         <span className="font-bold text-lg">Total TTC</span>
                         <span className="font-bold text-2xl text-primary">{formatCurrency(facture.total_ttc)}</span>

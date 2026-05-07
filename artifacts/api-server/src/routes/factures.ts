@@ -28,7 +28,7 @@ type FactureWithClient = {
   client_adresse: string | null; client_code_postal: string | null; client_ville: string | null;
   client_email: string | null; client_telephone: string | null;
   date_creation: string; date_echeance: string;
-  statut: string; sous_total_ht: string; total_tva_10: string; total_tva_20: string;
+  statut: string; sous_total_ht: string; total_tva_10: string; total_tva_20: string; total_tva_55: string; total_tva_0: string;
   total_ttc: string; total_paye: string; solde_restant: string; notes: string;
   conditions: string; prestation_periode: string | null; bon_de_commande: string | null;
   cree_le: string; modifie_le: string;
@@ -61,7 +61,8 @@ function mapFacture(f: FactureWithClient) {
     date_creation: f.date_creation,
     date_echeance: f.date_echeance ?? null, statut: f.statut,
     sous_total_ht: parseNum(f.sous_total_ht), total_tva_10: parseNum(f.total_tva_10),
-    total_tva_20: parseNum(f.total_tva_20), total_ttc: parseNum(f.total_ttc),
+    total_tva_20: parseNum(f.total_tva_20), total_tva_55: parseNum(f.total_tva_55),
+    total_tva_0: parseNum(f.total_tva_0), total_ttc: parseNum(f.total_ttc),
     total_paye: parseNum(f.total_paye), solde_restant: parseNum(f.solde_restant),
     notes: f.notes ?? null, conditions: f.conditions ?? null,
     prestation_periode: f.prestation_periode ?? null,
@@ -76,14 +77,17 @@ async function recalcFacture(factureId: number): Promise<void> {
     sql`SELECT COALESCE(SUM(montant), 0) as total FROM acomptes WHERE facture_id = ${factureId}`
   );
 
-  let ht = 0, tva10 = 0, tva20 = 0;
+  let ht = 0, tva10 = 0, tva20 = 0, tva55 = 0, tva0 = 0;
   for (const l of lignes) {
     ht += l.total_ht;
-    if (l.taux_tva === 10) tva10 += l.total_ht * 0.1;
-    else tva20 += l.total_ht * 0.2;
+    const rate = Number(l.taux_tva);
+    if (rate === 20) tva20 += l.total_ht * 0.20;
+    else if (rate === 10) tva10 += l.total_ht * 0.10;
+    else if (rate === 5.5) tva55 += l.total_ht * 0.055;
+    // rate === 0: no TVA
   }
 
-  const totalTTC = ht + tva10 + tva20;
+  const totalTTC = ht + tva10 + tva20 + tva55;
   const totalPaye = parseNum(acompteRows[0]?.total);
   const soldeRestant = Math.max(0, totalTTC - totalPaye);
 
@@ -95,7 +99,7 @@ async function recalcFacture(factureId: number): Promise<void> {
 
   await db.update(facturesTable)
     .set({
-      sous_total_ht: ht, total_tva_10: tva10, total_tva_20: tva20,
+      sous_total_ht: ht, total_tva_10: tva10, total_tva_20: tva20, total_tva_55: tva55, total_tva_0: tva0,
       total_ttc: totalTTC, total_paye: totalPaye, solde_restant: soldeRestant,
       statut,
     })
@@ -145,8 +149,9 @@ router.post("/factures", async (req, res): Promise<void> => {
   await db.update(atelierTable).set({ compteur_facture: next }).where(eq(atelierTable.id, 1));
   const numero = `${atelierRow.prefixe_facture}-${year}-${String(next).padStart(3, "0")}`;
 
+  const [atelierForDefault] = await db.select().from(atelierTable).where(eq(atelierTable.id, 1));
   const echeance = new Date();
-  echeance.setDate(echeance.getDate() + 30);
+  echeance.setDate(echeance.getDate() + (atelierForDefault?.delai_paiement_jours ?? 30));
 
   const [facture] = await db.insert(facturesTable).values({
     numero,
