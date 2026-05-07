@@ -23,9 +23,10 @@ import {
   facturesTable,
   lignesFactureTable,
   acomptesTable,
-  facturesAcompteTable,
 } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
+import { convertDevisToFacture } from "./services/convert-devis";
+import { recalcFacture } from "./services/recalc-facture";
 
 if (process.env.NODE_ENV === "production") {
   console.error("❌ Refus de lancer le seed en production (NODE_ENV=production).");
@@ -42,7 +43,6 @@ const daysAgo = (n: number) => {
 };
 const year = today.getFullYear();
 const pad3 = (n: number) => String(n).padStart(3, "0");
-const pad4 = (n: number) => String(n).padStart(4, "0");
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // ── Wipe all transactional tables ───────────────────────────────────────
@@ -59,7 +59,13 @@ async function wipe() {
 }
 
 // ── Atelier (singleton, upsert) ─────────────────────────────────────────
-async function seedAtelier(counters: { devis: number; facture: number; faAcompte: number }) {
+//
+// Counters always start at 0 here; every devis/facture/FA created below
+// then atomically increments them through `nextDevisNumero()` and
+// `convertDevisToFacture()`. By the time the seed finishes the singleton
+// holds the authoritative counter values — no post-hoc reconciliation
+// needed and no risk of drift between counters and the actual rows.
+async function seedAtelier() {
   const data = {
     nom: "Atelier AGV",
     adresse: "152 rue de Tolbiac, 75013 Paris",
@@ -78,9 +84,9 @@ async function seedAtelier(counters: { devis: number; facture: number; faAcompte
     prefixe_devis: "DEV",
     prefixe_facture: "FAC",
     prefixe_facture_acompte: "FA",
-    compteur_devis: counters.devis,
-    compteur_facture: counters.facture,
-    compteur_facture_acompte: counters.faAcompte,
+    compteur_devis: 0,
+    compteur_facture: 0,
+    compteur_facture_acompte: 0,
   };
   const [existing] = await db.select().from(atelierTable).where(eq(atelierTable.id, 1));
   if (!existing) {
@@ -88,6 +94,31 @@ async function seedAtelier(counters: { devis: number; facture: number; faAcompte
   } else {
     await db.update(atelierTable).set(data).where(eq(atelierTable.id, 1));
   }
+}
+
+// ── Atomic counter helpers (mirror routes/devis.ts:getNextNumero pattern,
+//     but race-free via UPDATE … RETURNING). Used so that EVERY document
+//     number — devis, standalone facture, and FA created via the convert
+//     service — comes from the same source of truth.
+async function nextDevisNumero(): Promise<string> {
+  const r = await db.execute(sql`
+    UPDATE atelier SET compteur_devis = compteur_devis + 1
+     WHERE id = 1
+    RETURNING compteur_devis AS n, prefixe_devis AS p
+  `);
+  const rows = ((r as { rows?: unknown[] }).rows ?? r) as Array<{ n: number; p: string }>;
+  const row = rows[0];
+  return `${row.p}-${year}-${pad3(Number(row.n))}`;
+}
+async function nextFactureNumero(): Promise<string> {
+  const r = await db.execute(sql`
+    UPDATE atelier SET compteur_facture = compteur_facture + 1
+     WHERE id = 1
+    RETURNING compteur_facture AS n, prefixe_facture AS p
+  `);
+  const rows = ((r as { rows?: unknown[] }).rows ?? r) as Array<{ n: number; p: string }>;
+  const row = rows[0];
+  return `${row.p}-${year}-${pad3(Number(row.n))}`;
 }
 
 // ── Fournisseurs ────────────────────────────────────────────────────────
@@ -502,14 +533,20 @@ async function seedDevisAndFactures(clientIds: number[], prodMap: Map<string, Pr
 
   for (const d of DEVIS) {
     devisCounter++;
-    const numero = `DEV-${year}-${pad3(devisCounter)}`;
+    const numero = await nextDevisNumero();
+    // For "converti" rows we insert as `accepte` first and then run the
+    // shared `convertDevisToFacture()` service, which is the single
+    // authoritative path for devis→facture conversion (atomic counter,
+    // FA emission, idempotency lock). The service flips the statut to
+    // `converti` itself.
+    const initialStatut = d.statut === "converti" ? "accepte" : d.statut;
 
     const [devis] = await db.insert(devisTable).values({
       numero,
       client_id: clientIds[d.client_idx],
       date_creation: d.date_creation,
       date_validite: d.date_validite,
-      statut: d.statut,
+      statut: initialStatut,
       notes: d.notes ?? null,
       conditions: d.conditions ?? null,
     }).returning();
@@ -570,99 +607,73 @@ async function seedDevisAndFactures(clientIds: number[], prodMap: Map<string, Pr
     tva20Sum  = round2(tva20Sum);
     const totalTtc = round2(totalHt + tva10Sum + tva20Sum);
 
-    let factureFk: number | null = null;
-
-    if (d.statut === "converti") {
-      factureCounter++;
-      const fnumero = `FAC-${year}-${pad3(factureCounter)}`;
-      const acompte = d.acompteRatio ? round2(totalTtc * d.acompteRatio) : 0;
-
-      const [facture] = await db.insert(facturesTable).values({
-        numero: fnumero,
-        devis_id: devis.id,
-        client_id: clientIds[d.client_idx],
-        date_creation: d.date_creation,
-        date_echeance: d.factureEcheance ?? d.date_creation,
-        statut: d.factureStatut!,
-        sous_total_ht: totalHt,
-        total_tva_10: tva10Sum,
-        total_tva_20: tva20Sum,
-        total_ttc: totalTtc,
-        total_paye: acompte,
-        solde_restant: round2(Math.max(0, totalTtc - acompte)),
-        notes: d.notes ?? null,
-      }).returning();
-      factureFk = facture.id;
-
-      // Copy lignes_devis → lignes_facture (preserve totals).
-      const lignes = await db.select().from(lignesDevisTable).where(eq(lignesDevisTable.devis_id, devis.id));
-      let fOrdre = 0;
-      for (const l of lignes) {
-        await db.insert(lignesFactureTable).values({
-          facture_id: facture.id,
-          produit_id: l.produit_id,
-          designation: l.designation,
-          unite_calcul: l.unite_calcul,
-          largeur_m: l.largeur_m,
-          hauteur_m: l.hauteur_m,
-          quantite: l.quantite,
-          quantite_calculee: l.quantite_calculee,
-          prix_unitaire_ht: l.prix_unitaire_ht,
-          remise_pct: l.remise_pct ?? 0,
-          taux_tva: l.taux_tva,
-          total_ht: l.total_ht,
-          total_ttc: l.total_ttc,
-          ordre: fOrdre++,
-        });
-      }
-
-      if (acompte > 0) {
-        await db.insert(acomptesTable).values({
-          facture_id: facture.id,
-          montant: acompte,
-          date_paiement: d.acompteDate ?? d.date_creation,
-          mode_paiement: "virement",
-          notes: d.factureStatut === "soldee" ? "Paiement intégral" : "Acompte 30%",
-        });
-      }
-
-      // Standalone facture d'acompte (French tax law) for partial deposits.
-      if (d.withFA && acompte > 0) {
-        faCounter++;
-        const ratio  = totalTtc > 0 ? acompte / totalTtc : 0;
-        const faTva10 = round2(tva10Sum * ratio);
-        const faTva20 = round2(tva20Sum * ratio);
-        const faTva   = round2(faTva10 + faTva20);
-        const faHt    = round2(acompte - faTva);
-        await db.insert(facturesAcompteTable).values({
-          numero: `FA-${year}-${pad4(faCounter)}`,
-          facture_id: facture.id,
-          devis_id: devis.id,
-          montant_ht: faHt,
-          montant_tva: faTva,
-          montant_tva_10: faTva10,
-          montant_tva_20: faTva20,
-          montant_ttc: acompte,
-          mode_reglement: "virement",
-          reference_paiement: "VIR-2026-FNAC-001",
-          date_paiement: d.acompteDate ?? d.date_creation,
-        });
-      }
-    }
-
+    // Persist the totals on the devis BEFORE conversion: the convert
+    // service reads `total_ttc` / `total_tva_*` / `sous_total_ht` from the
+    // locked row to fill the facture, and to compute the per-rate VAT
+    // ratio on the FA.
     await db.update(devisTable).set({
       sous_total_ht: totalHt,
       total_tva_10: tva10Sum,
       total_tva_20: tva20Sum,
       total_ttc: totalTtc,
-      facture_id: factureFk,
     }).where(eq(devisTable.id, devis.id));
+
+    if (d.statut === "converti") {
+      // ── Single source of truth for devis → facture conversion ────────
+      // Same call path as POST /devis/:id/convertir: atomic atelier
+      // counter increments (facture + FA), FOR UPDATE idempotency lock,
+      // lignes copy, statut flip to "converti", and FA emission with
+      // proportional 10/20 VAT split. By going through the service the
+      // seeded "converti" rows are byte-identical to what a real user
+      // click would produce.
+      //
+      // Two flavors are demoed:
+      //   • partiellement_payee → convert WITH a deposit (FA emitted),
+      //     then `recalcFacture` flips the facture statut just like the
+      //     production payments route would after a wire transfer comes
+      //     in below the total.
+      //   • soldee → convert with NO deposit (no FA), then record a full
+      //     payment through the same `acomptesTable` + `recalcFacture`
+      //     path that POST /factures/:id/paiements uses. This keeps a
+      //     single FA in the seeded dataset (FA-YYYY-0001) while still
+      //     exercising the post-conversion payment flow end-to-end.
+      const upfrontAcompte = d.factureStatut === "partiellement_payee" && d.acompteRatio
+        ? round2(totalTtc * d.acompteRatio)
+        : 0;
+
+      const result = await convertDevisToFacture({
+        id: devis.id,
+        acompte_montant: upfrontAcompte,
+        mode_paiement: upfrontAcompte > 0 ? "virement" : null,
+        reference_virement: d.withFA && upfrontAcompte > 0 ? "VIR-2026-FNAC-001" : null,
+        date_echeance: d.factureEcheance ?? d.date_creation,
+      });
+      if (result.kind !== "created") {
+        throw new Error(`convertDevisToFacture inattendu: ${result.kind}`);
+      }
+      factureCounter++;
+      if (result.factureAcompte) faCounter++;
+
+      if (d.factureStatut === "partiellement_payee") {
+        await recalcFacture(result.facture.id);
+      } else if (d.factureStatut === "soldee") {
+        const fullPayment = d.acompteRatio ? round2(totalTtc * d.acompteRatio) : totalTtc;
+        await db.insert(acomptesTable).values({
+          facture_id: result.facture.id,
+          montant: fullPayment,
+          date_paiement: d.acompteDate ?? d.date_creation,
+          mode_paiement: "virement",
+          notes: "Paiement intégral à la livraison",
+        });
+        await recalcFacture(result.facture.id);
+      }
+    }
   }
 
   // ── Standalone factures (no devis source) ────────────────────────────
   for (const f of STANDALONE_FACTURES) {
     factureCounter++;
-    const fnumero = `FAC-${year}-${pad3(factureCounter)}`;
+    const fnumero = await nextFactureNumero();
 
     let ht = 0, tva10 = 0, tva20 = 0;
     const computed = f.lignes.map((l, i) => {
@@ -725,6 +736,10 @@ async function seed() {
   console.log("🧹 Nettoyage des tables transactionnelles…");
   await wipe();
 
+  // Atelier first: the convert service and the next-numero helpers below
+  // all depend on `compteur_*` columns being present and starting at 0.
+  await seedAtelier();
+
   console.log("🌱 Insertion du jeu de démo…");
   const supplierIds = await seedFournisseurs();
   console.log(`  Fournisseurs : ${supplierIds.size}`);
@@ -740,12 +755,7 @@ async function seed() {
   console.log(`  Factures     : ${counts.factureCount}`);
   console.log(`  Factures d'acompte (FA) : ${counts.faCount}`);
 
-  await seedAtelier({
-    devis: counts.devisCount,
-    facture: counts.factureCount,
-    faAcompte: counts.faCount,
-  });
-  console.log(`  Atelier (singleton) : compteurs synchronisés`);
+  console.log(`  Atelier (singleton) : compteurs incrémentés via le service de conversion`);
 
   console.log("✅ Seed terminé");
   process.exit(0);

@@ -3,6 +3,7 @@ import { eq, sql, inArray } from "drizzle-orm";
 import { db, facturesTable, lignesFactureTable, acomptesTable, atelierTable, produitsTable } from "@workspace/db";
 import { computeLigneTotalHT, type RegimePricing } from "../lib/compute-line";
 import { execRows, serializeDates } from "../lib/db-utils";
+import { recalcFacture } from "../services/recalc-facture";
 import {
   ListFacturesResponse,
   CreateFactureBody,
@@ -68,38 +69,6 @@ function mapFacture(f: FactureWithClient) {
     bon_de_commande: f.bon_de_commande ?? null,
     cree_le: s.cree_le as string, modifie_le: s.modifie_le as string,
   };
-}
-
-async function recalcFacture(factureId: number): Promise<void> {
-  const lignes = await db.select().from(lignesFactureTable).where(eq(lignesFactureTable.facture_id, factureId));
-  const acompteRows = await execRows<{ total: string }>(
-    sql`SELECT COALESCE(SUM(montant), 0) as total FROM acomptes WHERE facture_id = ${factureId}`
-  );
-
-  let ht = 0, tva10 = 0, tva20 = 0;
-  for (const l of lignes) {
-    ht += l.total_ht;
-    if (l.taux_tva === 10) tva10 += l.total_ht * 0.1;
-    else tva20 += l.total_ht * 0.2;
-  }
-
-  const totalTTC = ht + tva10 + tva20;
-  const totalPaye = parseNum(acompteRows[0]?.total);
-  const soldeRestant = Math.max(0, totalTTC - totalPaye);
-
-  // Determine auto-status based on payments
-  const [current] = await db.select().from(facturesTable).where(eq(facturesTable.id, factureId));
-  let statut = current?.statut ?? "brouillon";
-  if (totalPaye > 0 && soldeRestant > 0.01) statut = "partiellement_payee";
-  else if (totalPaye >= totalTTC && totalTTC > 0) statut = "soldee";
-
-  await db.update(facturesTable)
-    .set({
-      sous_total_ht: ht, total_tva_10: tva10, total_tva_20: tva20,
-      total_ttc: totalTTC, total_paye: totalPaye, solde_restant: soldeRestant,
-      statut,
-    })
-    .where(eq(facturesTable.id, factureId));
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
