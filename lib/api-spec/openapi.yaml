@@ -111,6 +111,21 @@ paths:
           in: query
           schema:
             type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [nom, entreprise, ca, activite, devis]
+        - name: actifs_seulement
+          in: query
+          schema:
+            type: string
+            enum: ["0", "1"]
+        - name: entreprise_only
+          in: query
+          schema:
+            type: string
+            enum: ["0", "1"]
       responses:
         "200":
           description: List of clients

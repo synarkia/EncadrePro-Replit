@@ -25,6 +25,7 @@ const parseNum = (v: unknown) => parseFloat(String(v ?? "0"));
 router.get("/clients", async (req, res): Promise<void> => {
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
   const actifsOnly = req.query.actifs_seulement === "1";
+  const entrepriseOnly = req.query.entreprise_only === "1";
   const sortBy = typeof req.query.sort === "string" ? req.query.sort : "nom";
 
   type ClientRow = {
@@ -36,6 +37,7 @@ router.get("/clients", async (req, res): Promise<void> => {
 
   const orderExpr: Record<string, string> = {
     nom: "c.nom ASC",
+    entreprise: "c.entreprise ASC NULLS LAST, c.nom ASC",
     ca: "ca_total DESC, c.nom ASC",
     activite: "derniere_activite DESC NULLS LAST, c.nom ASC",
     devis: "devis_count DESC, c.nom ASC",
@@ -48,6 +50,7 @@ router.get("/clients", async (req, res): Promise<void> => {
     searchConds.push(`(c.nom ILIKE '%${esc}%' OR c.prenom ILIKE '%${esc}%' OR c.entreprise ILIKE '%${esc}%' OR c.email ILIKE '%${esc}%' OR c.telephone ILIKE '%${esc}%')`);
   }
   if (actifsOnly) searchConds.push("COALESCE(ca.ca_total, 0) > 0");
+  if (entrepriseOnly) searchConds.push("c.entreprise IS NOT NULL AND c.entreprise <> ''");
   const whereClause = searchConds.length > 0 ? `WHERE ${searchConds.join(" AND ")}` : "";
 
   const rawQuery = `

@@ -5,7 +5,13 @@
  * EncadrePro API – gestion d'un atelier d'encadrement
  * OpenAPI spec version: 1.0.0
  */
+import type { ListClientsActifsSeulement } from "./listClientsActifsSeulement";
+import type { ListClientsEntrepriseOnly } from "./listClientsEntrepriseOnly";
+import type { ListClientsSort } from "./listClientsSort";
 
 export type ListClientsParams = {
   search?: string;
+  sort?: ListClientsSort;
+  actifs_seulement?: ListClientsActifsSeulement;
+  entreprise_only?: ListClientsEntrepriseOnly;
 };

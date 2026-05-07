@@ -80,6 +80,9 @@ export const GetDashboardRecentFacturesResponse = zod.array(
  */
 export const ListClientsQueryParams = zod.object({
   search: zod.coerce.string().optional(),
+  sort: zod.enum(["nom", "entreprise", "ca", "activite", "devis"]).optional(),
+  actifs_seulement: zod.enum(["0", "1"]).optional(),
+  entreprise_only: zod.enum(["0", "1"]).optional(),
 });
 
 export const ListClientsResponseItem = zod.object({

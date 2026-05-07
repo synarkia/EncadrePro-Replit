@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   Plus, Search, ChevronRight, TrendingUp, FileText, Clock, ArrowUpDown,
-  Users, ToggleLeft, ToggleRight,
+  Users, ToggleLeft, ToggleRight, Building2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,10 +33,11 @@ const clientSchema = z.object({
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
-type SortKey = "nom" | "ca" | "activite" | "devis";
+type SortKey = "nom" | "entreprise" | "ca" | "activite" | "devis";
 
 const SORT_OPTIONS: { key: SortKey; label: string; icon: React.ReactNode }[] = [
   { key: "nom", label: "Nom", icon: <ArrowUpDown className="h-3 w-3" /> },
+  { key: "entreprise", label: "Entreprise", icon: <Building2 className="h-3 w-3" /> },
   { key: "ca", label: "CA", icon: <TrendingUp className="h-3 w-3" /> },
   { key: "activite", label: "Activité", icon: <Clock className="h-3 w-3" /> },
   { key: "devis", label: "Devis", icon: <FileText className="h-3 w-3" /> },
@@ -46,7 +47,13 @@ export default function ClientsList() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("nom");
   const [actifsOnly, setActifsOnly] = useState(false);
-  const { data: clients, isLoading } = useListClients({ search: search || undefined });
+  const [entrepriseOnly, setEntrepriseOnly] = useState(false);
+  const { data: clients, isLoading } = useListClients({
+    search: search || undefined,
+    sort: sortBy,
+    actifs_seulement: actifsOnly ? "1" : undefined,
+    entreprise_only: entrepriseOnly ? "1" : undefined,
+  });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -71,23 +78,8 @@ export default function ClientsList() {
     });
   };
 
-  const sortedClients = useMemo(() => {
-    if (!clients) return [];
-    let list = [...clients];
-    if (actifsOnly) list = list.filter(c => (c.ca_total ?? 0) > 0);
-    list.sort((a, b) => {
-      if (sortBy === "nom") return a.nom.localeCompare(b.nom);
-      if (sortBy === "ca") return (b.ca_total ?? 0) - (a.ca_total ?? 0);
-      if (sortBy === "devis") return (b.devis_count ?? 0) - (a.devis_count ?? 0);
-      if (sortBy === "activite") {
-        const da = a.derniere_activite ?? a.cree_le;
-        const db_ = b.derniere_activite ?? b.cree_le;
-        return db_.localeCompare(da);
-      }
-      return 0;
-    });
-    return list;
-  }, [clients, sortBy, actifsOnly]);
+  // Sorting + filtering are server-driven via useListClients query params.
+  const sortedClients = useMemo(() => clients ?? [], [clients]);
 
   const totalCA = useMemo(() => sortedClients.reduce((s, c) => s + (c.ca_total ?? 0), 0), [sortedClients]);
 
@@ -166,7 +158,7 @@ export default function ClientsList() {
         <div className="flex items-center gap-2 bg-card/50 px-3 py-2 rounded-lg border flex-1 max-w-xs">
           <Search className="h-4 w-4 text-muted-foreground shrink-0" />
           <Input
-            placeholder="Nom, email, téléphone..."
+            placeholder="Nom, entreprise, email, téléphone..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="border-0 focus-visible:ring-0 shadow-none bg-transparent p-0 h-auto text-sm"
@@ -203,6 +195,19 @@ export default function ClientsList() {
           {actifsOnly ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
           Actifs seulement
         </button>
+
+        {/* Sociétés toggle */}
+        <button
+          onClick={() => setEntrepriseOnly(v => !v)}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
+            entrepriseOnly
+              ? "bg-primary/15 border-primary/40 text-primary"
+              : "bg-card/50 border-border/50 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Building2 className="h-4 w-4" />
+          Sociétés uniquement
+        </button>
       </div>
 
       {/* ── List ────────────────────────────────────────────── */}
@@ -212,9 +217,14 @@ export default function ClientsList() {
         ) : sortedClients.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground border border-dashed rounded-xl bg-card/30">
             <Users className="h-10 w-10 mx-auto mb-3 opacity-20" />
-            <p className="font-medium">{actifsOnly ? "Aucun client actif" : "Aucun client trouvé"}</p>
-            {actifsOnly && (
-              <button onClick={() => setActifsOnly(false)} className="text-sm text-primary hover:underline mt-1">
+            <p className="font-medium">
+              {entrepriseOnly ? "Aucune société trouvée" : actifsOnly ? "Aucun client actif" : "Aucun client trouvé"}
+            </p>
+            {(actifsOnly || entrepriseOnly) && (
+              <button
+                onClick={() => { setActifsOnly(false); setEntrepriseOnly(false); }}
+                className="text-sm text-primary hover:underline mt-1"
+              >
                 Afficher tous les clients
               </button>
             )}

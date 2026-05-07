@@ -642,7 +642,37 @@ export interface SaveAtelierBody {
 
 export type ListClientsParams = {
   search?: string;
+  sort?: ListClientsSort;
+  actifs_seulement?: ListClientsActifsSeulement;
+  entreprise_only?: ListClientsEntrepriseOnly;
 };
+
+export type ListClientsSort =
+  (typeof ListClientsSort)[keyof typeof ListClientsSort];
+
+export const ListClientsSort = {
+  nom: "nom",
+  entreprise: "entreprise",
+  ca: "ca",
+  activite: "activite",
+  devis: "devis",
+} as const;
+
+export type ListClientsActifsSeulement =
+  (typeof ListClientsActifsSeulement)[keyof typeof ListClientsActifsSeulement];
+
+export const ListClientsActifsSeulement = {
+  NUMBER_0: "0",
+  NUMBER_1: "1",
+} as const;
+
+export type ListClientsEntrepriseOnly =
+  (typeof ListClientsEntrepriseOnly)[keyof typeof ListClientsEntrepriseOnly];
+
+export const ListClientsEntrepriseOnly = {
+  NUMBER_0: "0",
+  NUMBER_1: "1",
+} as const;
 
 export type ListProduitsParams = {
   type_code?: ListProduitsTypeCode;
