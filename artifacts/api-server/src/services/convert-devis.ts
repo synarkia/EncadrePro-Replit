@@ -173,11 +173,16 @@ export async function convertDevisToFacture(opts: ConvertDevisOpts): Promise<Con
       });
 
       // Standalone "facture d'acompte" (French tax law) with per-rate VAT split.
+      // The dedicated FA template only breaks out 10 % and 20 % columns, but
+      // the *total* `montant_tva` MUST include every applicable rate (incl.
+      // 5.5 %), otherwise montant_ht is overstated and the deposit invoice
+      // is fiscally incorrect for mixed-rate quotes.
       const ratio   = lockedTotalTtc > 0 ? acompteMontant / lockedTotalTtc : 0;
       const faTtc   = acompteMontant;
       const faTva10 = Math.round(lockedTva10 * ratio * 100) / 100;
       const faTva20 = Math.round(lockedTva20 * ratio * 100) / 100;
-      const faTva   = Math.round((faTva10 + faTva20) * 100) / 100;
+      const faTva55 = Math.round(lockedTva55 * ratio * 100) / 100;
+      const faTva   = Math.round((faTva10 + faTva20 + faTva55) * 100) / 100;
       const faHt    = Math.round((faTtc - faTva) * 100) / 100;
 
       const counterRows = await tx.execute(sql`

@@ -24,7 +24,9 @@ export interface Devis {
   sous_total_ht: number;
   total_tva_10: number;
   total_tva_20: number;
+  /** VAT collected at the 5.5% rate (0 when not applicable) */
   total_tva_55: number;
+  /** Reserved tracker for 0% lines (always 0 — column tracks HT base) */
   total_tva_0: number;
   total_ttc: number;
   notes?: string | null;

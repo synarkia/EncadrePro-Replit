@@ -222,8 +222,14 @@ export const GetClientStatsResponse = zod.object({
       sous_total_ht: zod.number(),
       total_tva_10: zod.number(),
       total_tva_20: zod.number(),
-      total_tva_55: zod.number(),
-      total_tva_0: zod.number(),
+      total_tva_55: zod
+        .number()
+        .describe("VAT collected at the 5.5% rate (0 when not applicable)"),
+      total_tva_0: zod
+        .number()
+        .describe(
+          "Reserved tracker for 0% lines (always 0 — column tracks HT base)",
+        ),
       total_ttc: zod.number(),
       notes: zod.string().nullish(),
       conditions: zod.string().nullish(),
@@ -253,8 +259,14 @@ export const GetClientStatsResponse = zod.object({
       sous_total_ht: zod.number(),
       total_tva_10: zod.number(),
       total_tva_20: zod.number(),
-      total_tva_55: zod.number(),
-      total_tva_0: zod.number(),
+      total_tva_55: zod
+        .number()
+        .describe("VAT collected at the 5.5% rate (0 when not applicable)"),
+      total_tva_0: zod
+        .number()
+        .describe(
+          "Reserved tracker for 0% lines (always 0 — column tracks HT base)",
+        ),
       total_ttc: zod.number(),
       total_paye: zod.number(),
       solde_restant: zod.number(),
@@ -630,8 +642,14 @@ export const ListDevisResponseItem = zod.object({
   sous_total_ht: zod.number(),
   total_tva_10: zod.number(),
   total_tva_20: zod.number(),
-  total_tva_55: zod.number(),
-  total_tva_0: zod.number(),
+  total_tva_55: zod
+    .number()
+    .describe("VAT collected at the 5.5% rate (0 when not applicable)"),
+  total_tva_0: zod
+    .number()
+    .describe(
+      "Reserved tracker for 0% lines (always 0 — column tracks HT base)",
+    ),
   total_ttc: zod.number(),
   notes: zod.string().nullish(),
   conditions: zod.string().nullish(),
@@ -675,8 +693,14 @@ export const GetDevisResponse = zod
     sous_total_ht: zod.number(),
     total_tva_10: zod.number(),
     total_tva_20: zod.number(),
-    total_tva_55: zod.number(),
-    total_tva_0: zod.number(),
+    total_tva_55: zod
+      .number()
+      .describe("VAT collected at the 5.5% rate (0 when not applicable)"),
+    total_tva_0: zod
+      .number()
+      .describe(
+        "Reserved tracker for 0% lines (always 0 — column tracks HT base)",
+      ),
     total_ttc: zod.number(),
     notes: zod.string().nullish(),
     conditions: zod.string().nullish(),
@@ -778,8 +802,14 @@ export const UpdateDevisStatutResponse = zod.object({
   sous_total_ht: zod.number(),
   total_tva_10: zod.number(),
   total_tva_20: zod.number(),
-  total_tva_55: zod.number(),
-  total_tva_0: zod.number(),
+  total_tva_55: zod
+    .number()
+    .describe("VAT collected at the 5.5% rate (0 when not applicable)"),
+  total_tva_0: zod
+    .number()
+    .describe(
+      "Reserved tracker for 0% lines (always 0 — column tracks HT base)",
+    ),
   total_ttc: zod.number(),
   notes: zod.string().nullish(),
   conditions: zod.string().nullish(),
@@ -840,8 +870,14 @@ export const SaveDevisLignesResponse = zod.object({
   sous_total_ht: zod.number(),
   total_tva_10: zod.number(),
   total_tva_20: zod.number(),
-  total_tva_55: zod.number(),
-  total_tva_0: zod.number(),
+  total_tva_55: zod
+    .number()
+    .describe("VAT collected at the 5.5% rate (0 when not applicable)"),
+  total_tva_0: zod
+    .number()
+    .describe(
+      "Reserved tracker for 0% lines (always 0 — column tracks HT base)",
+    ),
   total_ttc: zod.number(),
   notes: zod.string().nullish(),
   conditions: zod.string().nullish(),
@@ -1090,8 +1126,14 @@ export const ListFacturesResponseItem = zod.object({
   sous_total_ht: zod.number(),
   total_tva_10: zod.number(),
   total_tva_20: zod.number(),
-  total_tva_55: zod.number(),
-  total_tva_0: zod.number(),
+  total_tva_55: zod
+    .number()
+    .describe("VAT collected at the 5.5% rate (0 when not applicable)"),
+  total_tva_0: zod
+    .number()
+    .describe(
+      "Reserved tracker for 0% lines (always 0 — column tracks HT base)",
+    ),
   total_ttc: zod.number(),
   total_paye: zod.number(),
   solde_restant: zod.number(),
@@ -1140,8 +1182,14 @@ export const GetFactureResponse = zod
     sous_total_ht: zod.number(),
     total_tva_10: zod.number(),
     total_tva_20: zod.number(),
-    total_tva_55: zod.number(),
-    total_tva_0: zod.number(),
+    total_tva_55: zod
+      .number()
+      .describe("VAT collected at the 5.5% rate (0 when not applicable)"),
+    total_tva_0: zod
+      .number()
+      .describe(
+        "Reserved tracker for 0% lines (always 0 — column tracks HT base)",
+      ),
     total_ttc: zod.number(),
     total_paye: zod.number(),
     solde_restant: zod.number(),
@@ -1230,8 +1278,14 @@ export const UpdateFactureStatutResponse = zod.object({
   sous_total_ht: zod.number(),
   total_tva_10: zod.number(),
   total_tva_20: zod.number(),
-  total_tva_55: zod.number(),
-  total_tva_0: zod.number(),
+  total_tva_55: zod
+    .number()
+    .describe("VAT collected at the 5.5% rate (0 when not applicable)"),
+  total_tva_0: zod
+    .number()
+    .describe(
+      "Reserved tracker for 0% lines (always 0 — column tracks HT base)",
+    ),
   total_ttc: zod.number(),
   total_paye: zod.number(),
   solde_restant: zod.number(),
@@ -1284,8 +1338,16 @@ export const GetAtelierResponse = zod.object({
   compteur_facture: zod.number(),
   compteur_facture_acompte: zod.number(),
   tva_defaut: zod.number(),
-  validite_devis_jours: zod.number(),
-  delai_paiement_jours: zod.number(),
+  validite_devis_jours: zod
+    .number()
+    .describe(
+      "Default validity period (days) added to today when creating a devis",
+    ),
+  delai_paiement_jours: zod
+    .number()
+    .describe(
+      "Default payment deadline (days) added to today when creating\/converting a facture",
+    ),
   email_template: zod.string().nullish(),
   smtp_host: zod.string().nullish(),
   smtp_port: zod.number().nullish(),
@@ -1316,8 +1378,14 @@ export const SaveAtelierBody = zod.object({
   prefixe_facture: zod.string().optional(),
   prefixe_facture_acompte: zod.string().optional(),
   tva_defaut: zod.number().optional(),
-  validite_devis_jours: zod.number().optional(),
-  delai_paiement_jours: zod.number().optional(),
+  validite_devis_jours: zod
+    .number()
+    .optional()
+    .describe("Default validity period (days) for new devis"),
+  delai_paiement_jours: zod
+    .number()
+    .optional()
+    .describe("Default payment deadline (days) for new factures"),
   email_template: zod.string().nullish(),
   smtp_host: zod.string().nullish(),
   smtp_port: zod.number().nullish(),
@@ -1349,8 +1417,16 @@ export const SaveAtelierResponse = zod.object({
   compteur_facture: zod.number(),
   compteur_facture_acompte: zod.number(),
   tva_defaut: zod.number(),
-  validite_devis_jours: zod.number(),
-  delai_paiement_jours: zod.number(),
+  validite_devis_jours: zod
+    .number()
+    .describe(
+      "Default validity period (days) added to today when creating a devis",
+    ),
+  delai_paiement_jours: zod
+    .number()
+    .describe(
+      "Default payment deadline (days) added to today when creating\/converting a facture",
+    ),
   email_template: zod.string().nullish(),
   smtp_host: zod.string().nullish(),
   smtp_port: zod.number().nullish(),

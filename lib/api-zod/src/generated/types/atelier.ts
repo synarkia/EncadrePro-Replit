@@ -30,7 +30,9 @@ export interface Atelier {
   compteur_facture: number;
   compteur_facture_acompte: number;
   tva_defaut: number;
+  /** Default validity period (days) added to today when creating a devis */
   validite_devis_jours: number;
+  /** Default payment deadline (days) added to today when creating/converting a facture */
   delai_paiement_jours: number;
   email_template?: string | null;
   smtp_host?: string | null;

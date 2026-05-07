@@ -1394,13 +1394,15 @@ components:
         sous_total_ht: { type: number }
         total_tva_10: { type: number }
         total_tva_20: { type: number }
+        total_tva_55: { type: number, description: "VAT collected at the 5.5% rate (0 when not applicable)" }
+        total_tva_0: { type: number, description: "Reserved tracker for 0% lines (always 0 — column tracks HT base)" }
         total_ttc: { type: number }
         notes: { type: string, nullable: true }
         conditions: { type: string, nullable: true }
         facture_id: { type: integer, nullable: true }
         cree_le: { type: string }
         modifie_le: { type: string }
-      required: [id, numero, client_id, date_creation, statut, sous_total_ht, total_tva_10, total_tva_20, total_ttc, cree_le, modifie_le]
+      required: [id, numero, client_id, date_creation, statut, sous_total_ht, total_tva_10, total_tva_20, total_tva_55, total_tva_0, total_ttc, cree_le, modifie_le]
 
     DevisDetail:
       allOf:
@@ -1576,6 +1578,8 @@ components:
         sous_total_ht: { type: number }
         total_tva_10: { type: number }
         total_tva_20: { type: number }
+        total_tva_55: { type: number, description: "VAT collected at the 5.5% rate (0 when not applicable)" }
+        total_tva_0: { type: number, description: "Reserved tracker for 0% lines (always 0 — column tracks HT base)" }
         total_ttc: { type: number }
         total_paye: { type: number }
         solde_restant: { type: number }
@@ -1585,7 +1589,7 @@ components:
         bon_de_commande: { type: string, nullable: true }
         cree_le: { type: string }
         modifie_le: { type: string }
-      required: [id, numero, client_id, date_creation, statut, sous_total_ht, total_tva_10, total_tva_20, total_ttc, total_paye, solde_restant, cree_le, modifie_le]
+      required: [id, numero, client_id, date_creation, statut, sous_total_ht, total_tva_10, total_tva_20, total_tva_55, total_tva_0, total_ttc, total_paye, solde_restant, cree_le, modifie_le]
 
     LigneFacture:
       type: object
@@ -1666,12 +1670,14 @@ components:
         compteur_facture: { type: integer }
         compteur_facture_acompte: { type: integer }
         tva_defaut: { type: number }
+        validite_devis_jours: { type: integer, description: "Default validity period (days) added to today when creating a devis" }
+        delai_paiement_jours: { type: integer, description: "Default payment deadline (days) added to today when creating/converting a facture" }
         email_template: { type: string, nullable: true }
         smtp_host: { type: string, nullable: true }
         smtp_port: { type: integer, nullable: true }
         smtp_user: { type: string, nullable: true }
         smtp_pass: { type: string, nullable: true }
-      required: [id, nom, prefixe_devis, prefixe_facture, prefixe_facture_acompte, compteur_devis, compteur_facture, compteur_facture_acompte, tva_defaut]
+      required: [id, nom, prefixe_devis, prefixe_facture, prefixe_facture_acompte, compteur_devis, compteur_facture, compteur_facture_acompte, tva_defaut, validite_devis_jours, delai_paiement_jours]
 
     SaveAtelierBody:
       type: object
@@ -1695,6 +1701,8 @@ components:
         prefixe_facture: { type: string }
         prefixe_facture_acompte: { type: string }
         tva_defaut: { type: number }
+        validite_devis_jours: { type: integer, description: "Default validity period (days) for new devis" }
+        delai_paiement_jours: { type: integer, description: "Default payment deadline (days) for new factures" }
         email_template: { type: string, nullable: true }
         smtp_host: { type: string, nullable: true }
         smtp_port: { type: integer, nullable: true }

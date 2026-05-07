@@ -134,7 +134,9 @@ export interface Devis {
   sous_total_ht: number;
   total_tva_10: number;
   total_tva_20: number;
+  /** VAT collected at the 5.5% rate (0 when not applicable) */
   total_tva_55: number;
+  /** Reserved tracker for 0% lines (always 0 — column tracks HT base) */
   total_tva_0: number;
   total_ttc: number;
   notes?: string | null;
@@ -164,7 +166,9 @@ export interface Facture {
   sous_total_ht: number;
   total_tva_10: number;
   total_tva_20: number;
+  /** VAT collected at the 5.5% rate (0 when not applicable) */
   total_tva_55: number;
+  /** Reserved tracker for 0% lines (always 0 — column tracks HT base) */
   total_tva_0: number;
   total_ttc: number;
   total_paye: number;
@@ -610,7 +614,9 @@ export interface Atelier {
   compteur_facture: number;
   compteur_facture_acompte: number;
   tva_defaut: number;
+  /** Default validity period (days) added to today when creating a devis */
   validite_devis_jours: number;
+  /** Default payment deadline (days) added to today when creating/converting a facture */
   delai_paiement_jours: number;
   email_template?: string | null;
   smtp_host?: string | null;
@@ -639,7 +645,9 @@ export interface SaveAtelierBody {
   prefixe_facture?: string;
   prefixe_facture_acompte?: string;
   tva_defaut?: number;
+  /** Default validity period (days) for new devis */
   validite_devis_jours?: number;
+  /** Default payment deadline (days) for new factures */
   delai_paiement_jours?: number;
   email_template?: string | null;
   smtp_host?: string | null;
