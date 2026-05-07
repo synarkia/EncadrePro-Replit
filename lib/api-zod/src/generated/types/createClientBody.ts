@@ -7,7 +7,7 @@
  */
 
 export interface CreateClientBody {
-  nom: string;
+  nom?: string | null;
   prenom?: string | null;
   entreprise?: string | null;
   email?: string | null;

@@ -1146,7 +1146,7 @@ components:
       type: object
       properties:
         id: { type: integer }
-        nom: { type: string }
+        nom: { type: string, nullable: true }
         prenom: { type: string, nullable: true }
         entreprise: { type: string, nullable: true }
         email: { type: string, nullable: true }
@@ -1160,12 +1160,12 @@ components:
         ca_total: { type: number, nullable: true }
         devis_count: { type: integer, nullable: true }
         derniere_activite: { type: string, nullable: true }
-      required: [id, nom, cree_le, modifie_le]
+      required: [id, cree_le, modifie_le]
 
     CreateClientBody:
       type: object
       properties:
-        nom: { type: string }
+        nom: { type: string, nullable: true }
         prenom: { type: string, nullable: true }
         entreprise: { type: string, nullable: true }
         email: { type: string, nullable: true }
@@ -1174,7 +1174,6 @@ components:
         ville: { type: string, nullable: true }
         code_postal: { type: string, nullable: true }
         notes: { type: string, nullable: true }
-      required: [nom]
 
     ClientStats:
       type: object

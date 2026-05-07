@@ -9,7 +9,7 @@ const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 export type ClientSearchResult = {
   id: number;
-  nom: string;
+  nom: string | null;
   prenom: string | null;
   entreprise: string | null;
   telephone: string | null;
@@ -107,14 +107,17 @@ export function ClientSearchCombobox({
   };
 
   const handleSaveNew = async () => {
-    if (!newForm.nom.trim()) return;
+    if (!newForm.nom.trim() && !newForm.entreprise.trim()) {
+      toast({ title: "Champs manquants", description: "Renseignez au moins un nom ou une entreprise.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`${BASE_URL}/api/clients`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nom: newForm.nom.trim(),
+          nom: newForm.nom.trim() || null,
           prenom: newForm.prenom.trim() || null,
           entreprise: newForm.entreprise.trim() || null,
           telephone: newForm.telephone.trim() || null,
@@ -123,15 +126,15 @@ export function ClientSearchCombobox({
         }),
       });
       if (!res.ok) throw new Error("Erreur serveur");
-      const created = await res.json() as { id: number; nom: string; prenom?: string | null; entreprise?: string | null; telephone?: string | null; email?: string | null };
+      const created = await res.json() as { id: number; nom: string | null; prenom?: string | null; entreprise?: string | null; telephone?: string | null; email?: string | null };
       const newClient: ClientSearchResult = {
-        id: created.id, nom: created.nom,
+        id: created.id, nom: created.nom ?? null,
         prenom: created.prenom ?? null,
         entreprise: created.entreprise ?? null,
         telephone: created.telephone ?? null,
         email: created.email ?? null, ca_total: 0,
       };
-      toast({ title: "Client créé", description: created.entreprise || `${newForm.prenom} ${newForm.nom}`.trim() });
+      toast({ title: "Client créé", description: created.entreprise || `${newForm.prenom} ${newForm.nom}`.trim() || "—" });
       handleSelect(newClient);
       setNewForm({ prenom: "", nom: "", entreprise: "", telephone: "", email: "", adresse: "" });
     } catch {
@@ -144,10 +147,10 @@ export function ClientSearchCombobox({
   const initials = (client: ClientSearchResult) =>
     (client.entreprise
       ? client.entreprise[0]
-      : `${client.prenom?.[0] ?? ""}${client.nom[0] ?? ""}`)?.toUpperCase() || "?";
+      : `${client.prenom?.[0] ?? ""}${client.nom?.[0] ?? ""}`)?.toUpperCase() || "?";
 
   const displayName = (client: ClientSearchResult) =>
-    client.entreprise || `${client.prenom ?? ""} ${client.nom}`.trim();
+    client.entreprise || `${client.prenom ?? ""} ${client.nom ?? ""}`.trim() || "—";
 
   if (selectedClient) {
     return (
@@ -219,7 +222,7 @@ export function ClientSearchCombobox({
                 <Input
                   value={newForm.nom}
                   onChange={e => setNewForm(f => ({ ...f, nom: e.target.value }))}
-                  placeholder="Nom *"
+                  placeholder="Nom"
                   className="h-8 text-sm bg-background/60 border-border/60"
                   autoFocus
                 />
@@ -259,7 +262,7 @@ export function ClientSearchCombobox({
               />
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => setShowNewForm(false)}>Annuler</Button>
-                <Button size="sm" className="flex-1 h-8 text-xs" disabled={!newForm.nom.trim() || saving} onClick={handleSaveNew}>
+                <Button size="sm" className="flex-1 h-8 text-xs" disabled={(!newForm.nom.trim() && !newForm.entreprise.trim()) || saving} onClick={handleSaveNew}>
                   {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
                   Créer et sélectionner
                 </Button>

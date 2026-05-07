@@ -21,7 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 const clientSchema = z.object({
-  nom: z.string().min(1, "Le nom est requis"),
+  nom: z.string().optional(),
   prenom: z.string().optional(),
   entreprise: z.string().optional(),
   email: z.string().email("Email invalide").optional().or(z.literal("")),
@@ -30,6 +30,10 @@ const clientSchema = z.object({
   code_postal: z.string().optional(),
   ville: z.string().optional(),
   notes: z.string().optional(),
+}).superRefine((v, ctx) => {
+  if (!(v.nom ?? "").trim() && !(v.entreprise ?? "").trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["nom"], message: "Renseignez au moins un nom ou une entreprise" });
+  }
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
@@ -111,7 +115,7 @@ export default function ClientsList() {
                     <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="nom" render={({ field }) => (
-                    <FormItem><FormLabel>Nom *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Nom</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
                 <FormField control={form.control} name="entreprise" render={({ field }) => (
@@ -237,12 +241,12 @@ export default function ClientsList() {
                   <div className="flex items-center gap-4 min-w-0">
                     {/* Avatar */}
                     <div className="h-11 w-11 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-sm border border-primary/25 shrink-0">
-                      {client.entreprise ? client.entreprise[0]?.toUpperCase() : `${client.prenom?.[0] ?? ""}${client.nom[0] ?? ""}`}
+                      {client.entreprise ? client.entreprise[0]?.toUpperCase() : (`${client.prenom?.[0] ?? ""}${client.nom?.[0] ?? ""}` || "?")}
                     </div>
                     {/* Info */}
                     <div className="min-w-0">
                       <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                        {client.entreprise || `${client.prenom ?? ""} ${client.nom}`.trim()}
+                        {client.entreprise || `${client.prenom ?? ""} ${client.nom ?? ""}`.trim() || "—"}
                       </h3>
                       {client.entreprise && (client.prenom || client.nom) && (
                         <p className="text-[11px] text-muted-foreground">{[client.prenom, client.nom].filter(Boolean).join(" ")}</p>

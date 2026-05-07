@@ -33,7 +33,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
 const clientSchema = z.object({
-  nom: z.string().min(1, "Le nom est requis"),
+  nom: z.string().optional().or(z.literal("")),
   prenom: z.string().optional().or(z.literal("")),
   entreprise: z.string().optional().or(z.literal("")),
   email: z.string().email("Email invalide").optional().or(z.literal("")),
@@ -42,6 +42,10 @@ const clientSchema = z.object({
   code_postal: z.string().optional().or(z.literal("")),
   ville: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
+}).superRefine((v, ctx) => {
+  if (!(v.nom ?? "").trim() && !(v.entreprise ?? "").trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["nom"], message: "Renseignez au moins un nom ou une entreprise" });
+  }
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
@@ -139,7 +143,7 @@ export default function ClientDetail() {
   if (!client) return <div className="p-8 text-muted-foreground">Client introuvable</div>;
 
   const personName = [client.prenom, client.nom].filter(Boolean).join(" ").trim();
-  const fullName = client.entreprise || personName || "—";
+  const fullName = (client.entreprise ?? "").trim() || personName || "—";
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -158,7 +162,7 @@ export default function ClientDetail() {
                   <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="nom" render={({ field }) => (
-                  <FormItem><FormLabel>Nom *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Nom</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
               </div>
               <FormField control={form.control} name="entreprise" render={({ field }) => (
@@ -213,7 +217,7 @@ export default function ClientDetail() {
             {/* Avatar + Name */}
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-lg font-bold text-primary">
-                {client.entreprise ? client.entreprise[0]?.toUpperCase() : `${client.prenom?.[0] ?? ""}${client.nom[0] ?? ""}`}
+                {client.entreprise ? client.entreprise[0]?.toUpperCase() : (`${client.prenom?.[0] ?? ""}${client.nom?.[0] ?? ""}` || "?")}
               </div>
               <div>
                 <h1 className="text-2xl font-bold">{fullName}</h1>

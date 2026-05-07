@@ -8,7 +8,7 @@
 
 export interface Client {
   id: number;
-  nom: string;
+  nom?: string | null;
   prenom?: string | null;
   entreprise?: string | null;
   email?: string | null;

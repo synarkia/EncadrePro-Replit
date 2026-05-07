@@ -127,7 +127,18 @@ router.post("/clients", async (req, res): Promise<void> => {
     return;
   }
 
-  const [client] = await db.insert(clientsTable).values(parsed.data).returning();
+  const nomTrim = (parsed.data.nom ?? "").trim();
+  const entTrim = (parsed.data.entreprise ?? "").trim();
+  if (!nomTrim && !entTrim) {
+    res.status(400).json({ error: "Renseignez au moins un nom ou une entreprise." });
+    return;
+  }
+
+  const [client] = await db.insert(clientsTable).values({
+    ...parsed.data,
+    nom: nomTrim || null,
+    entreprise: entTrim || null,
+  }).returning();
   res.status(201).json(GetClientResponse.parse(serializeDates(client)));
 });
 
@@ -154,9 +165,16 @@ router.put("/clients/:id", async (req, res): Promise<void> => {
   const parsed = UpdateClientBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  const nomTrim = (parsed.data.nom ?? "").trim();
+  const entTrim = (parsed.data.entreprise ?? "").trim();
+  if (!nomTrim && !entTrim) {
+    res.status(400).json({ error: "Renseignez au moins un nom ou une entreprise." });
+    return;
+  }
+
   const [client] = await db
     .update(clientsTable)
-    .set({ ...parsed.data })
+    .set({ ...parsed.data, nom: nomTrim || null, entreprise: entTrim || null })
     .where(eq(clientsTable.id, params.data.id))
     .returning();
 

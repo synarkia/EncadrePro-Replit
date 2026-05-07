@@ -88,7 +88,7 @@ export interface RecentDoc {
 
 export interface Client {
   id: number;
-  nom: string;
+  nom?: string | null;
   prenom?: string | null;
   entreprise?: string | null;
   email?: string | null;
@@ -105,7 +105,7 @@ export interface Client {
 }
 
 export interface CreateClientBody {
-  nom: string;
+  nom?: string | null;
   prenom?: string | null;
   entreprise?: string | null;
   email?: string | null;
