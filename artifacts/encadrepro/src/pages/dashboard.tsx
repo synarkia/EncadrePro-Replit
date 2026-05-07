@@ -32,8 +32,8 @@ export default function Dashboard() {
         </div>
       ) : stats ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Link href="/factures">
-            <Card className="glass-panel cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all group">
+          <Link href="/factures" className="block h-full">
+            <Card className="glass-panel cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all group h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">CA du mois</CardTitle>
                 <TrendingUp className="h-4 w-4 text-primary" />
@@ -46,8 +46,8 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </Link>
-          <Link href="/devis?statut=envoye">
-            <Card className="glass-panel cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all group">
+          <Link href="/devis?statut=envoye" className="block h-full">
+            <Card className="glass-panel cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all group h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Devis en attente</CardTitle>
                 <FileText className="h-4 w-4 text-primary" />
@@ -63,8 +63,8 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </Link>
-          <Link href="/factures?statut=envoyee">
-            <Card className="glass-panel cursor-pointer hover:bg-white/5 hover:border-destructive/30 transition-all group">
+          <Link href="/factures?statut=envoyee" className="block h-full">
+            <Card className="glass-panel cursor-pointer hover:bg-white/5 hover:border-destructive/30 transition-all group h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Factures impayées</CardTitle>
                 <FileSpreadsheet className="h-4 w-4 text-destructive" />
@@ -80,8 +80,8 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </Link>
-          <Link href="/clients">
-            <Card className="glass-panel cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all group">
+          <Link href="/clients" className="block h-full">
+            <Card className="glass-panel cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all group h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Nouveaux clients</CardTitle>
                 <Users className="h-4 w-4 text-primary" />
