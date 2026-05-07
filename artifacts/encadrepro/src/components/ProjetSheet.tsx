@@ -56,6 +56,7 @@ export function ProjetSheet({ open, onOpenChange, mode, initial, onSubmit, isSub
   const [width, setWidth] = useState<string>("");
   const [height, setHeight] = useState<string>("");
   const [label, setLabel] = useState<string>("");
+  const [dimensionError, setDimensionError] = useState<string | null>(null);
   // Default ON; only flipped by the user via the Switch. The "touched" flag
   // distinguishes auto-defaults (re-applied on sheet open + on type change)
   // from explicit user intent (which we preserve across type switches).
@@ -98,6 +99,14 @@ export function ProjetSheet({ open, onOpenChange, mode, initial, onSubmit, isSub
     e.preventDefault();
     const w = width.trim() === "" ? null : Number(width);
     const h = height.trim() === "" ? null : Number(height);
+
+    if ((w !== null && (!Number.isFinite(w) || w <= 0)) ||
+        (h !== null && (!Number.isFinite(h) || h <= 0))) {
+      setDimensionError("Les dimensions doivent être supérieures à 0.");
+      return;
+    }
+    setDimensionError(null);
+
     onSubmit({
       type,
       width_cm: w != null && Number.isFinite(w) ? w : null,
@@ -186,35 +195,38 @@ export function ProjetSheet({ open, onOpenChange, mode, initial, onSubmit, isSub
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="projet-width">Largeur (cm)</Label>
-              <Input
-                id="projet-width"
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step="0.1"
-                value={width}
-                onChange={e => setWidth(e.target.value)}
-                placeholder="80"
-                data-testid="projet-width"
-              />
+          <div className="space-y-1.5">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="projet-width">Largeur (cm)</Label>
+                <Input
+                  id="projet-width"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  value={width}
+                  onChange={e => { setWidth(e.target.value); setDimensionError(null); }}
+                  placeholder="80"
+                  data-testid="projet-width"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="projet-height">Hauteur (cm)</Label>
+                <Input
+                  id="projet-height"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  value={height}
+                  onChange={e => { setHeight(e.target.value); setDimensionError(null); }}
+                  placeholder="60"
+                  data-testid="projet-height"
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="projet-height">Hauteur (cm)</Label>
-              <Input
-                id="projet-height"
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step="0.1"
-                value={height}
-                onChange={e => setHeight(e.target.value)}
-                placeholder="60"
-                data-testid="projet-height"
-              />
-            </div>
+            {dimensionError && (
+              <p className="text-xs text-destructive">{dimensionError}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">

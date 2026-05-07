@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Save, Building2, Receipt, Mail, Upload, Image as ImageIcon, Trash2 } from "lucide-react";
+import { Save, Building2, Receipt, Mail, Upload, Image as ImageIcon, Trash2, AlertTriangle } from "lucide-react";
 import { useUpload } from "@workspace/object-storage-web";
 import { ImportSection } from "./ImportSection";
 import { Button } from "@/components/ui/button";
@@ -218,7 +218,18 @@ export default function Parametres() {
                   <FormItem><FormLabel>Nom de l'atelier *</FormLabel><FormControl><Input {...field} className="bg-background/50" /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="siret" render={({ field }) => (
-                  <FormItem><FormLabel>SIRET</FormLabel><FormControl><Input {...field} className="bg-background/50" /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1.5">
+                      SIRET
+                      {!field.value && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-normal text-amber-500 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded-full">
+                          <AlertTriangle className="h-2.5 w-2.5" /> Obligatoire sur les documents légaux
+                        </span>
+                      )}
+                    </FormLabel>
+                    <FormControl><Input {...field} className="bg-background/50" placeholder="123 456 789 01234" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
               </div>
               <FormField control={form.control} name="tagline" render={({ field }) => (

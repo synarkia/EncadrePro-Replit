@@ -48,7 +48,10 @@ export default function DevisList() {
   const { toast } = useToast();
 
   const handleCreate = () => {
-    if (!selectedClient) return;
+    if (!selectedClient) {
+      toast({ title: "Client requis", description: "Veuillez sélectionner un client avant de créer le devis.", variant: "destructive" });
+      return;
+    }
     createDevis.mutate({ data: { client_id: selectedClient.id } }, {
       onSuccess: (newDevis) => {
         queryClient.invalidateQueries({ queryKey: getListDevisQueryKey() });

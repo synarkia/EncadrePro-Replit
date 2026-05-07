@@ -283,6 +283,13 @@ export default function FactureDetail() {
   };
 
   const handleEditSave = async () => {
+    if (editDate) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (editDate < today) {
+        toast({ title: "Date invalide", description: "L'échéance ne peut pas être dans le passé.", variant: "destructive" });
+        return;
+      }
+    }
     setIsSavingEdit(true);
     try {
       await fetch(`${BASE_URL}/api/factures/${factureId}`, {
@@ -678,7 +685,7 @@ export default function FactureDetail() {
                 </Button>
               </Link>
             )}
-            {(facture.statut === 'envoyee' || facture.statut === 'partiellement_payee') && (
+            {(facture.statut === 'brouillon' || facture.statut === 'envoyee' || facture.statut === 'partiellement_payee') && (
               <Dialog open={isPaymentOpen} onOpenChange={(open) => {
                 setIsPaymentOpen(open);
                 if (open) setMontant(facture.solde_restant.toString());

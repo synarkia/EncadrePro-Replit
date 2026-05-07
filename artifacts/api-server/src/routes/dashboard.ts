@@ -30,7 +30,7 @@ router.get("/dashboard/stats", async (_req, res): Promise<void> => {
 
   const facturesRows = await execRows<{ n: string; montant: string }>(
     sql`SELECT COUNT(*) as n, COALESCE(SUM(solde_restant), 0) as montant FROM factures
-        WHERE statut IN ('envoyee', 'partiellement_payee')`
+        WHERE statut IN ('brouillon', 'envoyee', 'partiellement_payee')`
   );
 
   const clientsRows = await execRows<{ n: string }>(

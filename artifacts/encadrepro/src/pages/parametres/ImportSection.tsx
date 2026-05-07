@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -134,6 +134,7 @@ function ImportCard({
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
   const [busy, setBusy] = useState<"idle" | "dry" | "import">("idle");
@@ -212,13 +213,32 @@ function ImportCard({
           </div>
         )}
         <div className="flex items-center gap-3">
-          <Input
+          <input
+            ref={fileInputRef}
             type="file"
             accept=".csv,.xlsx,.xls"
-            onChange={(e) => { setFile(e.target.files?.[0] ?? null); setReport(null); }}
+            className="hidden"
             data-testid={`input-${kind}-file`}
-            className="bg-background/50"
+            onChange={(e) => { setFile(e.target.files?.[0] ?? null); setReport(null); e.target.value = ""; }}
           />
+          <Button
+            type="button"
+            variant="outline"
+            className="glass-panel border-border/50 text-sm"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            {file ? file.name : "Choisir un fichier…"}
+          </Button>
+          {file && (
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+              onClick={() => { setFile(null); setReport(null); }}
+            >
+              ✕
+            </button>
+          )}
         </div>
         <div className="flex gap-2">
           <Button
